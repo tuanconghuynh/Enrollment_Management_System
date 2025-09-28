@@ -1,0 +1,14 @@
+# ================================
+# file: requirements.txt
+# ================================
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+reportlab
+python-multipart
+openpyxl
+PyMySQL==1.1.0
+pydantic-settings
+
+

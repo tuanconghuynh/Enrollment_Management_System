@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Biên nhận hồ sơ nhập học | V-HT.PTĐT HUTECH</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .card { background:#fff; border-radius:1rem; box-shadow:0 10px 20px rgba(2,6,23,.06); padding:1.25rem; }
+    .btn { padding:.5rem 1rem; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:600; transition: transform .05s ease; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .btn-secondary { background:#111827; color:#fff; }
+    .btn-outline { background:#fff; border:1px solid #d1d5db; }
+    .input { width:100%; border:1px solid #e5e7eb; border-radius:.75rem; padding:.5rem .75rem; outline:none; }
+    .input:focus { box-shadow:0 0 0 3px rgba(59,130,246,.3); border-color:#93c5fd; }
+    .label { font-size:.85rem; color:#6b7280; }
+    .section-title { font-size:1.05rem; font-weight:700; margin-bottom:.5rem; }
+    .kbd { padding:.15rem .35rem; border:1px solid #e5e7eb; border-radius:.375rem; background:#f8fafc; color:#334155; font-size:.75rem; }
+    thead th { font-weight:700; }
+    table tr:nth-child(odd) td { background:#f8fafc; }
+  </style>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="hutech.png">
+  <meta name="theme-color" content="#2563eb">
+
+</head>
+<body class="bg-gray-50">
+  <div class="max-w-6xl mx-auto p-6 space-y-6">
+    <header class="flex items-center justify-between">
+      <!-- Logo + Title -->
+      <div class="flex items-center gap-3 min-w-0">
+        <img src="hutech.png" alt="HUTECH" class="h-8 w-8 object-contain select-none" />
+        <h1 class="text-2xl font-bold leading-none truncate">
+          V-HT.PTĐT BIÊN NHẬN HỒ SƠ NHẬP HỌC
+        </h1>
+      </div>
+
+      <!-- API Base controls (giữ nguyên phần này của bạn) -->
+      <div class="flex items-center gap-2">
+        <label class="label">API Base</label>
+        <input id="apiBase" class="input w-80" value="http://127.0.0.1:8000" />
+        <button class="btn btn-outline" id="btnReloadChecklist">↻ Checklist</button>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Form tạo hồ sơ -->
+      <section class="lg:col-span-2 card">
+        <div class="section-title">Nhập & Lưu/In hồ sơ</div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label">Mã hồ sơ</label>
+            <input class="input" id="ma_ho_so" placeholder="HS-XXXXX" />
+          </div>
+          <div>
+            <label class="label">Ngày nhận HS</label>
+            <input class="input" id="ngay_nhan_hs" type="date" />
+          </div>
+          <div>
+            <label class="label">Niên Khóa</label>
+            <input class="input" id="khoa"/>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label">Họ và tên</label>
+            <input class="input" id="ho_ten" />
+          </div>
+          <div>
+            <label class="label">Mã số HV</label>
+            <input class="input" id="ma_so_hv" />
+          </div>
+          <div>
+            <label class="label">Ngày sinh</label>
+            <input class="input" id="ngay_sinh" type="date" />
+          </div>
+          <div>
+            <label class="label">Số ĐT</label>
+            <input class="input" id="so_dt" />
+          </div>
+          <div>
+            <label class="label">Ngành nhập học</label>
+            <select class="input" id="nganh_nhap_hoc">
+              <option value="">-- chọn --</option>
+              <option>Tâm lý học</option>
+              <option>Ngôn ngữ Anh</option>
+              <option>Công nghệ thông tin</option>
+              <option>Quản trị kinh doanh</option>
+              <option>Kế toán</option>
+              <option>Luật kinh tế</option>
+              <option>Quản lý xây dựng</option>
+              <option>Tài chính - Ngân hàng</option>
+              <option>Marketing</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Đợt</label>
+            <select class="input" id="dot">
+              <option value="">-- chọn --</option>
+              <option>1</option>
+              <option>2</option>
+              <option>3</option>
+              <option>4</option>
+              <option>5</option>
+              <option>6</option>
+              <option>7</option>
+              <option>8</option>
+              <option>9</option>
+              <option>10</option>
+              <option>11</option>
+              <option>12</option>
+              <option>13</option>
+              <option>14</option>
+              <option>15</option>
+              <option>16</option>
+              <option>17</option>
+              <option>18</option>
+              <option>19</option>
+              <option>20</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Đã TN trước đó</label>
+            <select class="input" id="da_tn_truoc_do">
+              <option value="">-- chọn --</option>
+              <option>THPT</option>
+              <option>Trung cấp</option>
+              <option>Cao đẳng</option>
+              <option>Đại học</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Người nhận (ký tên)</label>
+            <input class="input" id="nguoi_nhan_ky_ten" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="label">Ghi chú</label>
+            <input class="input" id="ghi_chu" />
+          </div>
+        </div>
+
+        <!-- Checklist -->
+        <div class="mt-6">
+          <div class="section-title">Hồ sơ gồm</div>
+          <div class="overflow-auto">
+            <table class="min-w-full border bg-white">
+              <thead class="bg-gray-100">
+                <tr>
+                  <th class="p-2 border">STT</th>
+                  <th class="p-2 border text-left">Danh mục</th>
+                  <th class="p-2 border">Có?</th>
+                  <th class="p-2 border">Số lượng</th>
+                </tr>
+              </thead>
+              <tbody id="docsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="mt-6 flex gap-3 flex-wrap">
+          <button id="btnSave" class="btn btn-secondary">Lưu</button>
+          <button id="btnSavePrint" class="btn btn-primary">Lưu & In A4</button>
+          <button id="btnSavePrintA5" class="btn btn-outline">Lưu & In A5</button>
+          <span class="text-sm text-gray-500">Mẹo: nhấn <span class="kbd">Alt</span>+<span class="kbd">P</span> để Lưu & In nhanh</span>
+        </div>
+
+        <div id="msg" class="mt-3 text-sm text-green-700"></div>
+      </section>
+
+      <!-- Panel phải: Tra cứu + In/Export -->
+      <aside class="card space-y-6 lg:sticky lg:top-4">
+        <!-- Tra cứu & Chỉnh sửa -->
+        <section>
+          <div class="section-title">Tra cứu & Chỉnh sửa hồ sơ</div>
+          <label class="label">Nhập Mã hồ sơ</label>
+          <div class="flex gap-2">
+            <input class="input flex-1" id="q_ma_ho_so" placeholder="VD: HS-0001" />
+            <button id="btnLoadApplicant" class="btn btn-outline">Tải</button>
+          </div>
+
+          <label class="label mt-3 block">Hoặc nhập Họ và tên</label>
+          <div class="flex gap-2">
+            <input class="input flex-1" id="q_ho_ten" placeholder="VD: Nguyễn Văn A" />
+            <button id="btnSearchByName" class="btn btn-outline">Tìm</button>
+          </div>
+
+          <!-- Kết quả tìm theo tên -->
+          <div id="nameResults" class="mt-2 hidden">
+            <div class="text-xs text-gray-500 mb-1">Chọn một kết quả để tải vào form:</div>
+            <ul id="nameResultsList" class="divide-y border rounded-md bg-white"></ul>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <button id="btnUpdateApplicant" class="btn btn-secondary">Cập nhật</button>
+            <button id="btnDeleteApplicant" class="btn btn-outline">Xoá</button>
+          </div>
+
+          <p id="lookupMsg" class="text-sm text-gray-600 mt-2"></p>
+        </section>
+
+        <hr/>
+
+        <!-- In / Xuất theo ngày -->
+        <section>
+          <div class="section-title">In / Xuất theo ngày</div>
+          <label class="label">Ngày nhận HS</label>
+          <input class="input" id="batchDate" type="date" />
+          <div class="grid grid-cols-1 gap-2 mt-3">
+            <button id="btnBatchPDF" class="btn btn-primary w-full">In PDF gộp</button>
+            <button id="btnExportExcel" class="btn btn-outline w-full">Xuất Excel</button>
+          </div>
+        </section>
+
+        <hr/>
+
+        <!-- In / Xuất theo đợt -->
+        <section>
+          <div class="section-title">In / Xuất theo đợt</div>
+          <label class="label">Đợt (ví dụ: Đợt 1/2025)</label>
+          <input class="input" id="batchDot" placeholder="Nhập tên đợt..." />
+          <div class="grid grid-cols-1 gap-2 mt-3">
+            <button id="btnBatchPDFDot" class="btn btn-primary w-full">In PDF gộp theo đợt</button>
+            <button id="btnExportExcelDot" class="btn btn-outline w-full">Xuất Excel theo đợt</button>
+          </div>
+        </section>
+
+        <hr/>
+
+        <section>
+          <div class="section-title"><a><center>HELP</center></a></div>
+          <ul class="list-disc ml-5 text-sm text-gray-600 space-y-1">
+            <li>Nhớ chạy API ở <code>http://127.0.0.1:8000</code>.</li>
+            <li>Đổi API Base ở góc trên nếu bạn deploy nơi khác.</li>
+            <li>PDF mở trong tab mới; Excel sẽ tải về.</li>
+            <li>In A5: giấy khổ A4, in 2 mặt, cắt đôi.</li>
+            <li>Tìm kiếm theo mã hồ sơ hoặc họ tên.</li>
+            <li>Chỉnh sửa hồ sơ đã lưu bằng cách tìm và cập nhật.</li>
+            <li>Xoá hồ sơ đã lưu bằng cách tìm và xoá.</li>
+            <li>In/Export theo ngày hoặc theo đợt.</li>
+            <li>Liên hệ Tuấn đẹp trai: <a href="mailto:hc.tuan@hutech.edu.vn">hc.tuan@hutech.edu.vn</a></li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </div>
+  <!-- Credit -->
+  <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
+    code by: <span class="font-semibold">HC- Tuan</span>
+  </footer>
+
+  <!-- Scripts -->
+  <script>
+  // ===== helpers =====
+  const $ = (id) => document.getElementById(id);
+  const apiBase = () => $("apiBase").value.trim().replace(/\/+$/,'');
+  const PREFIX_CANDIDATES = ["", "/api"];
+  let API_PREFIX = "";
+
+  async function detectPrefix() {
+    for (const p of PREFIX_CANDIDATES) {
+      try {
+        const r = await fetch(apiBase() + p + "/health");
+        if (r.ok) { API_PREFIX = p; return; }
+      } catch (_) {}
+    }
+    API_PREFIX = "";
+  }
+  const makeUrl = (path) => apiBase() + API_PREFIX + path;
+
+  async function apiFetch(path, init={}) {
+    // thử với prefix hiện tại
+    let r = await fetch(makeUrl(path), init);
+    if (r.status === 404) {
+      const alt = API_PREFIX === "" ? "/api" : "";
+      try {
+        const r2 = await fetch(apiBase() + alt + path, init);
+        if (r2.ok) { API_PREFIX = alt; return r2; }
+        return r2;
+      } catch (e) { throw e; }
+    }
+    return r;
+  }
+
+  // Mặc định số lượng khi TÍCH
+  const DEFAULT_QTY = {
+    bang_tot_nghiep_dai_hoc: 2,
+    bang_diem_dai_hoc: 2,
+    bang_tot_nghiep_cao_dang: 2,
+    bang_diem_cao_dang: 2,
+    bang_tot_nghiep_trung_cap: 2,
+    bang_diem_trung_cap: 2,
+    anh_3x4: 2,
+  };
+  const getDefaultQty = (code) => DEFAULT_QTY[code] ?? 1;
+
+  // ===== checklist =====
+  async function loadChecklist() {
+    try {
+      const r = await apiFetch("/checklist/active");
+      if (!r.ok) { alert("Không lấy được checklist: " + r.status); return; }
+      const data = await r.json();
+      const body = $("docsBody");
+      body.innerHTML = "";
+
+      data.items
+        .sort((a,b)=> (a.order_index ?? a.order_no ?? 0) - (b.order_index ?? b.order_no ?? 0))
+        .forEach((it, idx) => {
+          const def = getDefaultQty(it.code);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="p-2 border text-center">${idx+1}</td>
+            <td class="p-2 border"><div class="font-medium">${it.display_name}</div></td>
+            <td class="p-2 border text-center">
+              <input type="checkbox" class="w-5 h-5 has-doc" data-code="${it.code}">
+            </td>
+            <td class="p-2 border text-center">
+              <input type="number" min="0"
+                     class="input w-24 text-center qty bg-gray-100 text-gray-400"
+                     data-code="${it.code}" value="" placeholder="${def}" disabled />
+            </td>`;
+          body.appendChild(tr);
+        });
+
+      // toggle enable/disable ô số lượng
+      document.querySelectorAll('.has-doc').forEach((chk) => {
+        const code = chk.dataset.code;
+        const qty = document.querySelector(`.qty[data-code="${code}"]`);
+        const def = getDefaultQty(code);
+        chk.addEventListener("change", () => {
+          if (chk.checked) {
+            qty.value = String(def);
+            qty.disabled = false;
+            qty.classList.remove("bg-gray-100", "text-gray-400");
+          } else {
+            qty.value = "";
+            qty.disabled = true;
+            qty.classList.add("bg-gray-100", "text-gray-400");
+          }
+        });
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi tải checklist');
+    }
+  }
+
+  function collectDocs() {
+    const rows = Array.from(document.querySelectorAll('#docsBody tr'));
+    return rows.map(tr => {
+      const chk  = tr.querySelector('.has-doc');
+      const qtyI = tr.querySelector('.qty');
+      const code = chk.dataset.code;
+      const def  = getDefaultQty(code);
+      let val = chk.checked ? Number(qtyI.value || def) : 0;
+      if (!Number.isFinite(val) || val < 0) val = 0;
+      return { code, so_luong: val };
+    });
+  }
+
+  function payloadFromForm() {
+    return {
+      ma_ho_so: $("ma_ho_so").value.trim(),
+      ngay_nhan_hs: $("ngay_nhan_hs").value,
+      ho_ten: $("ho_ten").value.trim(),
+      ma_so_hv: $("ma_so_hv").value.trim(),
+      ngay_sinh: $("ngay_sinh").value || null,
+      so_dt: $("so_dt").value.trim() || null,
+      nganh_nhap_hoc: $("nganh_nhap_hoc").value.trim() || null,
+      dot: $("dot").value.trim() || null,
+      khoa: $("khoa").value.trim() || null,
+      da_tn_truoc_do: $("da_tn_truoc_do").value || null,
+      ghi_chu: $("ghi_chu").value.trim() || null,
+      nguoi_nhan_ky_ten: $("nguoi_nhan_ky_ten").value.trim() || null,
+      docs: collectDocs(),
+      checklist_version_name: "v1"
+    };
+  }
+
+  async function createApplicant() {
+    const body = payloadFromForm();
+    if (!body.ma_ho_so || !body.ho_ten || !body.ma_so_hv || !body.ngay_nhan_hs) {
+      alert("Vui lòng nhập đủ: Mã hồ sơ, Họ tên, Mã số HV, Ngày nhận HS");
+      return null;
+    }
+    const r = await apiFetch("/applicants", {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) {
+      const txt = await r.text();
+      alert("Lỗi tạo hồ sơ: " + r.status + "\n" + txt);
+      return null;
+    }
+    return await r.json();
+  }
+
+  function printOne(applicantId) {
+    window.open(makeUrl(`/applicants/${applicantId}/print?mark_printed=true`), "_blank");
+  }
+
+  // ===== actions: save / save+print =====
+  $("btnSave").onclick = async () => {
+    const res = await createApplicant();
+    if (res) $("msg").textContent = `Đã lưu hồ sơ ${res.ma_ho_so} (id=${res.id}).`;
+  };
+
+  $("btnSavePrint").onclick = async () => {
+    const res = await createApplicant();
+    if (res) { printOne(res.id); $("msg").textContent = `Đã lưu & in hồ sơ ${res.ma_ho_so}.`; }
+  };
+
+  // Alt+P -> Lưu & In
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey && (e.key === 'p' || e.key === 'P')) $("btnSavePrint").click();
+  });
+
+
+  // ===== In/Export theo ngày =====
+  $("btnBatchPDF").onclick = async () => {
+    const d = $("batchDate").value;
+    if (!d) { alert("Chọn ngày nhận HS"); return; }
+    const resp = await fetch(makeUrl(`/batch/print?day=${d}`));
+    if (!resp.ok) {
+      let msg = `Không thể in (HTTP ${resp.status})`;
+      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
+      alert(msg); return;
+    }
+    const blob = await resp.blob();
+    const u = URL.createObjectURL(blob);
+    window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
+  };
+
+  $("btnExportExcel").onclick = async () => {
+    const d = $("batchDate").value;
+    if (!d) { alert("Chọn ngày nhận HS"); return; }
+    const resp = await fetch(makeUrl(`/export/excel?day=${d}`));
+    if (!resp.ok) {
+      let msg = `Không thể xuất Excel (HTTP ${resp.status})`;
+      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
+      alert(msg); return;
+    }
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `tong_ngay_${d}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
+  };
+
+  // ===== In/Export theo đợt =====
+  $("btnBatchPDFDot").onclick = async () => {
+    const dot = $("batchDot").value.trim();
+    if (!dot) { alert("Nhập tên đợt trước đã"); return; }
+    const resp = await fetch(makeUrl(`/batch/print-dot?dot=${encodeURIComponent(dot)}`));
+    if (!resp.ok) {
+      let msg = `Không thể in theo đợt (HTTP ${resp.status})`;
+      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
+      alert(msg); return;
+    }
+    const blob = await resp.blob();
+    const u = URL.createObjectURL(blob);
+    window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
+  };
+
+  $("btnExportExcelDot").onclick = async () => {
+    const dot = $("batchDot").value.trim();
+    if (!dot) { alert("Nhập tên đợt trước đã"); return; }
+    const resp = await fetch(makeUrl(`/export/excel-dot?dot=${encodeURIComponent(dot)}`));
+    if (!resp.ok) {
+      let msg = `Không thể xuất Excel theo đợt (HTTP ${resp.status})`;
+      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
+      alert(msg); return;
+    }
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `tong_dot_${dot}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
+  };
+
+    // ===== Helpers for Lookup =====
+    let loadedApplicant = null;   // currently loaded applicant (for update/delete)
+    let loadedDocsByCode = {};    // code -> qty
+
+    function fmtDateToInput(s){
+      if(!s) return ""; const d = new Date(s); return Number.isNaN(d.getTime()) ? s : d.toISOString().slice(0,10);
+    }
+
+    function populateFormFromApplicant(a, docs){
+      document.getElementById("ma_ho_so").value = a.ma_ho_so || "";
+      document.getElementById("ngay_nhan_hs").value = fmtDateToInput(a.ngay_nhan_hs);
+      document.getElementById("khoa").value = a.khoa || "";
+      document.getElementById("ho_ten").value = a.ho_ten || "";
+      document.getElementById("ma_so_hv").value = a.ma_so_hv || "";
+      document.getElementById("ngay_sinh").value = fmtDateToInput(a.ngay_sinh);
+      document.getElementById("so_dt").value = a.so_dt || "";
+      document.getElementById("nganh_nhap_hoc").value = a.nganh_nhap_hoc || "";
+      document.getElementById("dot").value = a.dot || "";
+      document.getElementById("da_tn_truoc_do").value = a.da_tn_truoc_do || "";
+      document.getElementById("ghi_chu").value = a.ghi_chu || "";
+      document.getElementById("nguoi_nhan_ky_ten").value = a.nguoi_nhan_ky_ten || "";
+
+      loadedDocsByCode = {}; (docs||[]).forEach(d => loadedDocsByCode[d.code] = d.so_luong || 0);
+
+      const applyDocsToTable = () => {
+        document.querySelectorAll('.has-doc').forEach(chk => {
+          const code = chk.dataset.code;
+          const qty = document.querySelector(`.qty[data-code="${code}"]`);
+          const n = loadedDocsByCode[code] ?? 0;
+          if (n > 0) { chk.checked = true; qty.disabled = false; qty.classList.remove("bg-gray-100","text-gray-400"); qty.value = String(n); }
+          else { chk.checked = false; qty.disabled = true; qty.classList.add("bg-gray-100","text-gray-400"); qty.value = ""; }
+        });
+      };
+      if (document.querySelectorAll('#docsBody tr').length === 0) loadChecklist().then(applyDocsToTable); else applyDocsToTable();
+    }
+
+    async function loadApplicantByCode(code){
+      let r = await apiFetch(`/applicants/find?ma_ho_so=${encodeURIComponent(code)}`);
+      if (r.status === 404 || r.status === 405) {
+        // fallback sang by-code/{ma}
+        r = await apiFetch(`/applicants/by-code/${encodeURIComponent(code)}`);
+      }
+      if (r.status === 404) {
+        alert(`Không tìm thấy hồ sơ với mã ${code}`);
+        throw new Error("Not Found");
+      }
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(`Lỗi tải hồ sơ (HTTP ${r.status})\n${t}`);
+      }
+      return r.json();
+    }
+
+    async function updateLoadedApplicant(){
+      if(!loadedApplicant?.id){ alert("Chưa tải hồ sơ nào để cập nhật."); return; }
+      const body = payloadFromForm();
+      const r = await apiFetch(`/applicants/${loadedApplicant.id}`, { method: "PUT", headers: { "Content-Type":"application/json" }, body: JSON.stringify(body) });
+      if(!r.ok){ const t = await r.text(); throw new Error(`Cập nhật thất bại (HTTP ${r.status})\n${t}`); }
+      return r.json();
+    }
+
+    async function deleteLoadedApplicant(){
+      if(!loadedApplicant?.id){ alert("Chưa tải hồ sơ nào để xoá."); return; }
+      if(!confirm(`Xoá hồ sơ ${loadedApplicant.ma_ho_so}?`)) return;
+      const r = await apiFetch(`/applicants/${loadedApplicant.id}`, { method: "DELETE" });
+      if(!r.ok){ const t = await r.text(); throw new Error(`Xoá thất bại (HTTP ${r.status})\n${t}`); }
+      loadedApplicant = null; loadedDocsByCode = {}; document.getElementById("lookupMsg").textContent = "Đã xoá hồ sơ.";
+    }
+
+    // --- Search by name (yêu cầu API /applicants/search?q=...) ---
+    async function searchByName(name){
+      const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(name)}`);
+      if(!r.ok){ const t = await r.text(); throw new Error(`Tìm theo tên lỗi (HTTP ${r.status})\n${t}`); }
+      return r.json();
+    }
+
+    function renderNameResults(list){
+      const box = document.getElementById("nameResults");
+      const ul  = document.getElementById("nameResultsList");
+      ul.innerHTML = "";
+      if(!list || list.length === 0){
+        box.classList.remove("hidden");
+        ul.innerHTML = '<li class="p-2 text-sm text-gray-500">Không tìm thấy.</li>';
+        return;
+      }
+      list.forEach(it => {
+        const li = document.createElement('li');
+        li.className = 'p-2 hover:bg-gray-50 cursor-pointer';
+        const ngay = it.ngay_nhan_hs ? String(it.ngay_nhan_hs).slice(0,10) : '';
+        li.innerHTML = `<div class=\"flex justify-between\"><div class=\"font-medium\">${it.ho_ten}</div><div class=\"text-xs text-gray-500\">${ngay}</div></div>
+                        <div class=\"text-xs text-gray-600\">Mã: <span class=\"font-semibold\">${it.ma_ho_so}</span> • MSHV: ${it.ma_so_hv||''} • Đợt: ${it.dot||''}</div>`;
+        li.onclick = async () => {
+          document.getElementById("q_ma_ho_so").value = it.ma_ho_so;
+          box.classList.add('hidden');
+          document.getElementById("btnLoadApplicant").click();
+        };
+        ul.appendChild(li);
+      });
+      box.classList.remove('hidden');
+    }
+
+    // --- Bind events ---
+    document.getElementById("btnLoadApplicant").onclick = async () => {
+      try{
+        const code = document.getElementById("q_ma_ho_so").value.trim();
+        if(!code){ alert("Nhập Mã hồ sơ hoặc dùng ô tìm theo tên phía dưới."); return; }
+        document.getElementById("lookupMsg").textContent = "Đang tải...";
+        const data = await loadApplicantByCode(code);
+        loadedApplicant = { id: data.id, ma_ho_so: data.ma_ho_so };
+        populateFormFromApplicant(data, data.docs);
+        document.getElementById("lookupMsg").textContent = `Đã tải hồ sơ ${data.ma_ho_so} (id=${data.id}).`;
+      }catch(e){ document.getElementById("lookupMsg").textContent = e.message; }
+    };
+
+    document.getElementById("btnSearchByName").onclick = async () => {
+      try{
+        const name = document.getElementById("q_ho_ten").value.trim();
+        if(name.length < 2){ alert("Nhập tối thiểu 2 ký tự để tìm theo tên."); return; }
+        document.getElementById("lookupMsg").textContent = "Đang tìm theo tên...";
+        const list = await searchByName(name);
+        renderNameResults(list);
+        document.getElementById("lookupMsg").textContent = `Tìm thấy ${list.length} kết quả.`;
+      }catch(e){ document.getElementById("lookupMsg").textContent = e.message; }
+    };
+
+    document.getElementById("q_ho_ten").addEventListener('keydown', (e)=>{ if(e.key==='Enter') document.getElementById("btnSearchByName").click(); });
+
+    document.getElementById("btnUpdateApplicant").onclick = async () => {
+      try{ document.getElementById("lookupMsg").textContent = "Đang cập nhật..."; const res = await updateLoadedApplicant(); document.getElementById("lookupMsg").textContent = `Cập nhật xong hồ sơ ${res.ma_ho_so}.`; }
+      catch(e){ document.getElementById("lookupMsg").textContent = e.message; }
+    };
+
+    document.getElementById("btnDeleteApplicant").onclick = async () => { try{ await deleteLoadedApplicant(); } catch(e){ document.getElementById("lookupMsg").textContent = e.message; } };
+
+  // ===== init =====
+  window.addEventListener('load', async () => {
+    const today = new Date().toISOString().slice(0,10);
+    $("ngay_nhan_hs").value = today;
+    $("batchDate").value = today;
+    await detectPrefix();
+    loadChecklist();
+  });
+
+  function printOneA5(id){
+    const u = apiBase().replace(/\/+$/,'') + `/applicants/${id}/print-a5?mark_printed=true`;
+    window.open(u, "_blank");
+  }
+
+  $("btnSavePrintA5").onclick = async () => {
+    const res = await createApplicant();
+    if (res) {
+      printOneA5(res.id);
+      $("msg").textContent = `Đã lưu & in A5 hồ sơ ${res.ma_ho_so}.`;
+    }
+  };
+
+  $("btnReloadChecklist").onclick = loadChecklist;
+  
+  </script>
+</body>
+</html>
