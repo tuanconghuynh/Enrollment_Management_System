@@ -11,6 +11,7 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
+
 from ..core.config import settings
 from ..models.applicant import Applicant, ApplicantDoc
 from ..models.checklist import ChecklistItem
@@ -116,10 +117,9 @@ def _draw_checklist_table(c: rl_canvas.Canvas, x, y, w, rows):
         ("FONTNAME",   (0,0), (-1,-1), FONT_REG),
         ("FONTNAME",   (0,0), (-1,0),  FONT_BOLD),
         ("FONTSIZE",   (0,0), (-1,-1), TEXT_SIZE),
-        ("ALIGN",      (1,1), (1,-1),  "CENTER"),
-        ("BACKGROUND", (0,0), (-1,0),  colors.HexColor("#e5edf5")),
-        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, colors.HexColor("#f7fafc")]),
-        ("GRID",       (0,0), (-1,-1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ALIGN",      (0,0), (-1,0),  "CENTER"),   # căn giữa header
+        ("ALIGN",      (1,1), (1,-1),  "CENTER"),   # căn giữa cột số lượng
+        ("GRID",       (0,0), (-1,-1), 0.5, colors.black),
         ("TOPPADDING",    (0,0), (-1,-1), 6),
         ("BOTTOMPADDING", (0,0), (-1,-1), 5),
     ]))
@@ -185,7 +185,7 @@ def _draw_signature_block(c: rl_canvas.Canvas, y, W, receiver_name: str):
         ["", receiver_name or ""],
     ]
     col_widths = [table_w * 0.5, table_w * 0.5]
-    row_heights = [12*mm, 14*mm]  # chừa chỗ ký tên
+    row_heights = [12*mm, 28*mm]  # chừa chỗ ký tên
 
     t = Table(data, colWidths=col_widths, rowHeights=row_heights)
     t.setStyle(TableStyle([
@@ -204,7 +204,7 @@ def _draw_signature_block(c: rl_canvas.Canvas, y, W, receiver_name: str):
         ("BOTTOMPADDING", (0,0), (-1,-1), 2),
     ]))
     t.wrapOn(c, 0, 0)
-    y = max(BM + 30*mm, y)  # đảm bảo không đụng lề dưới
+    y = max(BM + 42*mm, y)  # đảm bảo không đụng lề dưới
     t.drawOn(c, LM, y - sum(row_heights))
     return y - sum(row_heights)
 
@@ -407,7 +407,9 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
     sign_w = (W - lm - rm) / 2.0
     data = [["Người nộp", "Người nhận"],
             ["", a.nguoi_nhan_ky_ten or ""]]
-    t = Table(data, colWidths=[sign_w, sign_w], rowHeights=[10*mm, 14*mm])
+
+    # Tăng khoảng trống ký: đổi 14*mm -> 30*mm
+    t = Table(data, colWidths=[sign_w, sign_w], rowHeights=[10*mm, 30*mm])
     t.setStyle(TableStyle([
         ("FONTNAME", (0,0), (-1,0), FONT_REG),
         ("FONTNAME", (1,1), (1,1), FONT_BOLD),
@@ -420,10 +422,13 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
         ("LINEBELOW", (0,0),(-1,-1),0,colors.white),
         ("INNERGRID", (0,0),(-1,-1),0,colors.white),
     ]))
-    # giữ khoảng cách lề dưới
-    y = max(y, bm + 26*mm)
+
+    # Giữ khoảng cách lề dưới tương ứng (10 + 30 = 40mm, cộng an toàn 2mm)
+    y = max(y, bm + 42*mm)
+
     t.wrapOn(c, 0, 0)
-    t.drawOn(c, lm, y - (10*mm + 14*mm))
+    # Vẽ với tổng chiều cao mới (10 + 30)
+    t.drawOn(c, lm, y - (10*mm + 30*mm))
 
     c.showPage(); c.save()
     return buf.getvalue()
