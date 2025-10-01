@@ -13,6 +13,7 @@ from ..schemas.applicant import ApplicantIn, ApplicantOut
 from ..services.pdf_service import render_single_pdf, render_single_pdf_a5
 
 
+
 router = APIRouter(prefix="/applicants", tags=["applicants"])
 
 # ----------------- helpers -----------------
@@ -304,6 +305,15 @@ def _do_print_a5(applicant_id: int, mark_printed: bool, db: Session):
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
+
+
+@router.get("/recent")
+def get_recent_applicants(db: Session = Depends(get_db), limit: int = 50):
+    q = db.query(Applicant).order_by(Applicant.id.desc()).limit(limit).all()
+    return [
+        {"id": a.id, "ma_ho_so": a.ma_ho_so, "ho_ten": a.ho_ten}
+        for a in q
+    ]
 
 @router.get("/{applicant_id}/print-a5")
 def print_applicant_a5(applicant_id: int, mark_printed: bool = Query(False), db: Session = Depends(get_db)):
