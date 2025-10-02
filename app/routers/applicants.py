@@ -17,8 +17,8 @@ from ..services.pdf_service import render_single_pdf, render_single_pdf_a5
 router = APIRouter(prefix="/applicants", tags=["applicants"])
 
 # ----------------- helpers -----------------
-def _parse_date_ymd(v):
-    """Nhận str 'YYYY-MM-DD' | datetime | date | None -> date|None"""
+def _parse_date_dmy(v):
+    """Nhận str 'DD-MM-YYYY' | datetime | date | None -> date|None"""
     if v in (None, ""):
         return None
     if isinstance(v, date) and not isinstance(v, datetime):
@@ -26,16 +26,16 @@ def _parse_date_ymd(v):
     if isinstance(v, datetime):
         return v.date()
     # string
-    return datetime.strptime(v, "%Y-%m-%d").date()
+    return datetime.strptime(v, "%d-%m-%Y").date()
 
-def _to_ymd(v):
-    """date|datetime|str|None -> 'YYYY-MM-DD'|None"""
+def _to_dmy(v):
+    """date|datetime|str|None -> 'DD-MM-YYYY'|None"""
     if v is None or v == "":
         return None
     if isinstance(v, datetime):
         v = v.date()
     if isinstance(v, date):
-        return v.strftime("%Y-%m-%d")
+        return v.strftime("%d-%m-%Y")
     # assume string already ok
     return str(v)
 
@@ -56,10 +56,10 @@ def get_by_code(ma_ho_so: str, db: Session = Depends(get_db)):
     applicant_payload = {
         "id": a.id,
         "ma_ho_so": a.ma_ho_so,
-        "ngay_nhan_hs": _to_ymd(a.ngay_nhan_hs),
+        "ngay_nhan_hs": _to_dmy(a.ngay_nhan_hs),
         "ho_ten": a.ho_ten,
         "ma_so_hv": a.ma_so_hv,
-        "ngay_sinh": _to_ymd(a.ngay_sinh),
+        "ngay_sinh": _to_dmy(a.ngay_sinh),
         "so_dt": a.so_dt,
         "nganh_nhap_hoc": a.nganh_nhap_hoc,
         "dot": a.dot,
@@ -93,10 +93,10 @@ def create_applicant(payload: ApplicantIn, db: Session = Depends(get_db)):
 
     a = Applicant(
         ma_ho_so=payload.ma_ho_so.strip(),
-        ngay_nhan_hs=_parse_date_ymd(payload.ngay_nhan_hs),
+        ngay_nhan_hs=_parse_date_dmy(payload.ngay_nhan_hs),
         ho_ten=payload.ho_ten,
         ma_so_hv=payload.ma_so_hv,
-        ngay_sinh=_to_ymd(payload.ngay_sinh),   # bạn đang lưu string cho ngày sinh
+        ngay_sinh=_to_dmy(payload.ngay_sinh),   # bạn đang lưu string cho ngày sinh
         so_dt=payload.so_dt,
         nganh_nhap_hoc=payload.nganh_nhap_hoc,
         dot=payload.dot,

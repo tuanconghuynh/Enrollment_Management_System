@@ -5,7 +5,7 @@
 Nếu anh dùng MySQL (thường settings.DB_URL=mysql+pymysql://vhtpt%40hutech.edu.vn:VHTPT@hutech123@localhost:3306/admissioncheck
 ) thì chỉ cần chạy:
 
-CREATE DATABASE admissioncheck CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE admission_check CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 2. Tạo tài khoản riêng cho app (nếu chưa có)
 

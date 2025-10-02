@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Danh sách hồ sơ | Admission Check</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .card { background:#fff; border-radius:1rem; box-shadow:0 15px 30px rgba(2,6,23,.06); padding:1.25rem; }
+    .input { width:100%; border:1px solid #e5e7eb; border-radius:.75rem; padding:.6rem .85rem; outline:none; background:#fff; }
+    .input:focus { box-shadow:0 0 0 3px rgba(59,130,246,.25); border-color:#93c5fd; }
+    .btn { padding:.55rem 1rem; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:600; transition: transform .05s ease; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background:#1d4ed8; color:#fff; }
+    .btn-outline { background:#fff; border:1px solid #d1d5db; }
+    .btn-soft { background:#eff6ff; color:#1e3a8a; }
+    .btn-xs { padding:.25rem .5rem; border-radius:.5rem; font-size:.75rem; }
+    .btn-pill { border-radius:999px; }
+    .table { width:100%; border-collapse: separate; border-spacing:0; }
+    .table th, .table td { border-bottom:1px solid #e5e7eb; padding:.6rem .75rem; }
+    .table thead th { background:#f8fafc; font-weight:700; position:sticky; top:0; z-index:1; }
+    .row-alt:nth-child(odd) td { background:#fafafa; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .badge { display:inline-block; padding:.1rem .5rem; border-radius:.5rem; background:#eef2ff; color:#3730a3; font-size:.75rem; }
+    .text-muted { color:#9ca3af; }
+  </style>
+  <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="hutech.png">
+  <meta name="theme-color" content="#2563eb">
+</head>
+<body class="bg-gray-50">
+  <div class="max-w-7xl mx-auto p-6 space-y-6">
+    <!-- Header -->
+    <header class="flex flex-wrap gap-3 items-center justify-between">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold leading-tight">Danh sách hồ sơ</h1>
+        <p class="text-sm text-gray-500">Tra cứu nhanh & thao tác in/xuất.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500">API Base</label>
+        <input id="apiBase" class="input w-52 md:w-72" placeholder="http://192.168.2.82:8000" />
+        <span class="hidden md:inline-block w-px h-6 bg-gray-200"></span>
+
+        <!-- User status -->
+        <div id="userBox" class="text-sm text-gray-600 flex items-center gap-2">
+          <span id="meText" class="hidden">
+            Đang đăng nhập: <b id="meName"></b> (<span id="meRole"></span>)
+          </span>
+          <a id="loginLink" href="/login" class="btn btn-outline">Đăng nhập</a>
+          <button id="btnLogout" class="btn btn-outline hidden">Đăng xuất</button>
+        </div>
+
+        <a class="btn btn-outline" href="/" title="Trang chính">← Trang chính</a>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <section class="card space-y-3">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <!-- Search -->
+        <div class="flex flex-wrap items-center gap-2 min-w-0">
+          <div class="relative flex-1 min-w-[220px]">
+            <input id="q" class="input w-full pl-10" placeholder="Nhập họ tên hoặc mã hồ sơ..." />
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
+          </div>
+          <button id="btnSearch" class="btn btn-outline shrink-0">Tìm</button>
+        </div>
+
+        <!-- Theo ngày -->
+        <div class="flex flex-wrap items-center gap-2 min-w-0">
+          <input id="day" type="date" class="input flex-1 min-w-[180px]" />
+          <button id="btnExportDay" class="btn btn-outline shrink-0" title="Xuất Excel theo ngày">⬇️ Excel</button>
+          <button id="btnPrintDay"  class="btn btn-primary shrink-0" title="In PDF gộp theo ngày">🖨️ PDF</button>
+          <p class="w-full text-xs text-gray-500">Theo ngày nhận hồ sơ.</p>
+        </div>
+
+        <!-- Theo đợt -->
+        <div class="flex flex-wrap items-center gap-2 min-w-0">
+          <input id="dot" class="input flex-1 min-w-[200px]" placeholder="Nhập tên đợt (VD: 1/2025)" />
+          <button id="btnExportDot" class="btn btn-outline shrink-0" title="Xuất Excel theo đợt">⬇️ Excel</button>
+          <button id="btnPrintDot"  class="btn btn-primary shrink-0" title="In PDF gộp theo đợt">🖨️ PDF</button>
+          <p class="w-full text-xs text-gray-500">Tên đợt giống dữ liệu trong hệ thống.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section class="card space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-gray-600">Kết quả: <span id="count" class="badge">0</span></div>
+        <div id="msg" class="text-sm text-gray-600"></div>
+      </div>
+
+      <div class="overflow-hidden border rounded-xl">
+        <div id="emptyState" class="p-10 text-center text-gray-500 hidden">
+          <div class="text-4xl mb-2">📄</div>
+          <div class="font-semibold">Chưa có dữ liệu</div>
+          <div class="text-sm">Nhập điều kiện và bấm <b>Tìm</b>.</div>
+        </div>
+
+        <div id="tableWrap" class="overflow-auto hidden">
+          <table class="table min-w-full">
+            <thead>
+              <tr>
+                <th class="text-left">Mã HS</th>
+                <th class="text-left">Họ tên</th>
+                <th class="text-left">MSHV</th>
+                <th>Ngày nhận</th>
+                <th class="text-left">Ngành</th>
+                <th>Đợt</th>
+                <th>Khóa</th>
+                <th class="text-left">Người nhận</th>
+                <th class="text-center">In</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <div id="loading" class="p-8 text-center text-gray-500 hidden">
+          <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin align-[-2px]"></span>
+          <span class="ml-2">Đang tải…</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ===== helpers =====
+    const $ = id => document.getElementById(id);
+    const apiBase = () => $("apiBase").value.trim().replace(/\/+$/,'');
+    const PREFIX_CANDIDATES = ["", "/api"];
+    let API_PREFIX = "";
+
+    (function initApiBase(){
+      const el = $("apiBase");
+      if (!el.value) el.value = window.location.origin;
+    })();
+
+    async function detectPrefix() {
+      for (const p of PREFIX_CANDIDATES) {
+        try { const r = await fetch(apiBase() + p + "/health"); if (r.ok) { API_PREFIX = p; return; } } catch(_){}
+      }
+      API_PREFIX = "";
+    }
+    const makeUrl = (path) => apiBase() + API_PREFIX + path;
+
+    async function apiFetch(path, init={}){
+      let r = await fetch(makeUrl(path), init);
+      if (r.status === 404) {
+        const alt = API_PREFIX === "" ? "/api" : "";
+        try {
+          const r2 = await fetch(apiBase() + alt + path, init);
+          if (r2.ok) { API_PREFIX = alt; return r2; }
+          return r2;
+        } catch(e){ throw e; }
+      }
+      return r;
+    }
+
+    function fmtDMY(s){
+      if(!s) return "";
+      const t = String(s).trim();
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(t)) return t;
+      const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+      const d = new Date(t); if (!isNaN(d)) {
+        const dd = String(d.getDate()).padStart(2,"0");
+        const mm = String(d.getMonth()+1).padStart(2,"0");
+        const yy = d.getFullYear();
+        return `${dd}/${mm}/${yy}`;
+      }
+      return t;
+    }
+
+    function setState({loading=false, empty=false}){
+      $("loading").classList.toggle("hidden", !loading);
+      $("emptyState").classList.toggle("hidden", !empty);
+      $("tableWrap").classList.toggle("hidden", loading || empty);
+    }
+
+    // ===== User status (/me) =====
+    async function ensureMe(){
+      try{
+        await detectPrefix();
+        const r = await apiFetch("/me");
+        if(!r.ok) throw new Error();
+        const me = await r.json();
+        $("meName").textContent = me.full_name || me.username || "";
+        $("meRole").textContent = me.role || "";
+        $("meText").classList.remove("hidden");
+        $("btnLogout").classList.remove("hidden");
+        $("loginLink").classList.add("hidden");
+      } catch {
+        $("meText").classList.add("hidden");
+        $("btnLogout").classList.add("hidden");
+        $("loginLink").classList.remove("hidden");
+      }
+    }
+
+    // ===== Search & render =====
+    async function search(){
+      const q = $("q").value.trim();
+      $("msg").textContent = ""; $("count").textContent = "0";
+      setState({loading:true});
+
+      const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(q)}`);
+      if(!r.ok){
+        setState({empty:true});
+        $("msg").textContent = `Lỗi: HTTP ${r.status}`;
+        return;
+      }
+      const list = await r.json();
+      const tbody = $("tbody"); tbody.innerHTML = "";
+
+      if(!Array.isArray(list) || list.length===0){
+        setState({empty:true});
+        $("msg").textContent = "Không có kết quả.";
+        return;
+      }
+
+      // render
+      list.forEach((it) => {
+        const nganh = it.nganh_nhap_hoc ?? it.nganh ?? "";
+        const khoa  = it.khoa ?? it.khoa_hoc ?? it.khoahoc ?? "";
+        const dot   = it.dot ?? it.dot_tuyen ?? "";
+        const nguoi = it.nguoi_nhan_ky_ten ?? it.nguoi_nhan ?? it.nguoi_ky ?? "";
+
+        const val = (x) => (x && String(x).trim() !== "" ? x : '<span class="text-muted">—</span>');
+
+        const tr = document.createElement("tr");
+        tr.className = "row-alt";
+        tr.innerHTML = `
+          <td class="border-b whitespace-nowrap font-medium">${val(it.ma_ho_so)}</td>
+          <td class="border-b">${val(it.ho_ten)}</td>
+          <td class="border-b">${val(it.ma_so_hv)}</td>
+          <td class="border-b text-center whitespace-nowrap">${val(fmtDMY(it.ngay_nhan_hs))}</td>
+          <td class="border-b">${val(nganh)}</td>
+          <td class="border-b text-center">${val(dot)}</td>
+          <td class="border-b text-center">${val(khoa)}</td>
+          <td class="border-b">${val(nguoi)}</td>
+          <td class="border-b text-center whitespace-nowrap">
+            <div class="inline-flex gap-2">
+              <a class="btn btn-soft btn-xs btn-pill"
+                 href="${makeUrl(`/print/a5/${it.id}`)}"
+                 target="_blank" rel="noopener" title="In A5">A5</a>
+              <a class="btn btn-primary btn-xs btn-pill"
+                 href="${makeUrl(`/print/a4-two-up/${it.id}`)}"
+                 target="_blank" rel="noopener" title="In A4 (2-up)">A4</a>
+            </div>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+      $("count").textContent = list.length.toString();
+      $("msg").textContent = `Tìm thấy ${list.length} kết quả.`;
+      setState({loading:false, empty:false});
+    }
+
+    // ===== Export/In ấn theo ngày/đợt (router export.py) =====
+    $("day").value = new Date().toISOString().slice(0,10);
+
+    $("btnExportDay").onclick = async ()=>{
+      const d = $("day").value; if(!d){ alert("Chọn ngày"); return; }
+      const resp = await fetch(makeUrl(`/export/excel?day=${d}`));
+      if(!resp.ok){ alert(`Lỗi xuất Excel: HTTP ${resp.status}`); return; }
+      const blob = await resp.blob(); const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = `tong_ngay_${d}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
+    };
+
+    $("btnPrintDay").onclick = ()=>{
+      const d = $("day").value; if(!d){ alert("Chọn ngày"); return; }
+      window.open(makeUrl(`/batch/print?day=${d}`), "_blank");
+    };
+
+    $("btnExportDot").onclick = async ()=>{
+      const dot = $("dot").value.trim(); if(!dot){ alert("Nhập đợt"); return; }
+      const resp = await fetch(makeUrl(`/export/excel-dot?dot=${encodeURIComponent(dot)}`));
+      if(!resp.ok){ alert(`Lỗi xuất Excel đợt: HTTP ${resp.status}`); return; }
+      const blob = await resp.blob(); const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = `tong_dot_${dot}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
+    };
+
+    $("btnPrintDot").onclick = ()=>{
+      const dot = $("dot").value.trim(); if(!dot){ alert("Nhập đợt"); return; }
+      window.open(makeUrl(`/batch/print-dot?dot=${encodeURIComponent(dot)}`), "_blank");
+    };
+
+    // ===== Events =====
+    $("btnSearch").onclick = search;
+    $("q").addEventListener('keydown', (e)=>{ if(e.key==='Enter') search(); });
+    document.getElementById("btnLogout").onclick = async () => {
+      try { await apiFetch("/logout", {method:"POST"}); } catch {}
+      location.href = "/login";
+    };
+
+    // detect prefix + lấy trạng thái đăng nhập khi vào trang
+    (async function(){
+      await detectPrefix();
+      await ensureMe();
+      setState({empty:true});
+    })();
+  </script>
+</body>
+</html>

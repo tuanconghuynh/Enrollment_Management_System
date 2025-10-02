@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HUTECH - Quản lý người dùng</title>
+  <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="hutech.png">
+  <meta name="theme-color" content="#2563eb">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .card { background:#fff; border-radius:1rem; box-shadow:0 15px 30px rgba(2,6,23,.06); padding:1.25rem; }
+    .btn { padding:.55rem 1rem; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:600; transition: transform .05s ease; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .btn-outline { background:#fff; border:1px solid #d1d5db; }
+    .btn-xs { padding:.3rem .6rem; border-radius:.5rem; font-size:.8rem; }
+    .btn[disabled] { opacity:.5; cursor:not-allowed; }
+    .input { width:100%; border:1px solid #e5e7eb; border-radius:.75rem; padding:.6rem .85rem; outline:none; background:#fff; }
+    .input:focus { box-shadow:0 0 0 3px rgba(59,130,246,.25); border-color:#93c5fd; }
+    .table { width:100%; border-collapse: separate; border-spacing:0; }
+    .table th, .table td { border-bottom:1px solid #e5e7eb; padding:.6rem .75rem; }
+    .table thead th { background:#f8fafc; font-weight:700; position:sticky; top:0; z-index:1; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-6">
+  <div class="max-w-5xl mx-auto space-y-6">
+    <!-- Header -->
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-2xl font-bold">QUẢN LÝ NGƯỜI DÙNG</h1>
+      <div class="flex items-center gap-2 text-sm text-gray-700">
+        <span>Xin chào: <b>{{ me.full_name or me.username }}</b> ({{ me.role }})</span>
+        <button id="btnLogout" class="btn btn-outline">LogOut</button>
+        <a class="btn btn-outline" href="/" title="Trang chính">← Trở về trang chủ</a>
+      </div>
+    </header>
+
+    <!-- Tạo tài khoản -->
+    <section class="card">
+      <h2 class="font-semibold mb-3">Tạo tài khoản</h2>
+      <form class="grid md:grid-cols-6 gap-3" method="post" action="/admin/users/create">
+        <input class="input md:col-span-2" name="username" placeholder="username/email" required>
+        <input class="input md:col-span-2" name="full_name" placeholder="Họ tên">
+        <input class="input md:col-span-2" name="email" placeholder="Email">
+        <div class="relative md:col-span-2">
+          <input id="admin-create-pass" type="password" class="input pr-10" name="password" placeholder="Mật khẩu" required>
+          <button type="button" class="absolute inset-y-0 right-2 flex items-center text-gray-500"
+                  aria-label="Hiện/ẩn mật khẩu" data-toggle-eye="#admin-create-pass">👁️</button>
+        </div>
+        <select class="input md:col-span-2" name="role">
+          <option>Admin</option><option>NhanVien</option><option>CongTacVien</option>
+        </select>
+        <button class="btn btn-primary md:col-span-2">Tạo tài khoản</button>
+      </form>
+    </section>
+
+    <!-- Danh sách người dùng -->
+    <section class="card space-y-3">
+      <h2 class="font-semibold">Danh sách người dùng</h2>
+      <div class="overflow-auto">
+        <table class="table min-w-full border rounded-xl overflow-hidden">
+          <thead>
+            <tr>
+              <th class="text-center">ID</th>
+              <th class="text-left">Username</th>
+              <th class="text-left">Họ tên</th>
+              <th class="text-center">Role</th>
+              <th class="text-center">Active</th>
+              <th class="text-center">Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr class="odd:bg-gray-50">
+              <td class="p-2 border-b text-center">{{u.id}}</td>
+              <td class="p-2 border-b">{{u.username}}</td>
+              <td class="p-2 border-b">{{u.full_name or ""}}</td>
+              <td class="p-2 border-b text-center">{{u.role}}</td>
+              <td class="p-2 border-b text-center">{{ "✅" if u.is_active else "⛔" }}</td>
+              <td class="p-2 border-b text-center space-x-1">
+                <!-- Bật / Tắt -->
+                <form class="inline" method="post" action="/admin/users/toggle" onsubmit="return confirm('Xác nhận đổi trạng thái tài khoản này?');">
+                  <input type="hidden" name="user_id" value="{{u.id}}">
+                  <button
+                    class="btn btn-outline btn-xs"
+                    {% if u.id == me.id %}disabled title="Không thể tự khóa tài khoản của bạn"{% endif %}
+                  >
+                    Bật/Tắt
+                  </button>
+                </form>
+
+                <!-- Reset pass -->
+                <form class="inline" method="post" action="/admin/users/reset-pass">
+                  <input type="hidden" name="user_id" value="{{u.id}}">
+                  <div class="relative inline-block">
+                    <input id="np-{{u.id}}" type="password" class="input py-1 pr-8 text-sm" name="new_password" placeholder="mật khẩu mới" required>
+                    <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                            data-toggle-eye="#np-{{u.id}}">👁️</button>
+                  </div>
+                  <button class="btn btn-primary btn-xs">Reset-pass</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="text-right">
+        <a class="btn btn-outline inline-block" href="/" title="Trang chính">← Trở về trang chủ</a>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Toggle mắt cho mọi nút có data-toggle-eye
+    document.querySelectorAll('[data-toggle-eye]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sel = btn.getAttribute('data-toggle-eye');
+        const input = document.querySelector(sel);
+        if (!input) return;
+        input.type = (input.type === 'password') ? 'text' : 'password';
+        btn.textContent = (input.type === 'password') ? '👁️' : '🙈';
+      });
+    });
+
+    // Logout
+    const btnLogout = document.getElementById('btnLogout');
+    if (btnLogout) {
+      btnLogout.addEventListener('click', async () => {
+        try { await fetch('/api/logout', { method: 'POST' }); } catch(e) {}
+        location.href = '/login';
+      });
+    }
+  </script>
+</body>
+</html>

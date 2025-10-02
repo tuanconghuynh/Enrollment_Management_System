@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Import học viên | Admission Check</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS để đọc/ghi Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .card { background:#fff; border-radius:1rem; box-shadow:0 15px 30px rgba(2,6,23,.06); padding:1.25rem; }
+    .input { width:100%; border:1px solid #e5e7eb; border-radius:.75rem; padding:.625rem .875rem; outline:none; background:#fff; }
+    .input:focus { box-shadow:0 0 0 3px rgba(59,130,246,.25); border-color:#93c5fd; }
+    .btn { padding:.55rem 1rem; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:600; transition: transform .05s ease; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .btn-soft { background:#eff6ff; color:#1e3a8a; }
+    .btn-outline { background:#fff; border:1px solid #d1d5db; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .table { width:100%; border-collapse: separate; border-spacing:0; }
+    .table th, .table td { border-bottom:1px solid #e5e7eb; padding:.55rem .75rem; }
+    .table thead th { background:#f8fafc; font-weight:700; position:sticky; top:0; z-index:1; }
+    .drop { border:2px dashed #cbd5e1; border-radius:1rem; background:#f8fafc; }
+    .drop.drag { background:#eef2ff; border-color:#93c5fd; }
+  </style>
+  <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="hutech.png">
+  <meta name="theme-color" content="#2563eb">
+</head>
+<body class="bg-gray-50">
+  <div class="max-w-7xl mx-auto p-6 space-y-6">
+
+    <!-- Header -->
+    <header class="flex flex-wrap gap-3 items-center justify-between">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold leading-tight">Import danh sách học viên</h1>
+        <p class="text-sm text-gray-500">Nạp .xlsx/.csv → map cột → gửi tạo hồ sơ (docs để trống).</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnTplXlsx" class="btn btn-soft" title="Tải file mẫu Excel">⬇️ Template XLSX</button>
+        <button id="btnTplCsv"  class="btn btn-outline" title="Tải file mẫu CSV">⬇️ Template CSV</button>
+        <span class="hidden md:inline-block w-px h-6 bg-gray-200"></span>
+        <label class="text-sm text-gray-500">API Base</label>
+        <input id="apiBase" class="input w-72 md:w-80" placeholder="http://192.168.2.82:8000" />
+        <a href="/" class="btn btn-outline">← Trang chính</a>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- LEFT: cấu hình -->
+      <aside class="card space-y-5 lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
+        <!-- Kéo-thả / chọn file -->
+        <section class="space-y-2">
+          <div class="font-semibold">Tệp dữ liệu</div>
+          <div id="drop" class="drop p-5 text-center cursor-pointer select-none">
+            <div class="text-gray-700 font-medium">Kéo & thả tệp vào đây</div>
+            <div class="text-xs text-gray-500">Hoặc bấm để chọn .xlsx/.xls/.csv</div>
+            <input id="file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
+          </div>
+        </section>
+
+        <!-- Defaults -->
+        <section class="grid grid-cols-2 gap-3">
+          <div>
+            <div class="font-semibold mb-1">Ngày nhận HS (mặc định)</div>
+            <input id="defaultNgayNhan" type="date" class="input" />
+          </div>
+          <div>
+            <div class="font-semibold mb-1">Người nhập</div>
+            <div class="relative">
+              <input id="nguoiNhan" class="input pr-10" placeholder="Chưa đăng nhập" readonly>
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm" title="Khoá">🔒</span>
+            </div>
+            <p id="meStatus" class="text-xs text-gray-500 mt-1"></p>
+          </div>
+          <div>
+            <div class="font-semibold mb-1">Prefix Mã hồ sơ</div>
+            <input id="prefixHS" class="input" value="HS-" />
+          </div>
+          <div>
+            <div class="font-semibold mb-1">Số bắt đầu</div>
+            <input id="startNo" type="number" class="input" value="1" min="1" />
+          </div>
+        </section>
+
+        <!-- Mapping -->
+        <section class="space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="font-semibold">Map cột → trường</div>
+            <div class="flex gap-2">
+              <button id="btnResetMap" class="btn btn-outline text-sm">Reset map</button>
+            </div>
+          </div>
+          <div id="mappings" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+          <p class="text-xs text-gray-500">Nếu tiêu đề cột khớp tên trường, hệ thống tự map. Có thể chỉnh lại.</p>
+        </section>
+
+        <!-- Actions -->
+        <section class="space-y-3">
+          <div class="flex gap-2 flex-wrap">
+            <button id="btnPreview" class="btn btn-outline" disabled>Xem trước (10 dòng)</button>
+            <button id="btnUpload"  class="btn btn-primary" disabled>Bắt đầu import</button>
+            <button id="btnStop"    class="btn btn-outline hidden">Dừng</button>
+          </div>
+          <div>
+            <div class="flex items-center justify-between text-sm text-gray-600">
+              <span>Tiến độ</span><span id="stats">Chưa chạy.</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full overflow-hidden mt-1">
+              <div id="bar" class="bg-blue-600 text-white text-xs text-center py-1 transition-all" style="width:0%">0%</div>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <!-- RIGHT: xem trước + log -->
+      <main class="card space-y-4 lg:col-span-2">
+        <div class="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <div class="font-semibold">Xem trước dữ liệu</div>
+            <div class="text-xs text-gray-500">Hiển thị tối đa 10 dòng đầu.</div>
+          </div>
+          <div class="text-sm text-gray-500">API thử: <span id="apiTry" class="mono"></span></div>
+        </div>
+
+        <div class="overflow-hidden border rounded-xl">
+          <div class="overflow-auto">
+            <table class="table min-w-full">
+              <thead id="thead"></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between">
+            <div class="font-semibold">Kết quả</div>
+            <button id="btnClearLog" class="btn btn-outline text-sm">Clear log</button>
+          </div>
+          <div id="log" class="text-sm mono whitespace-pre-wrap bg-gray-50 p-3 border rounded-xl h-64 overflow-auto"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // ===== Helpers & API base =====
+    const $ = id => document.getElementById(id);
+    const apiBase = () => $("apiBase").value.trim().replace(/\/+$/,'');
+    const PREFIX_CANDIDATES = ["", "/api"];
+    let API_PREFIX = "";
+
+    (function initApiBase(){
+      const el = $("apiBase");
+      if (!el.value) el.value = window.location.origin;
+      // default ngày hôm nay (input type="date" nhận ISO)
+      $("defaultNgayNhan").value = new Date().toISOString().slice(0,10);
+    })();
+
+    async function detectPrefix() {
+      for (const p of PREFIX_CANDIDATES) {
+        try { const r = await fetch(apiBase() + p + "/health", {credentials:"include"}); if (r.ok) { API_PREFIX = p; return; } } catch(_){}
+      }
+      API_PREFIX = "";
+    }
+    const makeUrl = (path) => apiBase() + API_PREFIX + path;
+
+    // luôn gửi cookie theo session
+    async function apiFetch(path, init = {}){
+      const opts = { credentials: "include", ...init };
+      let r;
+      try { r = await fetch(makeUrl(path), opts); }
+      catch(e){ throw new Error("Không kết nối được API: " + e.message); }
+
+      if (r.status === 404) {
+        const alt = API_PREFIX === "" ? "/api" : "";
+        try {
+          const r2 = await fetch(apiBase() + alt + path, opts);
+          if (r2.ok) { API_PREFIX = alt; return r2; }
+          return r2;
+        } catch (e) { throw new Error("Không kết nối được API (alt): " + e.message); }
+      }
+      return r;
+    }
+
+    // ===== Log & progress =====
+    let parsedRows = []; // array of row objects
+    let stopFlag = false;
+    function log(msg){ const el=$("log"); el.textContent += msg + "\n"; el.scrollTop = el.scrollHeight; }
+    function setBar(done, total){
+      const pct = total ? Math.round(done*100/total) : 0;
+      const bar = $("bar");
+      bar.style.width = pct + "%";
+      bar.textContent = pct + "%";
+      $("stats").textContent = total ? `Đã gửi ${done}/${total}` : "Chưa chạy.";
+    }
+    $("btnClearLog").onclick = ()=>{ $("log").textContent=""; };
+
+    // ===== Field defs: key (backend) + label (UI) + aliases để auto-map =====
+    const FIELD_DEFS = [
+      {key:"ma_ho_so",       label:"Mã HS",           aliases:["ma ho so","ma_hs","mhs"]},
+      {key:"ho_ten",         label:"Họ tên",          aliases:["ho va ten","hovaten","hoten","ten_hv","tenhv","ten"]},
+      {key:"ma_so_hv",       label:"Mã số HV",        aliases:["mshv","ma so","ma hoc vien","ma_hv","mahv"]},
+      {key:"ngay_sinh",      label:"Ngày sinh",       aliases:["dob","date of birth","ns"]},
+      {key:"so_dt",          label:"Số ĐT",           aliases:["sdt","so dien thoai","dien thoai","so lien he"]},
+      {key:"nganh_nhap_hoc", label:"Ngành nhập học",  aliases:["nganh","nganh hoc"]},
+      {key:"dot",            label:"Đợt",             aliases:["dot nhap hoc","dot tuyen"]},
+      {key:"khoa",           label:"Khóa",            aliases:["nien khoa","khoa hoc","nk"]},
+      {key:"da_tn_truoc_do", label:"Đã TN trước đó",  aliases:["doi tuong","da tn","trinh do"]},
+      {key:"ghi_chu",        label:"Ghi chú",         aliases:["note","ghi chu"]},
+      {key:"ngay_nhan_hs",   label:"Ngày nhận HS",    aliases:["ngay nhan","ngay tiep nhan"]}
+    ];
+
+    const LABEL_BY_KEY = Object.fromEntries(FIELD_DEFS.map(f=>[f.key,f.label]));
+
+    const norm = s => String(s||"")
+      .toLowerCase().trim()
+      .replace(/\s+/g,' ')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+    function guessMappings(headers){
+      const hNorm = headers.map(h=>norm(h));
+      const map = {};
+      FIELD_DEFS.forEach(f=>{
+        const idxExact =
+          hNorm.findIndex(hn => hn === norm(f.key) || hn === norm(f.label));
+        if (idxExact >= 0) { map[f.key] = headers[idxExact]; return; }
+        if (f.aliases?.length){
+          const idxAli = hNorm.findIndex(hn => f.aliases.some(a=> hn === norm(a)));
+          if (idxAli >= 0) { map[f.key] = headers[idxAli]; return; }
+        }
+      });
+      return map;
+    }
+
+    function renderMappingUI(headers){
+      const container = $("mappings");
+      container.innerHTML = "";
+      const guess = guessMappings(headers);
+      FIELD_DEFS.forEach(f=>{
+        const wrap = document.createElement('div');
+        wrap.innerHTML = `
+          <label class="text-xs text-gray-600">${LABEL_BY_KEY[f.key]}</label>
+          <select class="input mt-1" data-field="${f.key}">
+            <option value="">— Chọn cột —</option>
+            ${headers.map(h=>`<option ${guess[f.key]===h?'selected':''}>${h}</option>`).join("")}
+          </select>`;
+        container.appendChild(wrap);
+      });
+    }
+
+    function getMappingFromUI(){
+      const selects = Array.from(document.querySelectorAll('#mappings select'));
+      const m = {}; selects.forEach(sel=>{ if(sel.value) m[sel.dataset.field] = sel.value; });
+      return m;
+    }
+    $("btnResetMap").onclick = ()=>{
+      const selects = Array.from(document.querySelectorAll('#mappings select'));
+      selects.forEach(s=>{ s.selectedIndex = 0; });
+    };
+
+    // ===== File parsing =====
+    function toArrayBuffer(file) {
+      return new Promise((res, rej)=>{
+        const fr = new FileReader();
+        fr.onload = () => res(fr.result);
+        fr.onerror = rej;
+        fr.readAsArrayBuffer(file);
+      });
+    }
+    function parseCSV(text){
+      const lines = text.replace(/\r\n/g,"\n").split("\n").filter(x=>x.trim().length>0);
+      const headers = lines[0].split(",").map(s=>s.trim());
+      const rows = lines.slice(1).map(ln=>{
+        const cols = ln.split(",");
+        const obj = {}; headers.forEach((h,i)=> obj[h]= (cols[i] ?? "").trim());
+        return obj;
+      });
+      return {headers, rows};
+    }
+
+    const dz = $("drop"), fileInput = $("file");
+    dz.addEventListener("click", ()=> fileInput.click());
+    ["dragenter","dragover"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("drag"); }));
+    ["dragleave","drop"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("drag"); }));
+    dz.addEventListener("drop", e => {
+      if (e.dataTransfer?.files?.length) { fileInput.files = e.dataTransfer.files; fileInput.dispatchEvent(new Event("change")); }
+    });
+
+    fileInput.addEventListener("change", async (e)=>{
+      const f = e.target.files[0]; if(!f) return;
+      parsedRows = []; $("thead").innerHTML=""; $("tbody").innerHTML=""; $("log").textContent="";
+      try{
+        if (f.name.toLowerCase().endsWith(".csv")) {
+          const text = await f.text();
+          const {headers, rows} = parseCSV(text);
+          parsedRows = rows; renderMappingUI(headers); preview(headers, rows);
+        } else {
+          const buf = await toArrayBuffer(f);
+          const wb = XLSX.read(buf, {type:"array"});
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""});
+          const headers = (rows[0]||[]).map(x=>String(x).trim());
+          const objs = rows.slice(1)
+            .filter(r=>r.some(c=>String(c).trim()!==""))
+            .map(r=>{ const o={}; headers.forEach((h,i)=>o[h]= String(r[i]??"").trim()); return o; });
+          parsedRows = objs; renderMappingUI(headers); preview(headers, objs);
+        }
+      }catch(err){ alert("Không đọc được file: "+err.message); }
+    });
+
+    function preview(headers, rows){
+      const thead = $("thead"), tbody = $("tbody");
+      thead.innerHTML = `<tr>${headers.map(h=>`<th class="text-left">${h}</th>`).join("")}</tr>`;
+      tbody.innerHTML = rows.slice(0,10).map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
+    }
+
+    // ===== Date helpers =====
+    function excelSerialToISO(n){
+      const base = new Date(Date.UTC(1899,11,30));
+      base.setUTCDate(base.getUTCDate() + Number(n));
+      return base.toISOString().slice(0,10);
+    }
+    function parseDateFlexible(v){
+      if (v == null) return "";
+      const s = String(v).trim();
+      if (!s) return "";
+      if (/^\d+$/.test(s)) return excelSerialToISO(Number(s));        // số Excel
+      let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);      // dd/mm/yyyy
+      if (m){ const dd=m[1].padStart(2,"0"), mm=m[2].padStart(2,"0"); return `${m[3]}-${mm}-${dd}`; }
+      m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);                         // yyyy-mm-dd
+      if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+      const d = new Date(s); if (!isNaN(d)) return d.toISOString().slice(0,10);
+      return "";
+    }
+
+    // ===== Build payload & call API =====
+    function makeApplicantPayload(src, map, seqNo){
+      const pick = (key, d="") => (map[key] ? (src[map[key]] ?? "").trim() : d);
+
+      // Mã HS: cho phép auto sinh nếu trống
+      let ma_ho_so = pick("ma_ho_so","");
+      if(!ma_ho_so){
+        const pre = $("prefixHS").value.trim() || "HS-";
+        const num = Number($("startNo").value||1) + seqNo;
+        ma_ho_so = pre + String(num).padStart(4,"0");
+      }
+
+      // Ngày nhận & ngày sinh -> ISO yyyy-mm-dd
+      const ngay_nhan_hs = parseDateFlexible(pick("ngay_nhan_hs", $("defaultNgayNhan").value)) || $("defaultNgayNhan").value;
+      const ngay_sinh_iso = parseDateFlexible(pick("ngay_sinh")) || null;
+
+      return {
+        ma_ho_so,
+        ngay_nhan_hs,
+        ho_ten: pick("ho_ten"),
+        ma_so_hv: pick("ma_so_hv"),
+        ngay_sinh: ngay_sinh_iso,
+        so_dt: pick("so_dt") || null,
+        nganh_nhap_hoc: pick("nganh_nhap_hoc") || null,
+        dot: pick("dot") || null,
+        khoa: pick("khoa") || null,
+        da_tn_truoc_do: pick("da_tn_truoc_do") || null,
+        ghi_chu: pick("ghi_chu") || null,
+        nguoi_nhan_ky_ten: $("nguoiNhan").value.trim() || null,
+        docs: [],
+        checklist_version_name: "v1"
+      };
+    }
+
+    $("btnPreview").onclick = () => {
+      const m = getMappingFromUI();
+      if (!m.ho_ten || !m.ma_so_hv) { alert("Cần map tối thiểu: ho_ten và ma_so_hv."); return; }
+      const test = parsedRows.slice(0,5).map((row, i)=> makeApplicantPayload(row, m, i));
+      $("apiTry").textContent = makeUrl("/applicants");
+      $("log").textContent = JSON.stringify(test, null, 2);
+    };
+
+    $("btnUpload").onclick = async ()=>{
+      if (parsedRows.length === 0) { alert("Chưa chọn tệp hoặc tệp rỗng"); return; }
+      await detectPrefix();
+      $("apiTry").textContent = makeUrl("/applicants");
+      stopFlag = false; $("btnStop").classList.remove("hidden");
+      $("btnUpload").disabled = true;
+
+      const m = getMappingFromUI();
+      if (!m.ho_ten || !m.ma_so_hv) { alert("Cần map tối thiểu: ho_ten và ma_so_hv."); $("btnUpload").disabled=false; return; }
+
+      const total = parsedRows.length; let done=0, ok=0, fail=0;
+      setBar(0,total); $("log").textContent=""; log("== BẮT ĐẦU IMPORT ==");
+
+      for (let i=0;i<parsedRows.length;i++){
+        if (stopFlag) { log("== ĐÃ DỪNG =="); break; }
+        const body = makeApplicantPayload(parsedRows[i], m, i);
+
+        if (!body.ho_ten || !body.ma_so_hv || !body.ngay_nhan_hs){
+          fail++; done++; setBar(done,total);
+          log(`SKIP #${i+1}: thiếu trường bắt buộc (ho_ten/ma_so_hv/ngay_nhan_hs)`); 
+          continue;
+        }
+        try{
+          const r = await apiFetch("/applicants", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body: JSON.stringify(body)
+          });
+          if(!r.ok){
+            const t = await r.text();
+            fail++; log(`ERR #${i+1} (${body.ma_ho_so}): HTTP ${r.status} ${t}`);
+          } else {
+            const j = await r.json();
+            ok++; log(`OK  #${i+1} (${body.ma_ho_so}) -> id=${j.id}`);
+          }
+        }catch(e){
+          fail++; log(`ERR #${i+1} (${body.ma_ho_so}): ${e.message}`);
+        }finally{
+          done++; setBar(done,total);
+          await new Promise(res=>setTimeout(res, 25));
+        }
+      }
+      $("btnStop").classList.add("hidden");
+      $("btnUpload").disabled = false;
+      log(`== XONG: OK=${ok}, FAIL=${fail}, TOTAL=${total} ==`);
+    };
+    $("btnStop").onclick = ()=>{ stopFlag = true; };
+
+    // ===== Lấy /me, gán tên người nhập & CHẶN CTV =====
+    async function ensureNguoiNhanFromSession(){
+      try{
+        await detectPrefix();
+        const r = await apiFetch("/me");
+        if (!r.ok) throw new Error();
+        const me = await r.json();
+        const name = me.full_name || me.username || "";
+        $("nguoiNhan").value = name;
+        $("nguoiNhan").setAttribute("readonly", "readonly");
+        if (me.role === "Admin" || me.role === "NhanVien") {
+          $("meStatus").textContent = `Đã gắn người nhận: ${name} (${me.role})`;
+          $("btnUpload").disabled = false;
+          $("btnPreview").disabled = false;
+        } else {
+          $("meStatus").innerHTML = `Tài khoản <b>${name}</b> (${me.role}) không có quyền import.`;
+          $("btnUpload").disabled = true;
+          $("btnPreview").disabled = true;
+        }
+      } catch {
+        $("nguoiNhan").value = "";
+        $("nguoiNhan").setAttribute("readonly", "readonly");
+        $("meStatus").innerHTML = 'Chưa đăng nhập. <a class="text-blue-600 hover:underline" href="/login">Đăng nhập</a> để gán người nhận.';
+        $("btnUpload").disabled = true;
+        $("btnPreview").disabled = true;
+      }
+    }
+    window.addEventListener("load", ensureNguoiNhanFromSession);
+
+    // ===== Tải template mẫu (cột chuẩn key backend) =====
+    function buildTemplateHeaders(){
+      return ["ma_ho_so","ho_ten","ma_so_hv","ngay_sinh","so_dt","nganh_nhap_hoc","dot","khoa","da_tn_truoc_do","ghi_chu","ngay_nhan_hs"];
+    }
+    function sampleRows(){
+      const today = new Date();
+      const dmy = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+      return [
+        { ma_ho_so:"HS-0001", ho_ten:"Nguyễn Văn A", ma_so_hv:"123456", ngay_sinh:"15/01/2005",
+          so_dt:"0901234567", nganh_nhap_hoc:"Công nghệ thông tin", dot:"1/2025", khoa:"25",
+          da_tn_truoc_do:"THPT", ghi_chu:"", ngay_nhan_hs: dmy },
+        { ma_ho_so:"HS-0002", ho_ten:"Trần Thị B",   ma_so_hv:"654321", ngay_sinh:"20/12/2004",
+          so_dt:"0912345678", nganh_nhap_hoc:"Quản trị kinh doanh", dot:"1/2025", khoa:"25",
+          da_tn_truoc_do:"Cao đẳng", ghi_chu:"", ngay_nhan_hs: dmy }
+      ];
+    }
+    $("btnTplXlsx").onclick = ()=>{
+      const wb = XLSX.utils.book_new();
+      const headers = buildTemplateHeaders();
+      const data = [headers, ...sampleRows().map(r=>headers.map(h=>r[h]??""))];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, "HocVien");
+      const guide = [
+        ["Hướng dẫn"],
+        ["- Cột bắt buộc: ma_ho_so | ho_ten | ma_so_hv | ngay_nhan_hs"],
+        ["- Định dạng ngày: DD/MM/YYYY (ví dụ: 01/10/2025)."],
+        ["- Các cột khác có thể để trống; 'docs' sẽ để trống khi import."]
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(guide), "HuongDan");
+      XLSX.writeFile(wb, "template_hoc_vien.xlsx");
+    };
+    $("btnTplCsv").onclick = ()=>{
+      const headers = buildTemplateHeaders();
+      const rows = sampleRows();
+      const csv = [headers.join(",")].concat(rows.map(r=>headers.map(h=>String(r[h]??"").replace(/,/g," ")).join(","))).join("\n");
+      const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "template_hoc_vien.csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
+    };
+  </script>
+</body>
+</html>

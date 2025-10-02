@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đăng nhập | Admission Check</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" type="image/png" href="/hutech.png" sizes="32x32">
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+  </style>
+  <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="hutech.png">
+  <meta name="theme-color" content="#2563eb">
+</head>
+<body class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <img src="/hutech.png" class="h-10 w-10" alt="">
+        <div>
+          <h1 class="text-xl font-bold leading-tight">V-HT.PTĐT • Đăng nhập</h1>
+          <p class="text-sm text-gray-500">Admission Check – Nội Bộ</p>
+        </div>
+      </div>
+
+      <form class="space-y-4" onsubmit="return doLogin(event)">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Tài khoản</label>
+          <input id="u" class="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="vd: admin hoặc email" required>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Mật khẩu</label>
+          <div class="relative">
+            <input id="p" type="password" class="w-full rounded-xl border border-gray-300 px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="••••••••" required>
+            <button type="button" id="toggle" class="absolute inset-y-0 right-2 px-2 text-gray-500" title="Hiện/ẩn">👁️</button>
+          </div>
+        </div>
+        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-2.5 transition">
+          Đăng nhập
+        </button>
+        <p id="err" class="text-sm text-red-600 min-h-[1.25rem]"></p>
+      </form>
+
+      <div class="mt-6 text-xs text-gray-500">
+        <div>API: <code id="api" class="bg-gray-100 px-1 rounded"></code></div>
+        <div class="mt-1">Nếu chưa có tài khoản! Hãy liên hệ Admin để được cấp</b>.</div>
+        <div class="mt-1">Email liên hệ: hc.tuan@hutech.edu.vn </b>.</div>
+      </div>
+    </div>
+    <p class="text-center text-xs text-gray-400 mt-4">© V-HT.PTĐT HUTECH</p>
+  </div>
+
+  <script>
+    // Hiện/ẩn mật khẩu
+    const p = document.getElementById('p');
+    document.getElementById('toggle').onclick = () => {
+      p.type = p.type === 'password' ? 'text' : 'password';
+    };
+
+    // Điền API đang dùng để biết chắc origin
+    document.getElementById('api').textContent = window.location.origin;
+
+    async function doLogin(e){
+      e.preventDefault();
+      const fd = new FormData();
+      fd.append('username', document.getElementById('u').value.trim());
+      fd.append('password', document.getElementById('p').value);
+      const r = await fetch('/api/login', { method:'POST', body: fd });
+      if(!r.ok){
+        document.getElementById('err').textContent = 'Sai tài khoản hoặc mật khẩu';
+        return false;
+      }
+      // đăng nhập xong về trang chính
+      location.href = '/';
+      return false;
+    }
+  </script>
+</body>
+</html>

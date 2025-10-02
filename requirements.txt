@@ -10,5 +10,9 @@ python-multipart
 openpyxl
 PyMySQL==1.1.0
 pydantic-settings
-
+flask
+flask_sqlalchemy
+flask_login
+pandas
+werkzeug
 

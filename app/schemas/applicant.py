@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List, Literal
+from datetime import date
+from pydantic import BaseModel
 
 # ---- Docs (tài liệu kèm hồ sơ) ----
 class ApplicantDocIn(BaseModel):
@@ -93,3 +95,17 @@ class ApplicantDetailOut(BaseModel):
     status: str
     printed: bool
     docs: List[ApplicantDocOut]
+
+class ApplicantListItem(BaseModel):
+    id: int
+    ma_ho_so: str
+    ho_ten: str | None = None
+    ma_so_hv: str | None = None
+    ngay_nhan_hs: date | None = None
+    nganh_nhap_hoc: str | None = None
+    dot: str | None = None
+    khoa: str | None = None
+    nguoi_nhan_ky_ten: str | None = None
+
+    class Config:
+        orm_mode = True

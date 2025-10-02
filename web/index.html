@@ -7,12 +7,12 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-    .card { background:#fff; border-radius:1rem; box-shadow:0 10px 20px rgba(2,6,23,.06); padding:1.25rem; }
+    .card { background:#ffffff; border-radius:1rem; box-shadow:0 10px 20px rgba(2,6,23,.06); padding:1.25rem; }
     .btn { padding:.5rem 1rem; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:600; transition: transform .05s ease; }
     .btn:hover { transform: translateY(-1px); }
     .btn-primary { background:#2563eb; color:#fff; }
     .btn-secondary { background:#111827; color:#fff; }
-    .btn-outline { background:#fff; border:1px solid #d1d5db; }
+    .btn-outline { background:#ffffff; border:1px solid #d1d5db; }
     .input { width:100%; border:1px solid #e5e7eb; border-radius:.75rem; padding:.5rem .75rem; outline:none; }
     .input:focus { box-shadow:0 0 0 3px rgba(59,130,246,.3); border-color:#93c5fd; }
     .label { font-size:.85rem; color:#6b7280; }
@@ -31,7 +31,7 @@
     <header class="flex items-center justify-between">
       <div class="flex items-center gap-3 min-w-0">
         <img src="hutech.png" alt="HUTECH" class="h-8 w-8 object-contain select-none" />
-        <h1 class="text-2xl font-bold leading-none truncate">V-HT.PTĐT BIÊN NHẬN HỒ SƠ NHẬP HỌC</h1>
+        <h1 class="text-2xl font-bold leading-none truncate">V-HTPTĐT BIÊN NHẬN HỒ SƠ NHẬP HỌC</h1>
       </div>
 
       <div class="flex items-center gap-2">
@@ -39,7 +39,22 @@
         <input id="apiBase" class="input w-80" value="http://192.168.2.82:8000" />
         <button class="btn btn-outline" id="btnReloadChecklist">↻ Checklist</button>
       </div>
+
     </header>
+
+    <!-- Quick Nav -->
+    <nav class="flex flex-wrap items-center gap-2 -mt-2">
+      <a id="navImport"   href="/import_students.html" class="btn btn-outline hidden">Import Học viên</a>
+      <a id="navStudents" href="/students_list.html"   class="btn btn-outline hidden">Danh sách hồ sơ</a>
+      <a id="navAdmin"    href="/admin"                class="btn btn-outline hidden">Quản lý Tài khoản</a>
+
+      <span class="flex-1"></span>
+
+      <span id="navHello" class="text-sm text-gray-600 hidden"></span>
+      <a id="navLogin"  href="/login" class="btn btn-outline">Login</a>
+      <button id="navLogout" class="btn btn-secondary hidden">LogOut</button>
+    </nav>
+
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Form tạo hồ sơ -->
@@ -121,7 +136,7 @@
             </select>
           </div>
           <div>
-            <label class="label">Người nhận (ký tên)</label>
+            <label class="label">Người nhận (Chữ ký)</label>
             <input class="input" id="nguoi_nhan_ky_ten" />
           </div>
           <div class="md:col-span-2">
@@ -150,6 +165,7 @@
 
         <div class="mt-6 flex gap-3 flex-wrap">
           <button id="btnSave" class="btn btn-secondary">Lưu</button>
+          <button id="btnUpdateApplicant" class="btn btn-secondary">Cập nhật</button>
           <button id="btnSavePrint" class="btn btn-primary">Lưu & In A4</button>
           <button id="btnSavePrintA5" class="btn btn-outline">Lưu & In A5</button>
           <span class="text-sm text-gray-500">Mẹo: nhấn <span class="kbd">Alt</span>+<span class="kbd">P</span> để Lưu & In nhanh</span>
@@ -284,6 +300,25 @@
   };
   const getDefaultQty = (code) => DEFAULT_QTY[code] ?? 1;
 
+    function toDMY(s){
+    if(!s) return "";
+    // Excel/ISO → dd/mm/yyyy
+    // s có thể là '2025-10-02', '2025-10-02T00:00:00', '02/10/2025'
+    const t = String(s).trim();
+    // dd/mm/yyyy đã đúng
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(t)) return t;
+    // yyyy-mm-dd(Thh:mm:ss)
+    const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    // fallback Date()
+    const d = new Date(t); if (!isNaN(d)) {
+      const dd = String(d.getDate()).padStart(2,"0");
+      const mm = String(d.getMonth()+1).padStart(2,"0");
+      const yy = d.getFullYear();
+      return `${dd}/${mm}/${yy}`;
+    }
+    return t;
+  }
   // ===== checklist =====
   async function loadChecklist() {
     try {
@@ -367,6 +402,56 @@
     };
   }
 
+  // ====== NAV: hiện/ẩn theo session & auto điền người nhận ======
+  async function refreshAuthUI(){
+    try{
+      const r = await apiFetch('/me');
+      if (r.ok){
+        const me = await r.json();
+        const hello = `Xin chào, ${me.full_name || me.username} (${me.role})`;
+        $("navHello").textContent = hello;
+        $("navHello").classList.remove("hidden");
+        $("navLogin").classList.add("hidden");
+        $("navLogout").classList.remove("hidden");
+
+        const isAdmin  = me.role === "Admin";
+        const isStaff  = isAdmin || me.role === "NhanVien";
+        const isCTV    = me.role === "CongTacVien";
+
+        // Import + Danh sách: chỉ Staff (Admin/Nhân viên)
+        if (isStaff) {
+          $("navImport")?.classList.remove("hidden");
+          $("navStudents")?.classList.remove("hidden");
+        } else {
+          $("navImport")?.classList.add("hidden");
+          $("navStudents")?.classList.add("hidden");
+        }
+
+        // Trang quản trị: chỉ Admin
+        if (isAdmin) $("navAdmin")?.classList.remove("hidden");
+        else         $("navAdmin")?.classList.add("hidden");
+
+        // auto điền Người nhận nếu trống
+        const rec = $("nguoi_nhan_ky_ten");
+        if (rec && !rec.value) rec.value = me.full_name || me.username || "";
+      } else {
+        // chưa đăng nhập
+        ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
+        $("navLogin").classList.remove("hidden");
+        $("navLogout").classList.add("hidden");
+      }
+    }catch(_){
+      ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
+      $("navLogin").classList.remove("hidden");
+      $("navLogout").classList.add("hidden");
+    }
+  }
+
+  // Logout
+  $("navLogout")?.addEventListener("click", async ()=>{
+    try { await apiFetch('/logout', { method:'POST' }); } catch(_){}
+    location.href = '/login';
+  });
   // ==== OPEN PDF helper (có fallback nếu bị chặn popup) ====
   function openPdf(url){
     const w = window.open(url, "_blank");
@@ -574,14 +659,15 @@
     list.forEach(it => {
       const li = document.createElement('li');
       li.className = 'p-2 hover:bg-gray-50 cursor-pointer';
-      const ngay = it.ngay_nhan_hs ? String(it.ngay_nhan_hs).slice(0,10) : '';
+      const ngay = it.ngay_nhan_hs ? toDMY(it.ngay_nhan_hs) : '';
       li.innerHTML = `<div class="flex justify-between"><div class="font-medium">${it.ho_ten}</div><div class="text-xs text-gray-500">${ngay}</div></div>
                       <div class="text-xs text-gray-600">Mã: <span class="font-semibold">${it.ma_ho_so}</span> • MSHV: ${it.ma_so_hv||''} • Đợt: ${it.dot||''}</div>`;
-      li.onclick = async () => {
-        $("q_ma_ho_so").value = it.ma_ho_so;
-        box.classList.add('hidden');
-        $("btnLoadApplicant").click();
-      };
+      $("q_ma_ho_so").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          $("btnLoadApplicant").click();
+        }
+      });
       ul.appendChild(li);
     });
     box.classList.remove('hidden');
@@ -609,6 +695,7 @@
       setPrintButtonsEnabled(false);
     }
   };
+  $("q_ma_ho_so").addEventListener('keydown', (e)=>{ if(e.key==='Enter') $("btnLoadApplicant").click(); });
 
   $("btnSearchByName").onclick = async () => {
     try{
@@ -648,15 +735,45 @@
     openPdf(`${base}/api/print/a4-two-up/${loadedApplicant.id}`);
   };
 
+  async function ensureLoggedInAndSetReceiver(){
+  try{
+    const r = await apiFetch("/me");        // gọi /api/me (vì apiFetch thêm prefix "" hoặc "/api")
+    if(!r.ok){ throw new Error("unauth"); }
+    const me = await r.json();
+    // điền & khóa ô Người nhận (ký tên)
+    const ip = $("nguoi_nhan_ky_ten");
+    if (ip) {
+      if (!ip.value) ip.value = me.full_name || me.username || "";
+      ip.readOnly = true;                       // khóa để tránh sửa tay (tùy anh, có thể bỏ)
+      ip.classList.add("bg-gray-100","cursor-not-allowed");
+      // hiển thị user ở header
+      const l = $("loginUser"); if (l) l.textContent = `Đang đăng nhập: ${me.full_name || me.username} (${me.role})`;
+    }
+    // nút Đăng xuất
+    const btnL = $("btnLogout");
+    if(btnL){
+      btnL.onclick = async () => { await fetch(makeUrl("/logout"), {method:"POST"}); location.href="/login"; };
+    }
+  }catch(e){
+    // chưa đăng nhập -> chuyển tới /login
+    location.href = "/login";
+  }
+}
+
   // ===== init =====
+
   window.addEventListener('load', async () => {
-    const today = new Date().toISOString().slice(0,10);
-    $("ngay_nhan_hs").value = today;
-    $("batchDate").value = today;
-    await detectPrefix();
-    loadChecklist();
-    setPrintButtonsEnabled(false);
-  });
+  const today = new Date().toISOString().slice(0,10);
+  $("ngay_nhan_hs").value = today;
+  $("batchDate").value = today;
+  $("q_ma_ho_so")?.focus();
+  await detectPrefix();
+  await ensureLoggedInAndSetReceiver();
+  await refreshAuthUI(); // cập nhật NAV
+  loadChecklist();
+  setPrintButtonsEnabled(false);
+});
+
   </script>
 </body>
 </html>

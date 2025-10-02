@@ -4,6 +4,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from starlette.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from .auth import require_roles
 
 from ..db.session import get_db
 from ..models.applicant import Applicant, ApplicantDoc
@@ -53,7 +54,7 @@ def _get_docs_for_app(db: Session, app_id: int):
 # ----------------- EXPORT EXCEL -----------------
 @router.get("/export/excel")
 def export_excel(day: str = Query(..., description="YYYY-MM-DD hoặc dd/MM/yyyy"),
-                 db: Session = Depends(get_db)):
+                 db: Session = Depends(get_db), user=Depends(require_roles("Admin","NhanVien"))):
     d = _parse_day(day)
     d1 = datetime.combine(d, datetime.min.time())
     d2 = d1 + timedelta(days=1)
@@ -98,7 +99,7 @@ def export_excel(day: str = Query(..., description="YYYY-MM-DD hoặc dd/MM/yyyy
 
 @router.get("/export/excel-dot")
 def export_excel_dot(dot: str = Query(..., description="Ví dụ: 'Đợt 1/2025' hoặc '9'"),
-                     db: Session = Depends(get_db)):
+                     db: Session = Depends(get_db), user=Depends(require_roles("Admin","NhanVien"))):
     key = (dot or "").strip()
     if not key:
         raise HTTPException(status_code=400, detail="Thiếu tham số 'dot'")

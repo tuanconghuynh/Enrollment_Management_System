@@ -7,6 +7,8 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from ..models import Applicant, ApplicantDoc, ChecklistItem
+from datetime import date, datetime
+from openpyxl.styles import Alignment
 
 DOC_PREFIX = "doc_"  # column prefix for document quantities
 
@@ -64,3 +66,58 @@ def build_excel_bytes(apps: List[Applicant], docs: List[ApplicantDoc], items: Li
     output = BytesIO()
     wb.save(output)
     return output.getvalue()
+
+def _to_date(v):
+    if v is None or v == "": return None
+    if isinstance(v, (date, datetime)): return v.date() if isinstance(v, datetime) else v
+    s = str(v)
+    # yyyy-mm-dd...
+    try:
+        return date.fromisoformat(s[:10])
+    except Exception:
+        # dd/mm/yyyy
+        try:
+            d, m, y = s.split("/")[:3]
+            return date(int(y), int(m), int(d))
+        except Exception:
+            return None
+
+def build_excel_bytes(rows):
+    """
+    rows: list[Applicant-like] hoặc dict có keys: ngay_nhan_hs, ngay_sinh, ...
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "TongHop"
+
+    headers = ["Mã HS","Họ tên","MSHV","Ngày nhận HS","Ngày sinh","Ngành","Đợt","Khóa","Người nhận","Ghi chú"]
+    ws.append(headers)
+
+    for a in rows:
+        ws.append([
+            a.ma_ho_so, a.ho_ten, a.ma_so_hv,
+            _to_date(getattr(a, "ngay_nhan_hs", None)),
+            _to_date(getattr(a, "ngay_sinh", None)),
+            getattr(a,"nganh_nhap_hoc",None),
+            getattr(a,"dot",None),
+            getattr(a,"khoa",None),
+            getattr(a,"nguoi_nhan_ky_ten",None),
+            getattr(a,"ghi_chu",None),
+        ])
+
+    # set format dd/mm/yyyy cho 2 cột ngày: "Ngày nhận HS"(4) & "Ngày sinh"(5)
+    for row in ws.iter_rows(min_row=2, min_col=4, max_col=5):
+        for cell in row:
+            if cell.value:
+                cell.number_format = "dd/mm/yyyy"
+                cell.alignment = Alignment(horizontal="center")
+
+    # autosize đơn giản
+    for col in ws.columns:
+        w = max(10, *(len(str(c.value)) if c.value is not None else 0 for c in col)) + 2
+        ws.column_dimensions[col[0].column_letter].width = min(w, 40)
+
+    from io import BytesIO
+    out = BytesIO()
+    wb.save(out); out.seek(0)
+    return out.getvalue()
