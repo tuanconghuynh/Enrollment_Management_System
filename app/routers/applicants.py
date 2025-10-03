@@ -1,6 +1,7 @@
 # app/routers/applicants.py
 from datetime import datetime, date
 import io
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from starlette.responses import StreamingResponse
@@ -12,32 +13,65 @@ from ..models.checklist import ChecklistItem, ChecklistVersion
 from ..schemas.applicant import ApplicantIn, ApplicantOut
 from ..services.pdf_service import render_single_pdf, render_single_pdf_a5
 
-
-
 router = APIRouter(prefix="/applicants", tags=["applicants"])
 
-# ----------------- helpers -----------------
-def _parse_date_dmy(v):
-    """Nhận str 'DD-MM-YYYY' | datetime | date | None -> date|None"""
+# ----------------- DATE HELPERS -----------------
+_DATE_DMY = re.compile(r"^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$")
+_DATE_YMD = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+def _parse_date_flexible(v):
+    """
+    Trả về datetime.date hoặc None.
+    Chấp nhận: dd/mm/yyyy, dd-mm-yyyy, yyyy-mm-dd, datetime/date.
+    """
     if v in (None, ""):
         return None
     if isinstance(v, date) and not isinstance(v, datetime):
         return v
     if isinstance(v, datetime):
         return v.date()
-    # string
-    return datetime.strptime(v, "%d-%m-%Y").date()
+
+    s = str(v).strip()
+    if not s:
+        return None
+
+    m = _DATE_DMY.match(s)
+    if m:
+        d, mth, y = map(int, m.groups())
+        return date(y, mth, d)
+
+    m = _DATE_YMD.match(s)
+    if m:
+        y, mth, d = map(int, m.groups())
+        return date(y, mth, d)
+
+    # fallback ISO
+    try:
+        return datetime.fromisoformat(s).date()
+    except Exception:
+        return None
+
+def _parse_date_dmy(v):
+    # alias theo tên cũ – luôn dùng bộ parse linh hoạt
+    return _parse_date_flexible(v)
+
+def _parse_date_ymd(v):
+    # alias để không còn NameError ở code cũ
+    return _parse_date_flexible(v)
 
 def _to_dmy(v):
-    """date|datetime|str|None -> 'DD-MM-YYYY'|None"""
-    if v is None or v == "":
-        return None
-    if isinstance(v, datetime):
-        v = v.date()
-    if isinstance(v, date):
-        return v.strftime("%d-%m-%Y")
-    # assume string already ok
-    return str(v)
+    """
+    Chuẩn hóa sang chuỗi 'dd/mm/yyyy' (dùng cho hiển thị / lưu cột dạng text).
+    """
+    d = _parse_date_flexible(v)
+    return f"{d.day:02d}/{d.month:02d}/{d.year:04d}" if d else None
+
+def _to_ymd(v):
+    """
+    Nếu cần chuỗi 'yyyy-mm-dd'.
+    """
+    d = _parse_date_flexible(v)
+    return f"{d.year:04d}-{d.month:02d}-{d.day:02d}" if d else None
 
 # ----------------- FIND BY CODE (cho UI) -----------------
 @router.get("/by-code/{ma_ho_so}")
@@ -47,11 +81,7 @@ def get_by_code(ma_ho_so: str, db: Session = Depends(get_db)):
     if not a:
         raise HTTPException(status_code=404, detail="Not Found")
 
-    docs = (
-        db.query(ApplicantDoc)
-        .filter(ApplicantDoc.applicant_id == a.id)
-        .all()
-    )
+    docs = db.query(ApplicantDoc).filter(ApplicantDoc.applicant_id == a.id).all()
 
     applicant_payload = {
         "id": a.id,
@@ -93,10 +123,11 @@ def create_applicant(payload: ApplicantIn, db: Session = Depends(get_db)):
 
     a = Applicant(
         ma_ho_so=payload.ma_ho_so.strip(),
-        ngay_nhan_hs=_parse_date_dmy(payload.ngay_nhan_hs),
+        ngay_nhan_hs=_parse_date_flexible(payload.ngay_nhan_hs),
         ho_ten=payload.ho_ten,
         ma_so_hv=payload.ma_so_hv,
-        ngay_sinh=_to_dmy(payload.ngay_sinh),   # bạn đang lưu string cho ngày sinh
+        # Lưu ngày sinh dạng text dd/mm/yyyy theo yêu cầu hiển thị
+        ngay_sinh=_to_dmy(payload.ngay_sinh),
         so_dt=payload.so_dt,
         nganh_nhap_hoc=payload.nganh_nhap_hoc,
         dot=payload.dot,
@@ -142,6 +173,7 @@ def search_applicants(
             "ma_ho_so": a.ma_ho_so,
             "ho_ten": a.ho_ten,
             "ma_so_hv": a.ma_so_hv,
+            # Giữ ISO ở search để UI dễ xử lý (input type=date)
             "ngay_nhan_hs": a.ngay_nhan_hs.isoformat() if a.ngay_nhan_hs else None,
             "dot": a.dot,
         }
@@ -165,11 +197,14 @@ def find_by_ma_ho_so(ma_ho_so: str = Query(...), db: Session = Depends(get_db)):
     return {
         "id": a.id,
         "ma_ho_so": a.ma_ho_so,
+        # Giữ ISO ở API này để form dễ set value cho <input type="date">
         "ngay_nhan_hs": a.ngay_nhan_hs.isoformat() if a.ngay_nhan_hs else None,
         "ho_ten": a.ho_ten,
         "ma_so_hv": a.ma_so_hv,
-        "ngay_sinh": a.ngay_sinh if isinstance(a.ngay_sinh, str)
-                     else (a.ngay_sinh.isoformat() if a.ngay_sinh else None),
+        "ngay_sinh": (
+            a.ngay_sinh if isinstance(a.ngay_sinh, str)
+            else (a.ngay_sinh.isoformat() if a.ngay_sinh else None)
+        ),
         "so_dt": a.so_dt,
         "nganh_nhap_hoc": a.nganh_nhap_hoc,
         "dot": a.dot,
@@ -184,11 +219,6 @@ def find_by_ma_ho_so(ma_ho_so: str = Query(...), db: Session = Depends(get_db)):
         ],
     }
 
-# --- fallback: by-code dạng path param ---
-@router.get("/by-code/{ma_ho_so}")
-def find_by_code_path(ma_ho_so: str, db: Session = Depends(get_db)):
-    return find_by_ma_ho_so(ma_ho_so=ma_ho_so, db=db)
-
 # ----------------- UPDATE -----------------
 @router.put("/{applicant_id}")
 def update_applicant(applicant_id: int, payload: ApplicantIn, db: Session = Depends(get_db)):
@@ -196,17 +226,18 @@ def update_applicant(applicant_id: int, payload: ApplicantIn, db: Session = Depe
     if not a:
         raise HTTPException(404, "Applicant not found")
 
-    a.ma_ho_so        = payload.ma_ho_so.strip()
-    a.ngay_nhan_hs    = _parse_date_ymd(payload.ngay_nhan_hs)
-    a.ho_ten          = payload.ho_ten
-    a.ma_so_hv        = payload.ma_so_hv
-    a.ngay_sinh       = _to_ymd(payload.ngay_sinh)
-    a.so_dt           = payload.so_dt
-    a.nganh_nhap_hoc  = payload.nganh_nhap_hoc
-    a.dot             = payload.dot
-    a.khoa            = payload.khoa
-    a.da_tn_truoc_do  = payload.da_tn_truoc_do
-    a.ghi_chu         = payload.ghi_chu
+    a.ma_ho_so         = payload.ma_ho_so.strip()
+    a.ngay_nhan_hs     = _parse_date_flexible(payload.ngay_nhan_hs)
+    a.ho_ten           = payload.ho_ten
+    a.ma_so_hv         = payload.ma_so_hv
+    # Lưu ngày sinh dạng text dd/mm/yyyy (đồng bộ với create)
+    a.ngay_sinh        = _to_dmy(payload.ngay_sinh)
+    a.so_dt            = payload.so_dt
+    a.nganh_nhap_hoc   = payload.nganh_nhap_hoc
+    a.dot              = payload.dot
+    a.khoa             = payload.khoa
+    a.da_tn_truoc_do   = payload.da_tn_truoc_do
+    a.ghi_chu          = payload.ghi_chu
     a.nguoi_nhan_ky_ten = payload.nguoi_nhan_ky_ten
 
     # upsert docs (None => bỏ qua, <=0 => xoá)
@@ -237,7 +268,7 @@ def delete_applicant(applicant_id: int, db: Session = Depends(get_db)):
     db.commit()
     return
 
-# ----------------- PRINT ONE -----------------
+# ----------------- PRINT ONE (A4 2-up & A5) -----------------
 def _do_print(applicant_id: int, mark_printed: bool, db: Session):
     a = db.query(Applicant).filter(Applicant.id == applicant_id).first()
     if not a:
@@ -306,14 +337,10 @@ def _do_print_a5(applicant_id: int, mark_printed: bool, db: Session):
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
 
-
 @router.get("/recent")
 def get_recent_applicants(db: Session = Depends(get_db), limit: int = 50):
     q = db.query(Applicant).order_by(Applicant.id.desc()).limit(limit).all()
-    return [
-        {"id": a.id, "ma_ho_so": a.ma_ho_so, "ho_ten": a.ho_ten}
-        for a in q
-    ]
+    return [{"id": a.id, "ma_ho_so": a.ma_ho_so, "ho_ten": a.ho_ten} for a in q]
 
 @router.get("/{applicant_id}/print-a5")
 def print_applicant_a5(applicant_id: int, mark_printed: bool = Query(False), db: Session = Depends(get_db)):
