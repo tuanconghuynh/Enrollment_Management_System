@@ -12,12 +12,50 @@ from ..models.applicant import Applicant, ApplicantDoc
 from ..models.checklist import ChecklistItem, ChecklistVersion
 from ..schemas.applicant import ApplicantIn, ApplicantOut
 from ..services.pdf_service import render_single_pdf, render_single_pdf_a5
+from fastapi import Body
 
 router = APIRouter(prefix="/applicants", tags=["applicants"])
 
 # ----------------- DATE HELPERS -----------------
-_DATE_DMY = re.compile(r"^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$")
-_DATE_YMD = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+_DATE_DMY = re.compile(r'^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$')
+_DATE_YMD = re.compile(r'^(\d{4})-(\d{2})-(\d{2})$')
+def _parse_date_dmy_any(v) -> date | None:
+    """Nhận dd/mm/yyyy | dd-mm-yyyy | yyyy-mm-dd | datetime/date | None -> date|None."""
+    if v in (None, ""):
+        return None
+    if isinstance(v, date) and not isinstance(v, datetime):
+        return v
+    if isinstance(v, datetime):
+        return v.date()
+    s = str(v).strip()
+    m = _DATE_DMY.match(s)
+    if m:
+        d, mth, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return date(y, mth, d)
+    m = _DATE_YMD.match(s)
+    if m:
+        y, mth, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return date(y, mth, d)
+    raise ValueError(f"Invalid date format: {v}. Expect dd/mm/yyyy.")
+
+def _to_dmy_any(v) -> str | None:
+    """Trả chuỗi dd/mm/yyyy cho date|datetime|str hợp lệ, còn lại None."""
+    if v in (None, ""):
+        return None
+    if isinstance(v, datetime):
+        v = v.date()
+    if isinstance(v, date):
+        return v.strftime("%d/%m/%Y")
+    s = str(v).strip()
+    m = _DATE_DMY.match(s)
+    if m:
+        # chuẩn hoá về dấu "/"
+        dd, mm, yy = m.group(1).zfill(2), m.group(2).zfill(2), m.group(3)
+        return f"{dd}/{mm}/{yy}"
+    m = _DATE_YMD.match(s)
+    if m:
+        return f"{m.group(3)}/{m.group(2)}/{m.group(1)}"
+    return None
 
 def _parse_date_flexible(v):
     """
@@ -123,11 +161,11 @@ def create_applicant(payload: ApplicantIn, db: Session = Depends(get_db)):
 
     a = Applicant(
         ma_ho_so=payload.ma_ho_so.strip(),
-        ngay_nhan_hs=_parse_date_flexible(payload.ngay_nhan_hs),
+        ngay_nhan_hs=_parse_date_dmy_any(payload.ngay_nhan_hs),  # <== dùng hàm mới
         ho_ten=payload.ho_ten,
         ma_so_hv=payload.ma_so_hv,
-        # Lưu ngày sinh dạng text dd/mm/yyyy theo yêu cầu hiển thị
-        ngay_sinh=_to_dmy(payload.ngay_sinh),
+        # hệ thống của anh đang lưu ngay_sinh dạng string => chuẩn hoá "dd/mm/yyyy"
+        ngay_sinh=_to_dmy_any(payload.ngay_sinh),
         so_dt=payload.so_dt,
         nganh_nhap_hoc=payload.nganh_nhap_hoc,
         dot=payload.dot,
@@ -221,41 +259,56 @@ def find_by_ma_ho_so(ma_ho_so: str = Query(...), db: Session = Depends(get_db)):
 
 # ----------------- UPDATE -----------------
 @router.put("/{applicant_id}")
-def update_applicant(applicant_id: int, payload: ApplicantIn, db: Session = Depends(get_db)):
+def update_applicant(applicant_id: int, body: dict = Body(...), db: Session = Depends(get_db)):
     a = db.query(Applicant).get(applicant_id)
     if not a:
         raise HTTPException(404, "Applicant not found")
 
-    a.ma_ho_so         = payload.ma_ho_so.strip()
-    a.ngay_nhan_hs     = _parse_date_flexible(payload.ngay_nhan_hs)
-    a.ho_ten           = payload.ho_ten
-    a.ma_so_hv         = payload.ma_so_hv
-    # Lưu ngày sinh dạng text dd/mm/yyyy (đồng bộ với create)
-    a.ngay_sinh        = _to_dmy(payload.ngay_sinh)
-    a.so_dt            = payload.so_dt
-    a.nganh_nhap_hoc   = payload.nganh_nhap_hoc
-    a.dot              = payload.dot
-    a.khoa             = payload.khoa
-    a.da_tn_truoc_do   = payload.da_tn_truoc_do
-    a.ghi_chu          = payload.ghi_chu
-    a.nguoi_nhan_ky_ten = payload.nguoi_nhan_ky_ten
+    # Bắt buộc tối thiểu
+    def get(k, default=None): return body.get(k, default)
+    for f in ("ma_ho_so", "ho_ten", "ma_so_hv", "ngay_nhan_hs"):
+        if not str(get(f, "")).strip():
+            raise HTTPException(status_code=400, detail=f"Thiếu trường bắt buộc: {f}")
 
-    # upsert docs (None => bỏ qua, <=0 => xoá)
-    existing = {d.code: d for d in db.query(ApplicantDoc).filter_by(applicant_id=a.id).all()}
-    for d in payload.docs:
-        if d.so_luong is None:
-            continue
-        if int(d.so_luong) <= 0:
-            if d.code in existing:
-                db.delete(existing[d.code])
-        else:
-            if d.code in existing:
-                existing[d.code].so_luong = int(d.so_luong)
+    # Ánh xạ & parse ngày (dd/mm/yyyy | dd-mm-yyyy | yyyy-mm-dd)
+    try:
+        a.ma_ho_so           = get("ma_ho_so").strip()
+        a.ngay_nhan_hs       = _parse_date_dmy_any(get("ngay_nhan_hs"))
+        a.ho_ten             = get("ho_ten")
+        a.ma_so_hv           = get("ma_so_hv")
+        a.ngay_sinh          = _to_dmy_any(get("ngay_sinh"))  # hệ thống đang lưu string dd/mm/yyyy
+        a.so_dt              = get("so_dt")
+        a.nganh_nhap_hoc     = get("nganh_nhap_hoc")
+        a.dot                = get("dot")
+        a.khoa               = get("khoa")
+        a.da_tn_truoc_do     = get("da_tn_truoc_do")
+        a.ghi_chu            = get("ghi_chu")
+        a.nguoi_nhan_ky_ten  = get("nguoi_nhan_ky_ten")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Upsert docs (nếu FE không gửi docs -> bỏ qua)
+    docs = body.get("docs", None)
+    if docs is not None:
+        existing = {d.code: d for d in db.query(ApplicantDoc).filter_by(applicant_id=a.id).all()}
+        for d in docs:
+            code = d.get("code")
+            sl = d.get("so_luong")
+            if code is None or sl is None:
+                continue
+            sl = int(sl)
+            if sl <= 0:
+                if code in existing:
+                    db.delete(existing[code])
             else:
-                db.add(ApplicantDoc(applicant_id=a.id, code=d.code, so_luong=int(d.so_luong)))
+                if code in existing:
+                    existing[code].so_luong = sl
+                else:
+                    db.add(ApplicantDoc(applicant_id=a.id, code=code, so_luong=sl))
 
     db.commit()
     return {"ok": True, "id": a.id, "ma_ho_so": a.ma_ho_so}
+
 
 # ----------------- DELETE -----------------
 @router.delete("/{applicant_id}", status_code=status.HTTP_204_NO_CONTENT)

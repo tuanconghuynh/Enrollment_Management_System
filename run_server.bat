@@ -1,8 +1,8 @@
 @echo off
-setlocal enabledelayedexpansion
-title AdmissionCheck - FastAPI Server (stay-open)
+setlocal
+title AdmissionCheck - FastAPI Server (NO VENV)
 
-REM ==== Config ====
+rem ==== Config ====
 set APP=app.main:app
 set HOST=0.0.0.0
 set PORT=%1
@@ -10,57 +10,38 @@ if "%PORT%"=="" set PORT=8000
 
 cd /d "%~dp0"
 
-REM ==== Kích hoạt venv nếu có ====
-if exist ".venv\Scripts\activate.bat" (
-  call ".venv\Scripts\activate.bat"
-) else if exist "venv\Scripts\activate.bat" (
-  call "venv\Scripts\activate.bat"
-)
+rem ==== Show versions ====
+for /f %%i in ('py -c "import sys;print(sys.version.split()[0])"') do set PYVER=%%i
+for /f %%i in ('py -c "import uvicorn,sys;print(uvicorn.__version__)" 2^>nul') do set UVIVER=%%i
 
-REM ==== Kiểm tra Python ====
-where python >nul 2>&1
-if errorlevel 1 (
-  echo [ERROR] Khong tim thay "python" trong PATH.
-  echo Hay cai dat Python 3.x hoac kich hoat virtualenv truoc.
-  echo.
-  pause
-  exit /b 1
-)
+echo =================================================
+echo Python %PYVER%
+if defined UVIVER echo uvicorn %UVIVER%
+echo App  : %APP%
+echo Host : %HOST%
+echo Port : %PORT%
+echo =================================================
+echo.
 
-REM ==== Cảnh báo nếu port đang bận ====
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%PORT% " ^| findstr LISTENING') do (
-  set PID=%%a
-)
+rem ==== Canh bao neu port dang ban ====
+set PID=
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%PORT% " ^| findstr LISTENING') do set PID=%%a
 if defined PID (
-  echo [WARN] Port %PORT% dang duoc su dung boi PID !PID!.
+  echo [WARN] Port %PORT% dang duoc su dung boi PID %PID%.
   echo        Chay "stop_server.bat %PORT%" de giai phong port roi chay lai.
   echo.
   pause
   exit /b 1
 )
 
-REM ==== (Tuỳ chọn) Cai requirements neu co file ====
+rem ==== Tu dong cai requirements neu co file ====
 if exist requirements.txt (
-  echo Dang cai/Cap nhat requirements (neu can)...
-  python -m pip install -r requirements.txt
+  echo [INFO] Cai/Cap nhat requirements...
+  py -m pip install -r requirements.txt
   echo.
 )
 
-set CMD=python -m uvicorn %APP% --host %HOST% --port %PORT% --reload
-
-echo ================== RUN SERVER ==================
-echo  App  : %APP%
-echo  Host : %HOST%
-echo  Port : %PORT%
-echo  Cmd  : %CMD%
-echo =================================================
-echo.
-
-REM Dung cmd /K de GIU cua so mo sau khi uvicorn thoat (xem trace loi)
+rem ==== Chay server ====
+set CMD=py -m uvicorn %APP% --host %HOST% --port %PORT% --reload
 cmd /K %CMD%
-
-echo.
-echo [INFO] Uvicorn exited with code %errorlevel%.
-echo Nhan phim bat ky de dong cua so...
-pause >nul
 endlocal

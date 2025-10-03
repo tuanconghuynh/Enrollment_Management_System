@@ -20,8 +20,10 @@
     .kbd { padding:.15rem .35rem; border:1px solid #e5e7eb; border-radius:.375rem; background:#f8fafc; color:#334155; font-size:.75rem; }
     thead th { font-weight:700; }
     table tr:nth-child(odd) td { background:#f8fafc; }
+    #toast-wrap{position:fixed;right:16px;top:16px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+    .toast{min-width:260px;max-width:380px;padding:10px 12px;border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.12);color:#0f172a;font-weight:600;opacity:.98;transform:translateY(-10px);animation:toast-in .15s ease-out forwards}
+    .toast.info{background:#eef2ff} .toast.success{background:#ecfeff} .toast.warn{background:#fff7ed} .toast.error{background:#fee2e2}
     @keyframes toast-in { from {opacity:.0; transform: translateY(-6px)} to {opacity:1; transform: translateY(0)} }
-    .animate-toast-in { animation: toast-in .18s ease-out }
   </style>
   <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
   <link rel="apple-touch-icon" href="hutech.png">
@@ -29,6 +31,8 @@
 </head>
 
 <body class="bg-gray-50">
+  <div id="toast-wrap"></div>
+
   <div class="max-w-6xl mx-auto p-6 space-y-6">
     <header class="flex items-center justify-between">
       <div class="flex items-center gap-3 min-w-0">
@@ -38,10 +42,9 @@
 
       <div class="flex items-center gap-2">
         <label class="label">API Base</label>
-        <input id="apiBase" class="input w-80" value="http://192.168.2.82:8000" />
+        <input id="apiBase" class="input w-80" />
         <button class="btn btn-outline" id="btnReloadChecklist">↻ Checklist</button>
       </div>
-
     </header>
 
     <!-- Quick Nav -->
@@ -57,9 +60,8 @@
       <button id="navLogout" class="btn btn-secondary hidden">LogOut</button>
     </nav>
 
-
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Form tạo hồ sơ -->
+      <!-- Form tạo/cập nhật hồ sơ -->
       <section class="lg:col-span-2 card">
         <div class="section-title">Nhập Thông Tin Hồ Sơ</div>
 
@@ -76,14 +78,8 @@
             <label class="label" for="khoa">Niên Khóa</label>
             <select class="input" id="khoa" name="khoa">
               <option value="">-- Chọn khóa --</option>
-              <option value="23">23</option>
-              <option value="24">24</option>
-              <option value="25">25</option>
-              <option value="26">26</option>
-              <option value="27">27</option>
-              <option value="28">28</option>
-              <option value="29">29</option>
-              <option value="30">30</option>
+              <option>23</option><option>24</option><option>25</option><option>26</option>
+              <option>27</option><option>28</option><option>29</option><option>30</option>
             </select>
           </div>
         </div>
@@ -165,11 +161,9 @@
           </div>
         </div>
 
-        <div class="mt-6 flex gap-3 flex-wrap">
+        <div class="mt-6 flex gap-3 flex-wrap items-center">
           <button id="btnSave" class="btn btn-secondary">Lưu</button>
-          <button id="btnUpdateApplicant" class="btn btn-secondary">Cập nhật</button>
-          <!-- Toast container -->
-            <div id="toastWrap" class="fixed top-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+          <button id="btnUpdateApplicantMain" class="btn btn-secondary">Cập nhật</button>
           <button id="btnSavePrint" class="btn btn-primary">Lưu & In A4</button>
           <button id="btnSavePrintA5" class="btn btn-outline">Lưu & In A5</button>
           <span class="text-sm text-gray-500">Mẹo: nhấn <span class="kbd">Alt</span>+<span class="kbd">P</span> để Lưu & In nhanh</span>
@@ -242,7 +236,7 @@
         <hr/>
 
         <section>
-          <div class="section-title"><a><center>HELP</center></a></div>
+          <div class="section-title"><center>HELP</center></div>
           <ul class="list-disc ml-5 text-sm text-gray-600 space-y-1">
             <li>Nhớ chạy API ở <code>http://127.0.0.1:8000</code>.</li>
             <li>Đổi API Base ở góc trên nếu bạn deploy nơi khác.</li>
@@ -261,38 +255,116 @@
 
   <!-- Scripts -->
   <script>
-  // ===== helpers =====
+  // ========= helpers chung =========
   const $ = (id) => document.getElementById(id);
-  const apiBase = () => $("apiBase").value.trim().replace(/\/+$/,'');
   const PREFIX_CANDIDATES = ["", "/api"];
   let API_PREFIX = "";
+
+  // Toast
+  function showToast(msg, type='info', ms=2500){
+    const wrap = document.getElementById('toast-wrap');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = msg;
+    wrap.appendChild(el);
+    const t = setTimeout(()=>{ el.style.transition='opacity .15s'; el.style.opacity='0';
+      setTimeout(()=> el.remove(), 180);
+    }, ms);
+    el.onclick = ()=>{ clearTimeout(t); el.remove(); };
+  }
+
+  // Date utils
+  function ymdToDMY(s){
+    if(!s) return "";
+    const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+  }
+  function dmyToYMD(s){
+    if(!s) return "";
+    const m = String(s).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    return m ? `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}` : String(s).slice(0,10);
+  }
+  function fmtDateToInput(s){
+    if(!s) return ""; const d = new Date(s); return Number.isNaN(d.getTime()) ? String(s).slice(0,10) : d.toISOString().slice(0,10);
+  }
+
+  // API base
+  const apiBase = () => $("apiBase").value.trim().replace(/\/+$/,'');
 
   async function detectPrefix() {
     for (const p of PREFIX_CANDIDATES) {
       try {
-        const r = await fetch(apiBase() + p + "/health");
+        const r = await fetch(apiBase() + p + "/health", { credentials:"include" });
         if (r.ok) { API_PREFIX = p; return; }
       } catch (_) {}
     }
     API_PREFIX = "";
   }
-  const makeUrl = (path) => apiBase() + API_PREFIX + path;
 
   async function apiFetch(path, init={}) {
-    // thử với prefix hiện tại
-    let r = await fetch(makeUrl(path), init);
-    if (r.status === 404) {
+    const base = apiBase();
+    const opts = { credentials: "include", ...init };
+    // giữ nguyên headers của caller, không tự set cho blob
+    let r = await fetch(base + API_PREFIX + path, opts).catch(()=>null);
+    if (!r || r.status === 404) {
       const alt = API_PREFIX === "" ? "/api" : "";
-      try {
-        const r2 = await fetch(apiBase() + alt + path, init);
-        if (r2.ok) { API_PREFIX = alt; return r2; }
-        return r2;
-      } catch (e) { throw e; }
+      const r2 = await fetch(base + alt + path, opts).catch(()=>null);
+      if (r2 && r2.ok) API_PREFIX = alt;
+      return r2 || r;
     }
     return r;
   }
+  const safeJson = async (r) => { try { return await r.json(); } catch { return {}; } };
+  function handleAuth(r){
+    if (r && (r.status===401 || r.status===403)){
+      showToast("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.", "warn", 2500);
+      setTimeout(()=>location.href="/login", 800);
+      return true;
+    }
+    return false;
+  }
 
-  // Mặc định số lượng khi TÍCH
+  // ====== NAV / Auth UI ======
+  async function refreshAuthUI(){
+    try{
+      const r = await apiFetch('/me');
+      if (r && r.ok){
+        const me = await r.json();
+        const hello = `Xin chào, ${me.full_name || me.username} (${me.role})`;
+        $("navHello").textContent = hello;
+        $("navHello").classList.remove("hidden");
+        $("navLogin").classList.add("hidden");
+        $("navLogout").classList.remove("hidden");
+
+        const isAdmin  = me.role === "Admin";
+        const isStaff  = isAdmin || me.role === "NhanVien";
+
+        if (isStaff) { $("navImport")?.classList.remove("hidden"); $("navStudents")?.classList.remove("hidden"); }
+        else { $("navImport")?.classList.add("hidden"); $("navStudents")?.classList.add("hidden"); }
+
+        if (isAdmin) $("navAdmin")?.classList.remove("hidden");
+        else         $("navAdmin")?.classList.add("hidden");
+
+        // auto điền người nhận nếu trống
+        const rec = $("nguoi_nhan_ky_ten");
+        if (rec && !rec.value) rec.value = me.full_name || me.username || "";
+      } else {
+        ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
+        $("navLogin").classList.remove("hidden");
+        $("navLogout").classList.add("hidden");
+      }
+    }catch(_){
+      ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
+      $("navLogin").classList.remove("hidden");
+      $("navLogout").classList.add("hidden");
+    }
+  }
+  $("navLogout")?.addEventListener("click", async ()=>{
+    try { await apiFetch('/logout', { method:'POST' }); } catch(_){}
+    location.href = '/login';
+  });
+
+  // ===== Checklist =====
   const DEFAULT_QTY = {
     bang_tot_nghiep_dai_hoc: 2,
     bang_diem_dai_hoc: 2,
@@ -304,35 +376,15 @@
   };
   const getDefaultQty = (code) => DEFAULT_QTY[code] ?? 1;
 
-    function toDMY(s){
-    if(!s) return "";
-    // Excel/ISO → dd/mm/yyyy
-    // s có thể là '2025-10-02', '2025-10-02T00:00:00', '02/10/2025'
-    const t = String(s).trim();
-    // dd/mm/yyyy đã đúng
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(t)) return t;
-    // yyyy-mm-dd(Thh:mm:ss)
-    const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
-    // fallback Date()
-    const d = new Date(t); if (!isNaN(d)) {
-      const dd = String(d.getDate()).padStart(2,"0");
-      const mm = String(d.getMonth()+1).padStart(2,"0");
-      const yy = d.getFullYear();
-      return `${dd}/${mm}/${yy}`;
-    }
-    return t;
-  }
-  // ===== checklist =====
   async function loadChecklist() {
     try {
       const r = await apiFetch("/checklist/active");
-      if (!r.ok) { alert("Không lấy được checklist: " + r.status); return; }
+      if (!r || !r.ok) { showToast("Không lấy được checklist", "error"); return; }
       const data = await r.json();
       const body = $("docsBody");
       body.innerHTML = "";
 
-      data.items
+      (data.items||[])
         .sort((a,b)=> (a.order_index ?? a.order_no ?? 0) - (b.order_index ?? b.order_no ?? 0))
         .forEach((it, idx) => {
           const def = getDefaultQty(it.code);
@@ -370,7 +422,7 @@
       });
     } catch (err) {
       console.error(err);
-      alert('Lỗi tải checklist');
+      showToast('Lỗi tải checklist', 'error');
     }
   }
 
@@ -390,10 +442,10 @@
   function payloadFromForm() {
     return {
       ma_ho_so: $("ma_ho_so").value.trim(),
-      ngay_nhan_hs: $("ngay_nhan_hs").value,
+      ngay_nhan_hs: ymdToDMY($("ngay_nhan_hs").value),
       ho_ten: $("ho_ten").value.trim(),
       ma_so_hv: $("ma_so_hv").value.trim(),
-      ngay_sinh: $("ngay_sinh").value || null,
+      ngay_sinh: ymdToDMY($("ngay_sinh").value) || null,
       so_dt: $("so_dt").value.trim() || null,
       nganh_nhap_hoc: $("nganh_nhap_hoc").value.trim() || null,
       dot: $("dot").value.trim() || null,
@@ -405,194 +457,30 @@
       checklist_version_name: "v1"
     };
   }
-  function showToast(message, type = "success") {
-    const wrap = $("toastWrap");
-    if (!wrap) return;
-    const el = document.createElement("div");
-    const bg =
-      type === "success" ? "bg-emerald-600" :
-      type === "error"   ? "bg-red-600"     :
-      /* info */           "bg-sky-600";
-    el.className = `pointer-events-auto ${bg} text-white px-4 py-2 rounded-lg shadow-lg animate-toast-in transition
-                     hover:opacity-90`;
-    el.innerHTML = `<div class="flex items-start gap-3">
-        <span class="pt-0.5">${type==="success"?"✅":type==="error"?"⛔":"ℹ️"}</span>
-        <div class="text-sm leading-5">${message}</div>
-        <button class="ml-2 text-white/80 hover:text-white">✖</button>
-      </div>`;
-    // đóng khi bấm
-    el.querySelector("button").onclick = () => el.remove();
-    // auto ẩn sau 2.8s
-    const t = setTimeout(() => {
-      el.classList.add("opacity-0", "translate-y-1");
-      setTimeout(() => el.remove(), 220);
-    }, 2800);
-    // nếu hover thì tạm dừng auto ẩn
-    el.addEventListener("mouseenter", () => clearTimeout(t));
-    wrap.appendChild(el);
+
+  // ===== Save / Create =====
+  async function createApplicant(){
+    const body = payloadFromForm();
+    if(!body.ma_ho_so || !body.ho_ten || !body.ma_so_hv || !body.ngay_nhan_hs){
+      showToast("Thiếu Mã hồ sơ / Họ tên / MSHV / Ngày nhận.", "error");
+      return null;
+    }
+    const r = await apiFetch("/applicants", { method: "POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    if (handleAuth(r)) return null;
+    const j = await safeJson(r);
+    if (!r.ok){ showToast(j.detail || `Lỗi lưu (HTTP ${r.status})`, "error", 4000); return null; }
+    window.loadedApplicant = { id: j.id, ma_ho_so: body.ma_ho_so };
+    setPrintButtonsEnabled(true);
+    return j;
   }
 
-  // ====== NAV: hiện/ẩn theo session & auto điền người nhận ======
-  async function refreshAuthUI(){
-    try{
-      const r = await apiFetch('/me');
-      if (r.ok){
-        const me = await r.json();
-        const hello = `Xin chào, ${me.full_name || me.username} (${me.role})`;
-        $("navHello").textContent = hello;
-        $("navHello").classList.remove("hidden");
-        $("navLogin").classList.add("hidden");
-        $("navLogout").classList.remove("hidden");
+  // ===== Lookup / Update / Delete =====
+  let loadedApplicant = null;
+  let loadedDocsByCode = {};
 
-        const isAdmin  = me.role === "Admin";
-        const isStaff  = isAdmin || me.role === "NhanVien";
-        const isCTV    = me.role === "CongTacVien";
-
-        // Import + Danh sách: chỉ Staff (Admin/Nhân viên)
-        if (isStaff) {
-          $("navImport")?.classList.remove("hidden");
-          $("navStudents")?.classList.remove("hidden");
-        } else {
-          $("navImport")?.classList.add("hidden");
-          $("navStudents")?.classList.add("hidden");
-        }
-
-        // Trang quản trị: chỉ Admin
-        if (isAdmin) $("navAdmin")?.classList.remove("hidden");
-        else         $("navAdmin")?.classList.add("hidden");
-
-        // auto điền Người nhận nếu trống
-        const rec = $("nguoi_nhan_ky_ten");
-        if (rec && !rec.value) rec.value = me.full_name || me.username || "";
-      } else {
-        // chưa đăng nhập
-        ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
-        $("navLogin").classList.remove("hidden");
-        $("navLogout").classList.add("hidden");
-      }
-    }catch(_){
-      ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
-      $("navLogin").classList.remove("hidden");
-      $("navLogout").classList.add("hidden");
-    }
-  }
-
-  // Logout
-  $("navLogout")?.addEventListener("click", async ()=>{
-    try { await apiFetch('/logout', { method:'POST' }); } catch(_){}
-    location.href = '/login';
-  });
-  // ==== OPEN PDF helper (có fallback nếu bị chặn popup) ====
-  function openPdf(url){
-    const w = window.open(url, "_blank");
-    if(!w){ window.location.href = url; }
-  }
-
-  // ===== actions: save / save+print =====
-  $("btnSave").onclick = async () => {
-    const res = await createApplicant();
-    if (res) {
-      $("msg").textContent = `Đã lưu hồ sơ ${res.ma_ho_so} (id=${res.id}).`;
-      showToast(`Đã lưu hồ sơ <b>${res.ma_ho_so}</b>.`, "success");
-    }
-  };
-
-
-  $("btnSavePrint").onclick = async () => {
-    const res = await createApplicant();
-    if (res) {
-      const base = apiBase();
-      openPdf(`${base}/api/print/a4-two-up/${res.id}`); // In A4 (2-up)
-      $("msg").textContent = `Đã lưu & in A4 (2-up) hồ sơ ${res.ma_ho_so}.`;
-      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so}</b>.`, "success");
-    }
-  };
-
-  $("btnSavePrintA5").onclick = async () => {
-    const res = await createApplicant();
-    if (res) {
-      const base = apiBase();
-      openPdf(`${base}/api/print/a5/${res.id}`); // In A5
-      $("msg").textContent = `Đã lưu & in A5 hồ sơ ${res.ma_ho_so}.`;
-      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so}</b>.`, "success");
-    }
-  };
-
-  // Alt+P -> Lưu & In (A4 2-up)
-  document.addEventListener('keydown', (e) => {
-    if (e.altKey && (e.key === 'p' || e.key === 'P')) $("btnSavePrint").click();
-  });
-
-  // ===== In/Export theo ngày =====
-  $("btnBatchPDF").onclick = async () => {
-    const d = $("batchDate").value;
-    if (!d) { alert("Chọn ngày nhận HS"); return; }
-    const resp = await fetch(makeUrl(`/batch/print?day=${d}`));
-    if (!resp.ok) {
-      let msg = `Không thể in (HTTP ${resp.status})`;
-      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
-      alert(msg); return;
-    }
-    const blob = await resp.blob();
-    const u = URL.createObjectURL(blob);
-    window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
-  };
-
-  $("btnExportExcel").onclick = async () => {
-    const d = $("batchDate").value;
-    if (!d) { alert("Chọn ngày nhận HS"); return; }
-    const resp = await fetch(makeUrl(`/export/excel?day=${d}`));
-    if (!resp.ok) {
-      let msg = `Không thể xuất Excel (HTTP ${resp.status})`;
-      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
-      alert(msg); return;
-    }
-    const blob = await resp.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `tong_ngay_${d}.xlsx`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
-  };
-
-  // ===== In/Export theo đợt =====
-  $("btnBatchPDFDot").onclick = async () => {
-    const dot = $("batchDot").value.trim();
-    if (!dot) { alert("Nhập tên đợt trước đã"); return; }
-    const resp = await fetch(makeUrl(`/batch/print-dot?dot=${encodeURIComponent(dot)}`));
-    if (!resp.ok) {
-      let msg = `Không thể in theo đợt (HTTP ${resp.status})`;
-      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
-      alert(msg); return;
-    }
-    const blob = await resp.blob();
-    const u = URL.createObjectURL(blob);
-    window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
-  };
-
-  $("btnExportExcelDot").onclick = async () => {
-    const dot = $("batchDot").value.trim();
-    if (!dot) { alert("Nhập tên đợt trước đã"); return; }
-    const resp = await fetch(makeUrl(`/export/excel-dot?dot=${encodeURIComponent(dot)}`));
-    if (!resp.ok) {
-      let msg = `Không thể xuất Excel theo đợt (HTTP ${resp.status})`;
-      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
-      alert(msg); return;
-    }
-    const blob = await resp.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `tong_dot_${dot}.xlsx`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
-  };
-
-  // ===== Helpers for Lookup =====
-  let loadedApplicant = null;   // currently loaded applicant (for update/delete)
-  let loadedDocsByCode = {};    // code -> qty
-
-  function fmtDateToInput(s){
-    if(!s) return ""; const d = new Date(s); return Number.isNaN(d.getTime()) ? s : d.toISOString().slice(0,10);
+  function setPrintButtonsEnabled(on) {
+    $("btnPrintLoadedA5").disabled   = !on;
+    $("btnPrintLoadedA42up").disabled = !on;
   }
 
   function populateFormFromApplicant(a, docs){
@@ -623,42 +511,37 @@
     if (document.querySelectorAll('#docsBody tr').length === 0) loadChecklist().then(applyDocsToTable); else applyDocsToTable();
   }
 
-  const dmyToYmd = (s) => {
-    if (!s) return "";
-    const m = String(s).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (m) { const dd=m[1].padStart(2,'0'), mm=m[2].padStart(2,'0'), yy=m[3]; return `${yy}-${mm}-${dd}`; }
-    return String(s).slice(0,10);
-  };
-
   async function loadApplicantByCode(code){
     let r = await apiFetch(`/applicants/find?ma_ho_so=${encodeURIComponent(code)}`);
-    if (r.status === 404 || r.status === 405) {
+    if (!r || r.status === 404 || r.status === 405) {
       r = await apiFetch(`/applicants/by-code/${encodeURIComponent(code)}`);
     }
-    if (!r.ok) {
-      if (r.status === 404) alert(`Không tìm thấy hồ sơ với mã ${code}`);
-      const t = await r.text();
-      throw new Error(`Lỗi tải hồ sơ (HTTP ${r.status})\n${t}`);
+    if (!r || !r.ok) {
+      if (r && r.status === 404) showToast(`Không tìm thấy hồ sơ ${code}`, "warn");
+      const t = r ? await r.text() : "(không phản hồi)";
+      throw new Error(`Lỗi tải hồ sơ (HTTP ${r ? r.status : '???'})\n${t}`);
     }
     const data = await r.json();
     const raw = (data && data.applicant) ? { ...data.applicant, docs: data.docs || [] } : data;
-    raw.ngay_nhan_hs = dmyToYmd(raw.ngay_nhan_hs);
-    raw.ngay_sinh    = dmyToYmd(raw.ngay_sinh);
+    raw.ngay_nhan_hs = dmyToYMD(raw.ngay_nhan_hs);
+    raw.ngay_sinh    = dmyToYMD(raw.ngay_sinh);
     return raw;
   }
 
   async function updateLoadedApplicant(){
-    if(!loadedApplicant?.id){ alert("Chưa tải hồ sơ nào để cập nhật."); return; }
+    if(!loadedApplicant?.id){ throw new Error("Chưa tải hồ sơ nào để cập nhật."); }
     const body = payloadFromForm();
-    const r = await apiFetch(`/applicants/${loadedApplicant.id}`, { method: "PUT", headers: { "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    const r = await apiFetch(`/applicants/${loadedApplicant.id}`, { method: "PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    if (handleAuth(r)) return;
     if(!r.ok){ const t = await r.text(); throw new Error(`Cập nhật thất bại (HTTP ${r.status})\n${t}`); }
     return r.json();
   }
 
   async function deleteLoadedApplicant(){
-    if(!loadedApplicant?.id){ alert("Chưa tải hồ sơ nào để xoá."); return; }
+    if(!loadedApplicant?.id){ throw new Error("Chưa tải hồ sơ nào để xoá."); }
     if(!confirm(`Xoá hồ sơ ${loadedApplicant.ma_ho_so}?`)) return;
     const r = await apiFetch(`/applicants/${loadedApplicant.id}`, { method: "DELETE" });
+    if (handleAuth(r)) return;
     if(!r.ok){ const t = await r.text(); throw new Error(`Xoá thất bại (HTTP ${r.status})\n${t}`); }
     loadedApplicant = null; loadedDocsByCode = {};
     setPrintButtonsEnabled(false);
@@ -666,24 +549,20 @@
     showToast("Đã xoá hồ sơ.", "info");
   }
 
-  // Search by name
   async function searchByName(name){
     const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(name)}`);
-    if(!r.ok){ const t = await r.text(); throw new Error(`Tìm theo tên lỗi (HTTP ${r.status})\n${t}`); }
+    if(!r || !r.ok){ const t = r ? await r.text() : "(không phản hồi)"; throw new Error(`Tìm theo tên lỗi (HTTP ${r ? r.status : '???'})\n${t}`); }
     return r.json();
   }
 
   function renderNameResults(list){
     const box = $("nameResults");
     const ul  = $("nameResultsList");
-
     if(!list || list.length === 0){
       box.classList.remove("hidden");
       ul.innerHTML = '<li class="p-2 text-sm text-gray-500">Không tìm thấy.</li>';
       return;
     }
-
-    // render li có data-code
     ul.innerHTML = list.map(it => {
       const ngay = it.ngay_nhan_hs ? String(it.ngay_nhan_hs).slice(0,10) : '';
       return `
@@ -699,8 +578,6 @@
           </div>
         </li>`;
     }).join("");
-
-    // Bắt click ở UL (event delegation)
     if (!ul._boundClick) {
       ul.addEventListener('click', (e)=>{
         const li = e.target.closest('li[data-code]');
@@ -710,19 +587,122 @@
         box.classList.add('hidden');
         $("btnLoadApplicant").click();
       });
-      ul._boundClick = true; // gắn cờ để không bind nhiều lần
+      ul._boundClick = true;
     }
-
     box.classList.remove('hidden');
   }
 
-  // --- bật/tắt 2 nút In theo trạng thái tra cứu ---
-  function setPrintButtonsEnabled(on) {
-    $("btnPrintLoadedA5").disabled   = !on;
-    $("btnPrintLoadedA42up").disabled = !on;
+  // ===== In / Export =====
+  function openPdf(url){
+    const w = window.open(url, "_blank");
+    if(!w){ window.location.href = url; }
   }
 
-  // --- Bind events ---
+  $("btnBatchPDF").onclick = async () => {
+    const d = $("batchDate").value;
+    if (!d) { alert("Chọn ngày nhận HS"); return; }
+    let resp = await apiFetch(`/batch/print?day=${encodeURIComponent(d)}`);
+    if (!resp || !resp.ok) {
+      const ddmmyyyy = ymdToDMY(d);
+      resp = await apiFetch(`/batch/print?date=${encodeURIComponent(ddmmyyyy)}`);
+    }
+    if (!resp || !resp.ok) {
+      let msg = `Không thể in (HTTP ${resp?.status||'???'})`;
+      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
+      alert(msg); return;
+    }
+    const blob = await resp.blob();
+    const u = URL.createObjectURL(blob);
+    window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
+  };
+
+  $("btnExportExcel").onclick = async () => {
+    const d = $("batchDate").value;
+    if (!d) { alert("Chọn ngày nhận HS"); return; }
+    let resp = await apiFetch(`/export/excel?day=${encodeURIComponent(d)}`);
+    if (!resp || !resp.ok) {
+      const ddmmyyyy = ymdToDMY(d);
+      resp = await apiFetch(`/export/excel?date=${encodeURIComponent(ddmmyyyy)}`);
+    }
+    if (!resp || !resp.ok) {
+      let msg = `Không thể xuất Excel (HTTP ${resp?.status||'???'})`;
+      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
+      alert(msg); return;
+    }
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `tong_ngay_${d}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
+  };
+
+  $("btnBatchPDFDot").onclick = async () => {
+    const dot = $("batchDot").value.trim();
+    if (!dot) { alert("Nhập tên đợt trước đã"); return; }
+    const resp = await apiFetch(`/batch/print-dot?dot=${encodeURIComponent(dot)}`);
+    if (!resp || !resp.ok) {
+      let msg = `Không thể in theo đợt (HTTP ${resp?.status||'???'})`;
+      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
+      alert(msg); return;
+    }
+    const blob = await resp.blob();
+    const u = URL.createObjectURL(blob);
+    window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
+  };
+
+  $("btnExportExcelDot").onclick = async () => {
+    const dot = $("batchDot").value.trim();
+    if (!dot) { alert("Nhập tên đợt trước đã"); return; }
+    const resp = await apiFetch(`/export/excel-dot?dot=${encodeURIComponent(dot)}`);
+    if (!resp || !resp.ok) {
+      let msg = `Không thể xuất Excel theo đợt (HTTP ${resp?.status||'???'})`;
+      try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
+      alert(msg); return;
+    }
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `tong_dot_${dot}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
+  };
+
+  // ===== Bind form actions =====
+  $("btnSave").onclick = async () => {
+    const res = await createApplicant();
+    if (res) {
+      $("msg").textContent = `Đã lưu hồ sơ ${res.ma_ho_so} (id=${res.id}).`;
+      showToast(`Đã lưu hồ sơ <b>${res.ma_ho_so}</b>.`, "success");
+    }
+  };
+
+  $("btnSavePrint").onclick = async () => {
+    const res = await createApplicant();
+    if (res) {
+      const base = apiBase();
+      openPdf(`${base}/api/print/a4-two-up/${res.id}`);
+      $("msg").textContent = `Đã lưu & in A4 (2-up) hồ sơ ${res.ma_ho_so}.`;
+      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so}</b>.`, "success");
+    }
+  };
+
+  $("btnSavePrintA5").onclick = async () => {
+    const res = await createApplicant();
+    if (res) {
+      const base = apiBase();
+      openPdf(`${base}/api/print/a5/${res.id}`);
+      $("msg").textContent = `Đã lưu & in A5 hồ sơ ${res.ma_ho_so}.`;
+      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so}</b>.`, "success");
+    }
+  };
+
+  // Alt+P -> Lưu & In (A4 2-up)
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey && (e.key === 'p' || e.key === 'P')) $("btnSavePrint").click();
+  });
+
+  // Lookup bindings
   $("btnLoadApplicant").onclick = async () => {
     try{
       const code = $("q_ma_ho_so").value.trim();
@@ -738,11 +718,7 @@
       setPrintButtonsEnabled(false);
     }
   };
-
-  // Enter ở ô Mã hồ sơ
-  $("q_ma_ho_so").addEventListener('keydown', (e)=>{ 
-    if(e.key==='Enter'){ e.preventDefault(); $("btnLoadApplicant").click(); }
-  });
+  $("q_ma_ho_so").addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); $("btnLoadApplicant").click(); } });
 
   $("btnSearchByName").onclick = async () => {
     try{
@@ -754,77 +730,56 @@
       $("lookupMsg").textContent = `Tìm thấy ${list.length} kết quả.`;
     }catch(e){ $("lookupMsg").textContent = e.message; }
   };
-
   $("q_ho_ten").addEventListener('keydown', (e)=>{ if(e.key==='Enter') $("btnSearchByName").click(); });
 
-  $("btnUpdateApplicant").onclick = async () => {
-    try{
-      $("lookupMsg").textContent = "Đang cập nhật...";
-      const res = await updateLoadedApplicant();
-      $("lookupMsg").textContent = `Cập nhật xong hồ sơ ${res.ma_ho_so}.`;
-      showToast(`Đã cập nhật hồ sơ <b>${res.ma_ho_so}</b> thành công.`, "success");
-    } catch(e){
-      $("lookupMsg").textContent = e.message;
-      showToast(e.message || "Cập nhật thất bại.", "error");
-    }
-  };
+  // Update (cả 2 nút)
+  ["btnUpdateApplicant", "btnUpdateApplicantMain"].forEach(id=>{
+    $(id)?.addEventListener("click", async () => {
+      try{
+        $("lookupMsg").textContent = "Đang cập nhật...";
+        const res = await updateLoadedApplicant();
+        $("lookupMsg").textContent = `Cập nhật xong hồ sơ ${res.ma_ho_so}.`;
+        showToast(`Đã cập nhật hồ sơ <b>${res.ma_ho_so}</b> thành công.`, "success");
+      } catch(e){
+        $("lookupMsg").textContent = e.message;
+        showToast(e.message || "Cập nhật thất bại.", "error");
+      }
+    });
+  });
 
+  // Delete
   $("btnDeleteApplicant").onclick = async () => {
-    try{ await deleteLoadedApplicant(); } catch(e){ $("lookupMsg").textContent = e.message; }
+    try{ await deleteLoadedApplicant(); } catch(e){ $("lookupMsg").textContent = e.message; showToast(e.message, "error"); }
   };
 
-  // In hồ sơ đang mở
+  // Print loaded
   $("btnPrintLoadedA5").onclick = () => {
     if (!loadedApplicant?.id) return alert("Chưa tải hồ sơ nào.");
     const base = apiBase();
     openPdf(`${base}/api/print/a5/${loadedApplicant.id}`);
   };
-
   $("btnPrintLoadedA42up").onclick = () => {
     if (!loadedApplicant?.id) return alert("Chưa tải hồ sơ nào.");
     const base = apiBase();
     openPdf(`${base}/api/print/a4-two-up/${loadedApplicant.id}`);
   };
 
-  async function ensureLoggedInAndSetReceiver(){
-  try{
-    const r = await apiFetch("/me");        // gọi /api/me (vì apiFetch thêm prefix "" hoặc "/api")
-    if(!r.ok){ throw new Error("unauth"); }
-    const me = await r.json();
-    // điền & khóa ô Người nhận (ký tên)
-    const ip = $("nguoi_nhan_ky_ten");
-    if (ip) {
-      if (!ip.value) ip.value = me.full_name || me.username || "";
-      ip.readOnly = true;                       // khóa để tránh sửa tay (tùy anh, có thể bỏ)
-      ip.classList.add("bg-gray-100","cursor-not-allowed");
-      // hiển thị user ở header
-      const l = $("loginUser"); if (l) l.textContent = `Đang đăng nhập: ${me.full_name || me.username} (${me.role})`;
-    }
-    // nút Đăng xuất
-    const btnL = $("btnLogout");
-    if(btnL){
-      btnL.onclick = async () => { await fetch(makeUrl("/logout"), {method:"POST"}); location.href="/login"; };
-    }
-  }catch(e){
-    // chưa đăng nhập -> chuyển tới /login
-    location.href = "/login";
-  }
-}
+  // Reload checklist
+  $("btnReloadChecklist").onclick = () => loadChecklist();
 
   // ===== init =====
-
   window.addEventListener('load', async () => {
-  const today = new Date().toISOString().slice(0,10);
-  $("ngay_nhan_hs").value = today;
-  $("batchDate").value = today;
-  $("q_ma_ho_so")?.focus();
-  await detectPrefix();
-  await ensureLoggedInAndSetReceiver();
-  await refreshAuthUI(); // cập nhật NAV
-  loadChecklist();
-  setPrintButtonsEnabled(false);
-});
-
+    // default API base = origin
+    $("apiBase").value = window.location.origin;
+    const today = new Date().toISOString().slice(0,10);
+    $("ngay_nhan_hs").value = today;
+    $("batchDate").value = today;
+    $("q_ma_ho_so")?.focus();
+    await detectPrefix();
+    await refreshAuthUI();
+    await loadChecklist();
+    setPrintButtonsEnabled(false);
+  });
   </script>
 </body>
 </html>
