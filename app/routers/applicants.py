@@ -13,6 +13,11 @@ from ..models.checklist import ChecklistItem, ChecklistVersion
 from ..schemas.applicant import ApplicantIn, ApplicantOut
 from ..services.pdf_service import render_single_pdf, render_single_pdf_a5
 from fastapi import Body
+from sqlalchemy import or_
+from fastapi import Query, Depends
+from sqlalchemy.orm import Session
+
+
 
 router = APIRouter(prefix="/applicants", tags=["applicants"])
 
@@ -112,37 +117,107 @@ def _to_ymd(v):
     return f"{d.year:04d}-{d.month:02d}-{d.day:02d}" if d else None
 
 # ----------------- FIND BY CODE (cho UI) -----------------
+from sqlalchemy import func
+from datetime import date, datetime
+from fastapi import Depends, HTTPException
+from .auth import require_roles
+
+def _to_dmy(v):
+    if not v:
+        return None
+    if isinstance(v, datetime):
+        d = v.date()
+    else:
+        d = v
+    if isinstance(d, date):
+        return f"{d.day:02d}/{d.month:02d}/{d.year:04d}"
+    return None
+
+def _to_iso(v):
+    if not v:
+        return None
+    if isinstance(v, datetime):
+        return v.isoformat()
+    if isinstance(v, date):
+        return datetime.combine(v, datetime.min.time()).isoformat()
+    return None
+
 @router.get("/by-code/{ma_ho_so}")
-def get_by_code(ma_ho_so: str, db: Session = Depends(get_db)):
-    code = (ma_ho_so or "").strip()
-    a = db.query(Applicant).filter(Applicant.ma_ho_so == code).first()
+def get_by_code(
+    ma_ho_so: str,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),  # CTV xem được
+):
+    key = (ma_ho_so or "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="Thiếu mã hồ sơ")
+
+    # 1) thử khớp không phân biệt hoa/thường
+    a = (
+        db.query(Applicant)
+        .filter(func.lower(Applicant.ma_ho_so) == key.lower())
+        .first()
+    )
+
+    # 2) nếu không có và người dùng nhập toàn số -> thử theo ID
+    if not a and key.isdigit():
+        a = db.query(Applicant).filter(Applicant.id == int(key)).first()
+
+    # 3) fallback nhẹ: like (ít khi cần)
+    if not a:
+        a = (
+            db.query(Applicant)
+            .filter(Applicant.ma_ho_so.ilike(key))
+            .first()
+        )
+
     if not a:
         raise HTTPException(status_code=404, detail="Not Found")
 
-    docs = db.query(ApplicantDoc).filter(ApplicantDoc.applicant_id == a.id).all()
+    docs = (
+        db.query(ApplicantDoc)
+        .filter(ApplicantDoc.applicant_id == a.id)
+        .all()
+    )
+
+    # lấy các field có thể khác tên giữa các version
+    def pick(*names):
+        for n in names:
+            if hasattr(a, n):
+                v = getattr(a, n)
+                if v not in (None, ""):
+                    return v
+        return None
 
     applicant_payload = {
         "id": a.id,
         "ma_ho_so": a.ma_ho_so,
+
+        # ngày: trả cả 2 dạng cho UI
         "ngay_nhan_hs": _to_dmy(a.ngay_nhan_hs),
+        "ngay_nhan_hs_iso": _to_iso(a.ngay_nhan_hs),
+        "ngay_sinh": _to_dmy(a.ngay_sinh),
+        "ngay_sinh_iso": _to_iso(a.ngay_sinh),
+
         "ho_ten": a.ho_ten,
         "ma_so_hv": a.ma_so_hv,
-        "ngay_sinh": _to_dmy(a.ngay_sinh),
         "so_dt": a.so_dt,
-        "nganh_nhap_hoc": a.nganh_nhap_hoc,
-        "dot": a.dot,
-        "khoa": getattr(a, "khoa", None),
+        "nganh_nhap_hoc": pick("nganh_nhap_hoc", "nganh"),
+        "dot": pick("dot", "dot_tuyen"),
+        "khoa": pick("khoa", "khoa_hoc", "khoahoc", "nien_khoa"),
         "da_tn_truoc_do": a.da_tn_truoc_do,
         "ghi_chu": a.ghi_chu,
-        "nguoi_nhan_ky_ten": a.nguoi_nhan_ky_ten,
-        "status": a.status,
-        "printed": a.printed,
-        "checklist_version_id": a.checklist_version_id,
+        "nguoi_nhan_ky_ten": pick("nguoi_nhan_ky_ten", "nguoi_nhan", "nguoi_ky"),
+        "status": getattr(a, "status", None),
+        "printed": getattr(a, "printed", None),
+        "checklist_version_id": getattr(a, "checklist_version_id", None),
     }
+
     return {
         "applicant": applicant_payload,
         "docs": [{"code": d.code, "so_luong": int(d.so_luong or 0)} for d in docs],
     }
+
 
 # ----------------- CREATE -----------------
 @router.post("", response_model=ApplicantOut, status_code=201)
@@ -191,33 +266,49 @@ def create_applicant(payload: ApplicantIn, db: Session = Depends(get_db)):
     return ApplicantOut(id=a.id, ma_ho_so=a.ma_ho_so, status=a.status, printed=a.printed)
 
 # ----------------- SEARCH (cho UI) -----------------
+
+# ---- SEARCH: cho Admin, Nhân viên, Cộng tác viên ----
 @router.get("/search")
 def search_applicants(
-    q: str = Query(..., min_length=2),
-    limit: int = 10,
+    q: str | None = Query(None, description="Để trống = lấy tất cả"),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=1000),
     db: Session = Depends(get_db),
+    user=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
 ):
-    like = f"%{q}%"
-    rows = (
-        db.query(Applicant)
-        .filter((Applicant.ho_ten.ilike(like)) | (Applicant.ma_ho_so.ilike(like)))
-        .order_by(Applicant.id.desc())
-        .limit(limit)
-        .all()
-    )
-    return [
-        {
+    qn = (q or "").strip()
+    if qn in {"", "%", "*"}:
+        qn = None
+
+    query = db.query(Applicant)
+    if qn:
+        like = f"%{qn}%"
+        query = query.filter(
+            or_(Applicant.ho_ten.ilike(like),
+                Applicant.ma_ho_so.ilike(like),
+                Applicant.ma_so_hv.ilike(like))
+        )
+
+    total = query.count()
+    rows = (query.order_by(Applicant.id.desc())
+                 .offset((page-1)*size)
+                 .limit(size)
+                 .all())
+
+    return {
+        "items": [{
             "id": a.id,
             "ma_ho_so": a.ma_ho_so,
             "ho_ten": a.ho_ten,
             "ma_so_hv": a.ma_so_hv,
-            # Giữ ISO ở search để UI dễ xử lý (input type=date)
             "ngay_nhan_hs": a.ngay_nhan_hs.isoformat() if a.ngay_nhan_hs else None,
             "dot": a.dot,
-        }
-        for a in rows
-    ]
-
+            "nganh_nhap_hoc": getattr(a, "nganh_nhap_hoc", None),
+            "khoa": getattr(a, "khoa", None),
+            "nguoi_nhan_ky_ten": getattr(a, "nguoi_nhan_ky_ten", None),
+        } for a in rows],
+        "page": page, "size": size, "total": total,
+    }
 # ----------------- FIND BY CODE (API cho hệ thống khác) -----------------
 @router.get("/find")
 @router.get("/find/")
@@ -389,6 +480,8 @@ def _do_print_a5(applicant_id: int, mark_printed: bool, db: Session):
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
+
+
 
 @router.get("/recent")
 def get_recent_applicants(db: Session = Depends(get_db), limit: int = 50):

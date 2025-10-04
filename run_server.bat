@@ -1,47 +1,55 @@
 @echo off
 setlocal
-title AdmissionCheck - FastAPI Server (NO VENV)
-
-rem ==== Config ====
-set APP=app.main:app
-set HOST=0.0.0.0
-set PORT=%1
-if "%PORT%"=="" set PORT=8000
-
 cd /d "%~dp0"
 
-rem ==== Show versions ====
-for /f %%i in ('py -c "import sys;print(sys.version.split()[0])"') do set PYVER=%%i
-for /f %%i in ('py -c "import uvicorn,sys;print(uvicorn.__version__)" 2^>nul') do set UVIVER=%%i
+echo ==============================================
+echo  AdmissionCheck - FastAPI runner (Windows)
+echo  Folder: %CD%
+echo ==============================================
 
-echo =================================================
-echo Python %PYVER%
-if defined UVIVER echo uvicorn %UVIVER%
-echo App  : %APP%
-echo Host : %HOST%
-echo Port : %PORT%
-echo =================================================
-echo.
-
-rem ==== Canh bao neu port dang ban ====
-set PID=
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%PORT% " ^| findstr LISTENING') do set PID=%%a
-if defined PID (
-  echo [WARN] Port %PORT% dang duoc su dung boi PID %PID%.
-  echo        Chay "stop_server.bat %PORT%" de giai phong port roi chay lai.
-  echo.
-  pause
-  exit /b 1
+REM ---- Chon Python tao venv ----
+where py >nul 2>nul
+if %errorlevel%==0 (
+  set "PY_BOOT=py -3"
+) else (
+  set "PY_BOOT=python"
 )
 
-rem ==== Tu dong cai requirements neu co file ====
+REM ---- Tao venv neu chua co ----
+if not exist ".venv\Scripts\python.exe" (
+  echo [*] Creating virtualenv .venv ...
+  %PY_BOOT% -m venv .venv
+  if errorlevel 1 (
+    echo [x] Tao venv that bai.
+    pause
+    exit /b 1
+  )
+)
+
+set "VENV_PY=.venv\Scripts\python.exe"
+
+echo [*] Ensuring pip is up-to-date...
+"%VENV_PY%" -m pip install --upgrade pip >nul
+
 if exist requirements.txt (
-  echo [INFO] Cai/Cap nhat requirements...
-  py -m pip install -r requirements.txt
-  echo.
+  echo [*] Installing requirements.txt ...
+  "%VENV_PY%" -m pip install -r requirements.txt
 )
 
-rem ==== Chay server ====
-set CMD=py -m uvicorn %APP% --host %HOST% --port %PORT% --reload
-cmd /K %CMD%
+REM ---- Nhap HOST/PORT ----
+set "HOST_DEFAULT=127.0.0.1 hoac 192.168.2.82 hoac IPV4 của máy"
+set "PORT_DEFAULT=8000"
+
+set /p HOST=Host [%HOST_DEFAULT%]: 
+if "%HOST%"=="" set "HOST=%HOST_DEFAULT%"
+
+set /p PORT=Port [%PORT_DEFAULT%]: 
+if "%PORT%"=="" set "PORT=%PORT_DEFAULT%"
+
+echo.
+echo [*] Starting server on %HOST%:%PORT% (reload) ...
+echo     CTRL+C de dung.
+
+REM ---- Chay uvicorn tu venv ----
+"%VENV_PY%" -m uvicorn app.main:app --reload --host %HOST% --port %PORT%
 endlocal

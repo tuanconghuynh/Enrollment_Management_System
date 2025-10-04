@@ -1,24 +1,55 @@
 @echo off
 setlocal
-set "PORT=%1"
-if "%PORT%"=="" set "PORT=8000"
+cd /d "%~dp0"
 
-echo Dung tien trinh LISTEN tren port %PORT% ...
+echo ==============================================
+echo  AdmissionCheck - FastAPI runner (Windows)
+echo  Folder: %CD%
+echo ==============================================
 
-rem --- Thu PowerShell (Windows 10+) ---
-powershell -NoProfile -Command ^
-  "try {Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction Stop ^| %%{taskkill /F /PID $_.OwningProcess}} catch {exit 1}" >nul 2>&1
-if not errorlevel 1 (
-  echo [OK] Da dung bang PowerShell.
-  goto :done
+REM ---- Chon Python tao venv ----
+where py >nul 2>nul
+if %errorlevel%==0 (
+  set "PY_BOOT=py -3"
+) else (
+  set "PY_BOOT=python"
 )
 
-rem --- Fallback netstat ---
-for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":%PORT% .*LISTENING"') do (
-  echo Kill PID %%P
-  taskkill /F /PID %%P >nul 2>&1
+REM ---- Tao venv neu chua co ----
+if not exist ".venv\Scripts\python.exe" (
+  echo [*] Creating virtualenv .venv ...
+  %PY_BOOT% -m venv .venv
+  if errorlevel 1 (
+    echo [x] Tao venv that bai.
+    pause
+    exit /b 1
+  )
 )
 
-:done
-echo Xong.
+set "VENV_PY=.venv\Scripts\python.exe"
+
+echo [*] Ensuring pip is up-to-date...
+"%VENV_PY%" -m pip install --upgrade pip >nul
+
+if exist requirements.txt (
+  echo [*] Installing requirements.txt ...
+  "%VENV_PY%" -m pip install -r requirements.txt
+)
+
+REM ---- Nhap HOST/PORT ----
+set "HOST_DEFAULT=127.0.0.1"
+set "PORT_DEFAULT=8000"
+
+set /p HOST=Host [%HOST_DEFAULT%]: 
+if "%HOST%"=="" set "HOST=%HOST_DEFAULT%"
+
+set /p PORT=Port [%PORT_DEFAULT%]: 
+if "%PORT%"=="" set "PORT=%PORT_DEFAULT%"
+
+echo.
+echo [*] Starting server on %HOST%:%PORT% (reload) ...
+echo     CTRL+C de dung.
+
+REM ---- Chay uvicorn tu venv ----
+"%VENV_PY%" -m uvicorn app.main:app --reload --host %HOST% --port %PORT%
 endlocal

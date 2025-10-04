@@ -12,6 +12,7 @@
     .input:focus { box-shadow:0 0 0 3px rgba(59,130,246,.25); border-color:#93c5fd; }
     .btn { padding:.55rem 1rem; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:600; transition: transform .05s ease; }
     .btn:hover { transform: translateY(-1px); }
+    .btn[disabled] { opacity:.6; cursor:not-allowed; transform:none; }
     .btn-primary { background:#1d4ed8; color:#fff; }
     .btn-outline { background:#fff; border:1px solid #d1d5db; }
     .btn-soft { background:#eff6ff; color:#1e3a8a; }
@@ -44,7 +45,7 @@
         <!-- User status -->
         <div id="userBox" class="text-sm text-gray-600 flex items-center gap-2">
           <span id="meText" class="hidden">
-            Đang đăng nhập: <b id="meName"></b> (<span id="meRole"></span>)
+           ✌️ Xin chào: <b id="meName"></b> (<span id="meRole"></span>)
           </span>
           <a id="loginLink" href="/login" class="btn btn-outline">Đăng nhập</a>
           <button id="btnLogout" class="btn btn-outline hidden">Đăng xuất</button>
@@ -55,41 +56,65 @@
     </header>
 
     <!-- Toolbar -->
-    <section class="card space-y-3">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <!-- Search -->
-        <div class="flex flex-wrap items-center gap-2 min-w-0">
-          <div class="relative flex-1 min-w-[220px]">
+    <section class="card space-y-4">
+      <!-- Hàng 1: Tìm kiếm (giữa) -->
+      <div class="flex justify-center">
+        <div class="w-full max-w-2xl flex flex-wrap items-center gap-2">
+          <div class="relative flex-1 min-w-[260px]">
             <input id="q" class="input w-full pl-10" placeholder="Nhập họ tên hoặc mã hồ sơ..." />
             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
           </div>
-          <button id="btnSearch" class="btn btn-outline shrink-0">Tìm</button>
+          <button id="btnSearch" class="btn btn-outline shrink-0">🔎Tìm</button>
         </div>
+      </div>
 
+      <!-- Hàng 2: Theo ngày + Theo đợt -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <!-- Theo ngày -->
         <div class="flex flex-wrap items-center gap-2 min-w-0">
-          <!-- THU GỌN Ô NGÀY -->
           <input id="day" type="date" class="input w-36 sm:w-40 md:w-44 lg:w-48 flex-none" />
           <button id="btnExportDay" class="btn btn-outline shrink-0" title="Xuất Excel theo ngày">⬇️ Excel</button>
           <button id="btnPrintDay"  class="btn btn-primary shrink-0" title="In PDF gộp theo ngày">🖨️ PDF</button>
           <p class="w-full text-xs text-gray-500">Theo ngày nhận hồ sơ.</p>
         </div>
 
-        <!-- Theo đợt -->
+        <!-- Theo đợt (+Khóa) -->
         <div class="flex flex-wrap items-center gap-2 min-w-0">
-          <input id="dot" class="input flex-1 min-w-[200px]" placeholder="Nhập tên đợt (VD: 1/2025)" />
-          <button id="btnExportDot" class="btn btn-outline shrink-0" title="Xuất Excel theo đợt">⬇️ Excel</button>
-          <button id="btnPrintDot"  class="btn btn-primary shrink-0" title="In PDF gộp theo đợt">🖨️ PDF</button>
-          <p class="w-full text-xs text-gray-500">Tên đợt giống dữ liệu trong hệ thống.</p>
+          <input id="dot" class="input w-24 sm:w-28 md:w-32 flex-none" placeholder="Nhập tên đợt" title="VD: 1" />
+          <input id="dotKhoa" class="input w-24 sm:w-28 md:w-32 flex-none" placeholder="Nhập Khóa" title="VD: 27" />
+          <button id="btnExportDot" class="btn btn-outline shrink-0" title="Xuất Excel theo đợt + khóa">⬇️ Excel</button>
+          <button id="btnPrintDot"  class="btn btn-primary shrink-0" title="In PDF gộp theo đợt + khóa">🖨️ PDF</button>
+          <p class="w-full text-xs text-gray-500">Lọc theo <b>đợt</b>; nếu cần, nhập thêm <b>Khóa</b> để tránh trùng.</p>
         </div>
       </div>
     </section>
 
     <!-- Results -->
     <section class="card space-y-3">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between flex-wrap gap-2">
         <div class="text-sm text-gray-600">Kết quả: <span id="count" class="badge">0</span></div>
         <div id="msg" class="text-sm text-gray-600"></div>
+      </div>
+
+      <!-- Pagination toolbar -->
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 text-sm">
+          <span>Hiển thị</span>
+          <select id="pageSize" class="input w-24">
+            <option>10</option>
+            <option selected>20</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+          <span>dòng/trang</span>
+        </div>
+        <div class="flex items-center gap-1 text-sm">
+          <button id="btnFirst" class="btn btn-outline btn-xs" title="Trang đầu">⏮️</button>
+          <button id="btnPrev"  class="btn btn-outline btn-xs" title="Trang trước">⏪</button>
+          <span id="pageInfo" class="mx-2 min-w-[160px] text-center">Trang 1/1 • 0 mục</span>
+          <button id="btnNext"  class="btn btn-outline btn-xs" title="Trang sau">⏩</button>
+          <button id="btnLast"  class="btn btn-outline btn-xs" title="Trang cuối">⏭️</button>
+        </div>
       </div>
 
       <div class="overflow-hidden border rounded-xl">
@@ -123,8 +148,29 @@
           <span class="ml-2">Đang tải…</span>
         </div>
       </div>
+          <div class="ml-auto flex items-center gap-1 text-sm">
+          <button id="btnFirst" class="btn btn-outline btn-xs" title="Trang đầu">⏮️</button>
+          <button id="btnPrev"  class="btn btn-outline btn-xs" title="Trang trước">⏪</button>
+          <span id="pageInfo" class="mx-2 min-w-[160px] text-center">Trang 1/1 • 0 mục</span>
+          <button id="btnNext"  class="btn btn-outline btn-xs" title="Trang sau">⏩</button>
+          <button id="btnLast"  class="btn btn-outline btn-xs" title="Trang cuối">⏭️</button>
+        </div>
     </section>
   </div>
+  <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
+  © <span class="font-semibold">
+    <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">
+      V-HT.PTĐT HUTECH
+    </a>
+  </span>
+  ➖ Code by:
+  <span class="font-semibold">
+    <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">
+      HC- Tuan
+    </a>
+  </span>
+</footer>
+
 
   <script>
     // ===== helpers =====
@@ -184,87 +230,56 @@
     const dashIfEmpty = (x) =>
       (x && String(x).trim() !== "" ? x : '<span class="text-muted">—</span>');
 
-    // ===== User status (/me) =====
+    // ===== User status (/me) + quyền =====
     async function ensureMe(){
       try{
         await detectPrefix();
         const r = await apiFetch("/me");
         if(!r.ok) throw new Error();
         const me = await r.json();
+
         $("meName").textContent = me.full_name || me.username || "";
         $("meRole").textContent = me.role || "";
         $("meText").classList.remove("hidden");
         $("btnLogout").classList.remove("hidden");
         $("loginLink").classList.add("hidden");
+
+        // Quyền
+        const role   = me.role || "";
+        const isAdmin = role === "Admin";
+        const isStaff = isAdmin || role === "NhanVien";
+        const isCTV   = role === "CongTacVien";
+
+        // Ẩn Excel với CTV
+        $("btnExportDay")?.classList.toggle("hidden", isCTV);
+        $("btnExportDot")?.classList.toggle("hidden", isCTV);
+
+        // (nếu có các nav khác trên trang)
+        $("navImport")?.classList.toggle("hidden", !isStaff);
+        $("navAdmin")?.classList.toggle("hidden", !isAdmin);
+        $("navStudents")?.classList.toggle("hidden", !(isStaff || isCTV));
       } catch {
         $("meText").classList.add("hidden");
         $("btnLogout").classList.add("hidden");
         $("loginLink").classList.remove("hidden");
+        $("btnExportDay")?.classList.add("hidden");
+        $("btnExportDot")?.classList.add("hidden");
       }
     }
 
-    // ===== hydrate thiếu field (gọi by-code) =====
-    async function hydrateMissing(list){
-      const need = list.filter(it =>
-        !(it.nganh_nhap_hoc || it.nganh) ||
-        !it.khoa ||
-        !(it.nguoi_nhan_ky_ten || it.nguoi_nhan || it.nguoi_ky)
-      );
-      if (need.length === 0) return;
+    // ====== Phân trang phía server ======
+    const state = {
+      q: "",
+      page: 1,
+      size: Number(localStorage.getItem("students.pageSize") || 20),
+      total: 0,
+    };
 
-      const updateCell = (key, id, value) => {
-        if (value == null || value === "") return;
-        const el = document.querySelector(`[data-id="${id}"] [data-cell="${key}"]`);
-        if (el) el.innerHTML = dashIfEmpty(value);
-      };
+    function pagesTotal(){ return Math.max(1, Math.ceil(state.total / state.size)); }
 
-      // giới hạn đồng thời 4 request
-      const tasks = [];
-      let idx = 0;
-      const worker = async () => {
-        while (idx < need.length) {
-          const it = need[idx++];
-          let r = await apiFetch(`/applicants/by-code/${encodeURIComponent(it.ma_ho_so)}`).catch(()=>null);
-          if (!r || !r.ok) {
-            // thử thêm đường /applicants/{id} nếu API có
-            r = await apiFetch(`/applicants/${it.id}`).catch(()=>null);
-          }
-          if (r && r.ok) {
-            const data = await r.json();
-            const a = data.applicant || data;
-            updateCell("nganh", it.id, a.nganh_nhap_hoc || a.nganh);
-            updateCell("khoa",  it.id, a.khoa || a.nien_khoa);
-            updateCell("nguoi", it.id, a.nguoi_nhan_ky_ten || a.nguoi_nhan || a.nguoi_ky);
-          }
-        }
-      };
-      for (let i=0;i<4;i++) tasks.push(worker());
-      await Promise.all(tasks);
-    }
-
-    // ===== Search & render =====
-    async function search(){
-      const q = $("q").value.trim();
-      $("msg").textContent = ""; $("count").textContent = "0";
-      setState({loading:true});
-
-      const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(q)}`);
-      if(!r.ok){
-        setState({empty:true});
-        $("msg").textContent = `Lỗi: HTTP ${r.status}`;
-        return;
-      }
-      const list = await r.json();
+    function renderRows(items){
       const tbody = $("tbody"); tbody.innerHTML = "";
-
-      if(!Array.isArray(list) || list.length===0){
-        setState({empty:true});
-        $("msg").textContent = "Không có kết quả.";
-        return;
-      }
-
-      // render
-      list.forEach((it) => {
+      items.forEach((it) => {
         const nganh = it.nganh_nhap_hoc ?? it.nganh ?? "";
         const khoa  = it.khoa ?? it.khoa_hoc ?? it.khoahoc ?? "";
         const dot   = it.dot ?? it.dot_tuyen ?? "";
@@ -294,16 +309,69 @@
           </td>`;
         tbody.appendChild(tr);
       });
-
-      $("count").textContent = list.length.toString();
-      $("msg").textContent = `Tìm thấy ${list.length} kết quả.`;
-      setState({loading:false, empty:false});
-
-      // BÙ DỮ LIỆU nếu thiếu (ngành/khóa/người nhận)
-      hydrateMissing(list);
     }
 
-    // ===== Export/In ấn theo ngày/đợt (router export.py) =====
+    function updatePagerUI(){
+      $("count").textContent = String(state.total);
+      $("pageInfo").textContent = `Trang ${state.page}/${pagesTotal()} • ${state.total} mục`;
+      $("btnFirst").disabled = state.page <= 1;
+      $("btnPrev").disabled  = state.page <= 1;
+      $("btnNext").disabled  = state.page >= pagesTotal();
+      $("btnLast").disabled  = state.page >= pagesTotal();
+    }
+
+    async function hydrateMissing(items){
+      const need = (items||[]).filter(it =>
+        !(it.nganh_nhap_hoc || it.nganh) ||
+        !it.khoa ||
+        !(it.nguoi_nhan_ky_ten || it.nguoi_nhan || it.nguoi_ky)
+      );
+      if (need.length === 0) return;
+
+      const updateCell = (key, id, value) => {
+        if (value == null || value === "") return;
+        const el = document.querySelector(`[data-id="${id}"] [data-cell="${key}"]`);
+        if (el) el.innerHTML = dashIfEmpty(value);
+      };
+
+      const tasks = [];
+      let idx = 0;
+      const worker = async () => {
+        while (idx < need.length) {
+          const it = need[idx++];
+          let r = await apiFetch(`/applicants/by-code/${encodeURIComponent(it.ma_ho_so)}`).catch(()=>null);
+          if (!r || !r.ok) r = await apiFetch(`/applicants/${it.id}`).catch(()=>null);
+          if (r && r.ok) {
+            const data = await r.json();
+            const a = data.applicant || data;
+            updateCell("nganh", it.id, a.nganh_nhap_hoc || a.nganh);
+            updateCell("khoa",  it.id, a.khoa || a.nien_khoa);
+            updateCell("nguoi", it.id, a.nguoi_nhan_ky_ten || a.nguoi_nhan || a.nguoi_ky);
+          }
+        }
+      };
+      for (let i=0;i<4;i++) tasks.push(worker());
+      await Promise.all(tasks);
+    }
+
+    async function fetchPage(){
+      setState({loading:true});
+      const url = `/applicants/search?q=${encodeURIComponent(state.q)}&page=${state.page}&size=${state.size}`;
+      const r = await apiFetch(url).catch(()=>null);
+      if (!r || !r.ok){
+        setState({empty:true});
+        $("msg").textContent = `Lỗi tải dữ liệu (HTTP ${r ? r.status : "???"})`;
+        return;
+      }
+      const data = await r.json(); // {items, page, size, total}
+      state.total = data.total || 0;
+      renderRows(data.items || []);
+      setState({loading:false, empty: (data.items||[]).length===0});
+      updatePagerUI();
+      hydrateMissing(data.items || []);
+    }
+
+    // ===== Export/In ấn theo ngày/đợt =====
     $("day").value = new Date().toISOString().slice(0,10);
 
     $("btnExportDay").onclick = async ()=>{
@@ -321,33 +389,62 @@
       window.open(makeUrl(`/batch/print?day=${d}`), "_blank");
     };
 
-    $("btnExportDot").onclick = async ()=>{
-      const dot = $("dot").value.trim(); if(!dot){ alert("Nhập đợt"); return; }
-      const resp = await fetch(makeUrl(`/export/excel-dot?dot=${encodeURIComponent(dot)}`), {credentials:"include"});
-      if(!resp.ok){ alert(`Lỗi xuất Excel đợt: HTTP ${resp.status}`); return; }
-      const blob = await resp.blob(); const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = `tong_dot_${dot}.xlsx`;
+    $("btnPrintDot").onclick = async () => {
+      const dot  = $("dot").value.trim();
+      const khoa = $("dotKhoa").value.trim();
+      if (!dot) { alert("Nhập tên đợt trước đã"); return; }
+      let url = `/batch/print-dot?dot=${encodeURIComponent(dot)}`;
+      if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
+      const resp = await fetch(makeUrl(url), {credentials:"include"});
+      if (!resp.ok) { alert(`Không thể in theo đợt (HTTP ${resp.status})`); return; }
+      const blob = await resp.blob();
+      const u = URL.createObjectURL(blob);
+      window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
+    };
+
+    $("btnExportDot").onclick = async () => {
+      const dot  = $("dot").value.trim();
+      const khoa = $("dotKhoa").value.trim();
+      if (!dot) { alert("Nhập tên đợt trước đã"); return; }
+      let url = `/export/excel-dot?dot=${encodeURIComponent(dot)}`;
+      if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
+      const resp = await fetch(makeUrl(url), {credentials:"include"});
+      if (!resp.ok) { alert(`Không thể xuất Excel theo đợt (HTTP ${resp.status})`); return; }
+      const blob = await resp.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `tong_dot_${dot}${khoa ? `_khoa_${khoa}` : ""}.xlsx`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
     };
 
-    $("btnPrintDot").onclick = ()=>{
-      const dot = $("dot").value.trim(); if(!dot){ alert("Nhập đợt"); return; }
-      window.open(makeUrl(`/batch/print-dot?dot=${encodeURIComponent(dot)}`), "_blank");
-    };
-
     // ===== Events =====
-    $("btnSearch").onclick = search;
-    $("q").addEventListener('keydown', (e)=>{ if(e.key==='Enter') search(); });
-    document.getElementById("btnLogout").onclick = async () => {
+    $("btnSearch").onclick = () => { state.q = $("q").value.trim(); state.page = 1; fetchPage(); };
+    $("q").addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ state.q = $("q").value.trim(); state.page = 1; fetchPage(); } });
+    $("btnLogout").onclick = async () => {
       try { await apiFetch("/logout", {method:"POST"}); } catch {}
       location.href = "/login";
     };
 
+    $("pageSize").addEventListener("change", () => {
+      state.size = Number($("pageSize").value) || 20;
+      localStorage.setItem("students.pageSize", state.size);
+      state.page = 1;
+      fetchPage();
+    });
+    $("btnFirst").onclick = () => { if (state.page>1){ state.page=1; fetchPage(); } };
+    $("btnPrev").onclick  = () => { if (state.page>1){ state.page--; fetchPage(); } };
+    $("btnNext").onclick  = () => { if (state.page<pagesTotal()){ state.page++; fetchPage(); } };
+    $("btnLast").onclick  = () => { const pt=pagesTotal(); if (state.page<pt){ state.page=pt; fetchPage(); } };
+
+    // init
     (async function(){
       await detectPrefix();
       await ensureMe();
-      setState({empty:true});
+      $("pageSize").value = String(state.size);
+      setState({loading:true});
+      // load trang 1 (q rỗng = lấy tất cả)
+      fetchPage();
     })();
   </script>
 </body>

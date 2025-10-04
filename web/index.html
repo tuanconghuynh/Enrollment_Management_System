@@ -83,6 +83,7 @@
               <option>27</option><option>28</option><option>29</option><option>30</option>
             </select>
           </div>
+
         </div>
 
         <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -134,10 +135,20 @@
               <option>THPT</option><option>Trung cấp</option><option>Cao đẳng</option><option>Đại học</option>
             </select>
           </div>
-          <div>
-            <label class="label">Người nhận (Chữ ký)</label>
-            <input class="input" id="nguoi_nhan_ky_ten" />
-          </div>
+            <div>
+              <label class="label">Người nhận (Chữ ký)</label>
+              <div class="relative">
+                <input
+                  id="nguoi_nhan_ky_ten"
+                  class="input pr-9 bg-gray-100 text-gray-500 cursor-not-allowed"
+                  readonly
+                  title="Tự động lấy theo tài khoản đăng nhập"
+                />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 select-none" title="Đã khóa">
+                  🔒
+                </span>
+              </div>
+            </div>
           <div class="md:col-span-2">
             <label class="label">Ghi chú</label>
             <input class="input" id="ghi_chu" />
@@ -223,39 +234,93 @@
 
         <hr/>
 
-        <!-- In / Xuất theo đợt -->
-        <section>
-          <div class="section-title">In / Xuất theo đợt</div>
-          <label class="label">Đợt (ví dụ: Đợt 1/2025)</label>
-          <input class="input" id="batchDot" placeholder="Nhập tên đợt..." />
-          <div class="grid grid-cols-1 gap-2 mt-3">
-            <button id="btnBatchPDFDot" class="btn btn-primary w-full">In PDF gộp theo đợt</button>
-            <button id="btnExportExcelDot" class="btn btn-outline w-full">Xuất Excel theo đợt</button>
-          </div>
-        </section>
+    <!-- In / Xuất theo đợt -->
+    <section>
+      <div class="section-title">In / Xuất theo đợt</div>
+
+      <label class="label">Đợt (ví dụ: Đợt 1/2025)</label>
+      <div class="flex flex-wrap items-center gap-2">
+        <input class="input flex-1 min-w-[200px]" id="batchDot" placeholder="Nhập tên đợt..." />
+        <input class="input w-20 text-center" id="batchKhoa" placeholder="Khóa" title="VD: 27" />
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 mt-3">
+        <button id="btnBatchPDFDot"   class="btn btn-primary  w-full">In PDF gộp theo đợt</button>
+        <button id="btnExportExcelDot" class="btn btn-outline w-full">Xuất Excel theo đợt</button>
+      </div>
+
+      <p class="text-xs text-gray-500 mt-2">
+        Có thể nhập thêm <b>Khóa</b> để lọc đúng “đợt thuộc khóa nào” (tránh trùng tên đợt).
+      </p>
+    </section>
 
         <hr/>
 
         <section>
-          <div class="section-title"><center>HELP</center></div>
+          <div class="section-title"><center>TRỢ GIÚP</center></div>
           <ul class="list-disc ml-5 text-sm text-gray-600 space-y-1">
-            <li>Nhớ chạy API ở <code>http://127.0.0.1:8000</code>.</li>
+            <li>Chọn API Base rồi nhấn nút Test cho lần đầu hoặc khi đổi server.</li>
+            <li>Nhấn nút Lưu để ghi nhớ API Base.</li>
+            <li>Nhấn nút ↻ để tải lại danh sách hồ sơ và checklist từ server.</li>
             <li>Đổi API Base ở góc trên nếu bạn deploy nơi khác.</li>
             <li>PDF mở trong tab mới; nếu bị chặn sẽ mở ngay tại tab.</li>
             <li>In A5: giấy A4, in 2 mặt, cắt đôi; A4 (2-up) gộp sẵn hai A5.</li>
             <li>Tìm kiếm theo mã hồ sơ hoặc họ tên.</li>
+            <li>Để trống số lượng trong checklist để đánh dấu có/không.</li>
+            <li>Ngày sinh có thể để trống nếu không rõ.</li>
+            <li>Liên hệ Email: <a href="mailto:hc.tuan@hutech.edu.vn">hc.tuan@hutech.edu.vn</a></li>
+            <li>Liên hệ zalo: <a href="http://zalo.me/tuanconghuynh">Huỳnh Công Tuấn Tại đây!</a></li>
           </ul>
         </section>
       </aside>
     </div>
   </div>
 
-  <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
-    code by: <span class="font-semibold">HC- Tuan</span>
-  </footer>
+<footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
+  © <span class="font-semibold">
+    <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">
+      V-HT.PTĐT HUTECH
+    </a>
+  </span>
+  ➖ Code by:
+  <span class="font-semibold">
+    <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">
+      HC- Tuan
+    </a>
+  </span>
+</footer>
+
 
   <!-- Scripts -->
   <script>
+ 
+ // Ẩn trang trong lúc kiểm tra, tránh nháy nội dung
+  document.documentElement.style.visibility = 'hidden';
+
+  (async () => {
+    const base = location.origin.replace(/\/+$/, '');
+    const candidates = ["", "/api"]; // thử cả 2 prefix
+    let loggedIn = false;
+
+    for (const p of candidates) {
+      try {
+        const r = await fetch(base + p + "/me", { credentials: "include" });
+        if (r.ok) { loggedIn = true; break; }
+        if (r.status === 401 || r.status === 403) { break; }
+      } catch (_) {}
+    }
+
+    if (!loggedIn) {
+      // quay về login và giữ lại đích quay về
+      const next = encodeURIComponent(location.pathname + location.search);
+      location.replace(`/login?next=${next}`);
+      return; // dừng ở đây để không hiện trang
+    }
+
+    // OK -> hiển thị lại
+    document.documentElement.style.visibility = '';
+  })();
+
   // ========= helpers chung =========
   const $ = (id) => document.getElementById(id);
 
@@ -359,49 +424,58 @@
   const safeJson = async (r)=>{ try{ return await r.json(); }catch{ return {}; } };
 
   // ====== NAV / Auth UI ======
-  async function refreshAuthUI(){
-    try{
-      const r = await apiFetch('/me');
-      if (!r || r.status===401 || r.status===403){ // chưa đăng nhập
-        ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
-        $("navLogin").classList.remove("hidden");
-        $("navLogout").classList.add("hidden");
-        // đẩy về login cho chắc
-        location.href = "/login";
-        return;
-      }
-      if (r.ok){
-        const me = await r.json();
-        const hello = `Xin chào, ${me.full_name || me.username} (${me.role})`;
-        $("navHello").textContent = hello;
-        $("navHello").classList.remove("hidden");
-        $("navLogin").classList.add("hidden");
-        $("navLogout").classList.remove("hidden");
+async function refreshAuthUI(){
+  try{
+    // luôn kèm credentials
+    const r = await apiFetch('/me', { credentials:'include' });
 
-        const isAdmin  = me.role === "Admin";
-        const isStaff  = isAdmin || me.role === "NhanVien";
-
-        if (isStaff) { $("navImport")?.classList.remove("hidden"); $("navStudents")?.classList.remove("hidden"); }
-        else { $("navImport")?.classList.add("hidden"); $("navStudents")?.classList.add("hidden"); }
-
-        if (isAdmin) $("navAdmin")?.classList.remove("hidden");
-        else         $("navAdmin")?.classList.add("hidden");
-
-        // auto điền người nhận nếu trống
-        const rec = $("nguoi_nhan_ky_ten");
-        if (rec && !rec.value) rec.value = me.full_name || me.username || "";
-      }
-    }catch(_){
+    // Chưa đăng nhập hoặc lỗi => chỉ ẩn/hiện nút, KHÔNG redirect
+    if (!r || !r.ok){
       ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
-      $("navLogin").classList.remove("hidden");
-      $("navLogout").classList.add("hidden");
-      location.href = "/login";
+      $("navLogin")?.classList.remove("hidden");
+      $("navLogout")?.classList.add("hidden");
+      return;
     }
+
+    // Đã đăng nhập
+    const me   = await r.json();
+    const role = me.role || "";
+    const isAdmin = role === "Admin";
+    const isStaff = isAdmin || role === "NhanVien";
+    const canViewStudents = isStaff || role === "CongTacVien"; // CTV cũng được xem DS
+
+    $("navHello").textContent = `Xin chào, ${me.full_name || me.username} (${role})`;
+    $("navHello").classList.remove("hidden");
+    $("navLogin")?.classList.add("hidden");
+    $("navLogout")?.classList.remove("hidden");
+
+    // Quyền menu
+    if (isStaff) $("navImport")?.classList.remove("hidden");
+    else         $("navImport")?.classList.add("hidden");
+
+    if (isAdmin) $("navAdmin")?.classList.remove("hidden");
+    else         $("navAdmin")?.classList.add("hidden");
+
+    if (canViewStudents) $("navStudents")?.classList.remove("hidden");
+    else                 $("navStudents")?.classList.add("hidden");
+
+    // Auto điền Người nhận nếu trống
+    const rec = $("nguoi_nhan_ky_ten");
+    if (rec && !rec.value) rec.value = me.full_name || me.username || "";
+  }catch(_){
+    // Lỗi mạng… coi như chưa đăng nhập, KHÔNG redirect
+    ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
+    $("navLogin")?.classList.remove("hidden");
+    $("navLogout")?.classList.add("hidden");
   }
-  $("navLogout")?.addEventListener("click", async ()=>{
-    try{ await apiFetch('/logout', {method:'POST'}); }catch(_){}
-    location.href = '/login';
-  });
+}
+
+// Logout
+$("navLogout")?.addEventListener("click", async ()=>{
+  try{ await apiFetch('/logout', { method:'POST', credentials:'include' }); }catch(_){}
+  // chỗ này redirect về /login là hợp lý (người dùng bấm Đăng xuất)
+  location.href = '/login';
+});
 
   // ===== Checklist =====
   const DEFAULT_QTY = {
@@ -683,12 +757,18 @@
     setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
   };
 
+    // In PDF theo đợt (+Khóa)
   $("btnBatchPDFDot").onclick = async () => {
-    const dot = $("batchDot").value.trim();
+    const dot  = $("batchDot").value.trim();
+    const khoa = $("batchKhoa")?.value.trim();
     if (!dot) { alert("Nhập tên đợt trước đã"); return; }
-    const resp = await apiFetch(`/batch/print-dot?dot=${encodeURIComponent(dot)}`);
-    if (!resp || !resp.ok) {
-      let msg = `Không thể in theo đợt (HTTP ${resp?.status||'???'})`;
+
+    let url = `/batch/print-dot?dot=${encodeURIComponent(dot)}`;
+    if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
+
+    const resp = await fetch(makeUrl(url));
+    if (!resp.ok) {
+      let msg = `Không thể in theo đợt (HTTP ${resp.status})`;
       try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
       alert(msg); return;
     }
@@ -697,22 +777,29 @@
     window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
   };
 
+  // Xuất Excel theo đợt (+Khóa)
   $("btnExportExcelDot").onclick = async () => {
-    const dot = $("batchDot").value.trim();
+    const dot  = $("batchDot").value.trim();
+    const khoa = $("batchKhoa")?.value.trim();
     if (!dot) { alert("Nhập tên đợt trước đã"); return; }
-    const resp = await apiFetch(`/export/excel-dot?dot=${encodeURIComponent(dot)}`);
-    if (!resp || !resp.ok) {
-      let msg = `Không thể xuất Excel theo đợt (HTTP ${resp?.status||'???'})`;
+
+    let url = `/export/excel-dot?dot=${encodeURIComponent(dot)}`;
+    if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
+
+    const resp = await fetch(makeUrl(url));
+    if (!resp.ok) {
+      let msg = `Không thể xuất Excel theo đợt (HTTP ${resp.status})`;
       try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
       alert(msg); return;
     }
     const blob = await resp.blob();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `tong_dot_${dot}.xlsx`;
+    a.download = `tong_dot_${dot}${khoa ? `_khoa_${khoa}` : ""}.xlsx`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
   };
+
 
   // ===== Bind form actions =====
   $("btnSave").onclick = async () => {

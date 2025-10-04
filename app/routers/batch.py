@@ -8,6 +8,8 @@ from ..db.session import get_db
 from ..models.applicant import Applicant, ApplicantDoc
 from ..models.checklist import ChecklistItem
 from ..services.pdf_service import render_batch_pdf
+from sqlalchemy import func
+
 
 router = APIRouter(prefix="/batch", tags=["batch"])
 
@@ -102,31 +104,58 @@ def batch_print(
 @router.get("/print-dot")
 def batch_print_dot(
     dot: str = Query(..., description="Tên đợt, ví dụ: 'Đợt 1/2025' hoặc '9'"),
+    khoa: str | None = Query(None, description="(Tuỳ chọn) Lọc theo Khóa, ví dụ: '27'"),
     db: Session = Depends(get_db),
 ):
-    key = (dot or "").strip()
-    if not key:
+    dot_norm = (dot or "").strip()
+    if not dot_norm:
         raise HTTPException(status_code=400, detail="Thiếu tham số 'dot'")
 
-    # so khớp linh hoạt chứa chuỗi (case-insensitive)
-    apps = (
+    q = (
         db.query(Applicant)
         .filter(Applicant.dot.isnot(None))
-        .filter(Applicant.dot.ilike(f"%{key}%"))
-        .order_by(Applicant.id.asc())
-        .all()
+        .filter(Applicant.dot.ilike(f"%{dot_norm}%"))
     )
+
+    # nếu có truyền khóa thì lọc thêm theo khóa
+    if (khoa or "").strip():
+        k = khoa.strip()
+        q = (
+            q.filter(Applicant.khoa.isnot(None))
+             .filter(func.lower(func.trim(Applicant.khoa)) == k.lower())
+        )
+
+    apps = q.order_by(Applicant.id.asc()).all()
     if not apps:
-        raise HTTPException(status_code=404, detail=f"Không có hồ sơ nào thuộc đợt '{key}'")
+        raise HTTPException(status_code=404, detail="Không có hồ sơ nào thuộc đợt đã chọn")
 
+    # lấy danh mục theo version
     version_ids = {a.checklist_version_id for a in apps}
-    items_by_version = _load_items_by_version(db, version_ids)
-    docs_by_app = _docs_by_applicant(db, [a.id for a in apps])
+    items_by_version = {}
+    for vid in version_ids:
+        qitems = db.query(ChecklistItem).filter(ChecklistItem.version_id == vid)
+        if hasattr(ChecklistItem, "order_index"):
+            qitems = qitems.order_by(getattr(ChecklistItem, "order_index").asc())
+        elif hasattr(ChecklistItem, "order_no"):
+            qitems = qitems.order_by(getattr(ChecklistItem, "order_no").asc())
+        else:
+            qitems = qitems.order_by(ChecklistItem.id.asc())
+        items_by_version[vid] = qitems.all()
 
-    # filename an toàn
-    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in key)
+    # map docs theo applicant
+    app_ids = [a.id for a in apps]
+    docs = db.query(ApplicantDoc).filter(ApplicantDoc.applicant_id.in_(app_ids)).all()
+    docs_by_app = {}
+    for ddoc in docs:
+        docs_by_app.setdefault(ddoc.applicant_id, []).append(ddoc)
+
     pdf_bytes = render_batch_pdf(apps, items_by_version, docs_by_app)
-    filename = f"Batch_Dot_{safe}.pdf"
+
+    # tên file an toàn
+    safe_dot = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in dot_norm)
+    safe_khoa = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in (khoa or ""))
+    suffix = f"{safe_dot}" + (f"_Khoa_{safe_khoa}" if safe_khoa else "")
+    filename = f"Batch_Dot_{suffix}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",

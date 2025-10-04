@@ -107,6 +107,6 @@ def import_students(
 
 # === Danh sách hồ sơ: chỉ Admin + Nhân viên ===
 @router.get("/admissions/students", response_class=HTMLResponse)
-def students_list(request: Request, user=Depends(require_roles("Admin","NhanVien")), db: Session = Depends(get_db)):
+def students_list(request: Request, user=Depends(require_roles("Admin","NhanVien","CongTacVien")), db: Session = Depends(get_db)):
     # ... load dữ liệu nếu cần
     return templates.TemplateResponse("students_list.html", {"request": request, "me": user})

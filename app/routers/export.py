@@ -6,7 +6,9 @@ from typing import List, Dict
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from starlette.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
+from app.services.export_service import build_excel_bytes
 from .auth import require_roles
 from ..db.session import get_db
 from ..models.applicant import Applicant, ApplicantDoc
@@ -202,31 +204,51 @@ def export_excel(
 @router.get("/export/excel-dot")
 def export_excel_dot(
     dot: str = Query(..., description="Ví dụ: 'Đợt 1/2025' hoặc '9'"),
+    khoa: str | None = Query(None, description="(Tuỳ chọn) Lọc theo Khóa, ví dụ: '27'"),
     db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin", "NhanVien")),
+    user=Depends(require_roles("Admin","NhanVien")),
 ):
     key = (dot or "").strip()
     if not key:
         raise HTTPException(status_code=400, detail="Thiếu tham số 'dot'")
 
-    apps = (
+    q = (
         db.query(Applicant)
         .filter(Applicant.dot.isnot(None))
         .filter(Applicant.dot.ilike(f"%{key}%"))
-        .order_by(Applicant.id.asc())
-        .all()
     )
+    if (khoa or "").strip():
+        k = khoa.strip()
+        q = (
+            q.filter(Applicant.khoa.isnot(None))
+             .filter(func.lower(func.trim(Applicant.khoa)) == k.lower())
+        )
+
+    apps = q.order_by(Applicant.id.asc()).all()
     if not apps:
-        raise HTTPException(status_code=404, detail=f"Không có hồ sơ nào thuộc đợt '{key}'")
+        raise HTTPException(status_code=404, detail="Không có hồ sơ nào phù hợp")
 
     app_ids = [a.id for a in apps]
     docs = db.query(ApplicantDoc).filter(ApplicantDoc.applicant_id.in_(app_ids)).all()
-    version_ids = {a.checklist_version_id for a in apps if a.checklist_version_id}
-    items_all = _items_merged_by_versions(db, version_ids) if version_ids else []
 
-    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in key)
-    xls_bytes = _build_excel_bytes_compat(apps, docs, items_all)
-    filename = f"Export_Dot_{safe}.xlsx"
+    # hợp nhất danh mục nhiều version
+    code_seen, items_all = set(), []
+    for vid in {a.checklist_version_id for a in apps}:
+        qit = db.query(ChecklistItem).filter(ChecklistItem.version_id == vid)
+        if hasattr(ChecklistItem, "order_index"):
+            qit = qit.order_by(getattr(ChecklistItem, "order_index").asc())
+        elif hasattr(ChecklistItem, "order_no"):
+            qit = qit.order_by(getattr(ChecklistItem, "order_no").asc())
+        for it in qit.all():
+            if it.code not in code_seen:
+                code_seen.add(it.code)
+                items_all.append(it)
+
+    xls_bytes = build_excel_bytes(apps, docs, items_all)
+    safe_dot = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in key)
+    safe_khoa = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in (khoa or ""))
+    suffix = f"{safe_dot}" + (f"_Khoa_{safe_khoa}" if safe_khoa else "")
+    filename = f"Export_Dot_{suffix}.xlsx"
     return StreamingResponse(
         io.BytesIO(xls_bytes),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
