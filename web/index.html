@@ -43,6 +43,7 @@
       <div class="flex items-center gap-2">
         <label class="label">API Base</label>
         <input id="apiBase" class="input w-80" />
+        <button class="btn btn-outline" id="btnTestApi">Test</button>
         <button class="btn btn-outline" id="btnReloadChecklist">↻ Checklist</button>
       </div>
     </header>
@@ -257,8 +258,6 @@
   <script>
   // ========= helpers chung =========
   const $ = (id) => document.getElementById(id);
-  const PREFIX_CANDIDATES = ["", "/api"];
-  let API_PREFIX = "";
 
   // Toast
   function showToast(msg, type='info', ms=2500){
@@ -273,62 +272,105 @@
     el.onclick = ()=>{ clearTimeout(t); el.remove(); };
   }
 
-  // Date utils
-  function ymdToDMY(s){
+  // ==== Date utils (2 dạng cho POST vs PUT) ====
+  // input date (YYYY-MM-DD) -> "DD-MM-YYYY" (create dùng)
+  function ymdToDMY_HYPHEN(s){
     if(!s) return "";
-    const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+    const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
   }
-  function dmyToYMD(s){
-    if(!s) return "";
-    const m = String(s).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    return m ? `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}` : String(s).slice(0,10);
-  }
+  // input date (YYYY-MM-DD) -> "YYYY-MM-DD" (update dùng luôn)
+  function ymdKeep(s){ return (s||"").slice(0,10); }
+
+  // server trả ISO/str -> set vào <input type=date>
   function fmtDateToInput(s){
-    if(!s) return ""; const d = new Date(s); return Number.isNaN(d.getTime()) ? String(s).slice(0,10) : d.toISOString().slice(0,10);
+    if(!s) return "";
+    // chấp nhận dd/mm hoặc dd-mm
+    const m = String(s).match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? String(s).slice(0,10) : d.toISOString().slice(0,10);
   }
 
-  // API base
-  const apiBase = () => $("apiBase").value.trim().replace(/\/+$/,'');
+  // ========= API base / prefix =========
+  const STORAGE_KEY = "apiBase";
+  let API_PREFIX = ""; // "" hoặc "/api"
 
-  async function detectPrefix() {
-    for (const p of PREFIX_CANDIDATES) {
-      try {
-        const r = await fetch(apiBase() + p + "/health", { credentials:"include" });
-        if (r.ok) { API_PREFIX = p; return; }
-      } catch (_) {}
+  function apiBase(){ return $("apiBase").value.trim().replace(/\/+$/,''); }
+
+  async function pingPrefix(base){
+    try{
+      let r = await fetch(base + "/health", {credentials:"include"});
+      if (r.ok) return "";
+    }catch(_){}
+    try{
+      let r2 = await fetch(base + "/api/health", {credentials:"include"});
+      if (r2.ok) return "/api";
+    }catch(_){}
+    return null;
+  }
+
+  async function ensureApiBaseAndPrefix(){
+    // ưu tiên localStorage, fallback origin
+    let base = localStorage.getItem(STORAGE_KEY) || window.location.origin;
+    $("apiBase").value = base;
+    let pref = await pingPrefix(base);
+    if (pref !== null){ API_PREFIX = pref; return; }
+
+    // gợi ý vài base
+    const guesses = [
+      base, window.location.origin,
+      "http://127.0.0.1:8000",
+      "http://localhost:8000"
+    ];
+    for (const g of guesses){
+      const p = await pingPrefix(g);
+      if (p !== null){ $("apiBase").value = g; localStorage.setItem(STORAGE_KEY, g); API_PREFIX = p; return; }
     }
+
+    // hỏi tay đến khi OK hoặc hủy
+    for(;;){
+      const m = prompt("Không kết nối được API.\nNhập IP/URL server (vd: http://192.168.2.82:8000):", base);
+      if (!m) break;
+      const p = await pingPrefix(m.trim());
+      if (p !== null){ $("apiBase").value = m.trim(); localStorage.setItem(STORAGE_KEY, m.trim()); API_PREFIX = p; return; }
+      base = m.trim();
+    }
+    // nếu vẫn chưa set được, để prefix = "" (fetch sẽ lỗi và hiện toast)
     API_PREFIX = "";
   }
 
-  async function apiFetch(path, init={}) {
-    const base = apiBase();
+  function makeUrl(path){ return apiBase() + API_PREFIX + path; }
+
+  async function apiFetch(path, init={}){
     const opts = { credentials: "include", ...init };
-    // giữ nguyên headers của caller, không tự set cho blob
-    let r = await fetch(base + API_PREFIX + path, opts).catch(()=>null);
-    if (!r || r.status === 404) {
-      const alt = API_PREFIX === "" ? "/api" : "";
-      const r2 = await fetch(base + alt + path, opts).catch(()=>null);
-      if (r2 && r2.ok) API_PREFIX = alt;
-      return r2 || r;
-    }
-    return r;
+    let r = await fetch(makeUrl(path), opts).catch(()=>null);
+    return r; // đã xác định prefix từ đầu
   }
-  const safeJson = async (r) => { try { return await r.json(); } catch { return {}; } };
+
   function handleAuth(r){
     if (r && (r.status===401 || r.status===403)){
       showToast("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.", "warn", 2500);
-      setTimeout(()=>location.href="/login", 800);
+      setTimeout(()=>location.href="/login", 700);
       return true;
     }
     return false;
   }
+  const safeJson = async (r)=>{ try{ return await r.json(); }catch{ return {}; } };
 
   // ====== NAV / Auth UI ======
   async function refreshAuthUI(){
     try{
       const r = await apiFetch('/me');
-      if (r && r.ok){
+      if (!r || r.status===401 || r.status===403){ // chưa đăng nhập
+        ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
+        $("navLogin").classList.remove("hidden");
+        $("navLogout").classList.add("hidden");
+        // đẩy về login cho chắc
+        location.href = "/login";
+        return;
+      }
+      if (r.ok){
         const me = await r.json();
         const hello = `Xin chào, ${me.full_name || me.username} (${me.role})`;
         $("navHello").textContent = hello;
@@ -348,19 +390,16 @@
         // auto điền người nhận nếu trống
         const rec = $("nguoi_nhan_ky_ten");
         if (rec && !rec.value) rec.value = me.full_name || me.username || "";
-      } else {
-        ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
-        $("navLogin").classList.remove("hidden");
-        $("navLogout").classList.add("hidden");
       }
     }catch(_){
       ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
       $("navLogin").classList.remove("hidden");
       $("navLogout").classList.add("hidden");
+      location.href = "/login";
     }
   }
   $("navLogout")?.addEventListener("click", async ()=>{
-    try { await apiFetch('/logout', { method:'POST' }); } catch(_){}
+    try{ await apiFetch('/logout', {method:'POST'}); }catch(_){}
     location.href = '/login';
   });
 
@@ -439,13 +478,14 @@
     });
   }
 
-  function payloadFromForm() {
+  // ===== Payloads: create vs update (khác định dạng ngày) =====
+  function payloadForCreate() {
     return {
       ma_ho_so: $("ma_ho_so").value.trim(),
-      ngay_nhan_hs: ymdToDMY($("ngay_nhan_hs").value),
+      ngay_nhan_hs: ymdToDMY_HYPHEN($("ngay_nhan_hs").value), // DD-MM-YYYY
       ho_ten: $("ho_ten").value.trim(),
       ma_so_hv: $("ma_so_hv").value.trim(),
-      ngay_sinh: ymdToDMY($("ngay_sinh").value) || null,
+      ngay_sinh: ymdToDMY_HYPHEN($("ngay_sinh").value) || null, // DD-MM-YYYY
       so_dt: $("so_dt").value.trim() || null,
       nganh_nhap_hoc: $("nganh_nhap_hoc").value.trim() || null,
       dot: $("dot").value.trim() || null,
@@ -457,10 +497,27 @@
       checklist_version_name: "v1"
     };
   }
+  function payloadForUpdate() {
+    return {
+      ma_ho_so: $("ma_ho_so").value.trim(),
+      ngay_nhan_hs: ymdKeep($("ngay_nhan_hs").value), // YYYY-MM-DD
+      ho_ten: $("ho_ten").value.trim(),
+      ma_so_hv: $("ma_so_hv").value.trim(),
+      ngay_sinh: ymdKeep($("ngay_sinh").value) || null, // YYYY-MM-DD
+      so_dt: $("so_dt").value.trim() || null,
+      nganh_nhap_hoc: $("nganh_nhap_hoc").value.trim() || null,
+      dot: $("dot").value.trim() || null,
+      khoa: $("khoa").value.trim() || null,
+      da_tn_truoc_do: $("da_tn_truoc_do").value || null,
+      ghi_chu: $("ghi_chu").value.trim() || null,
+      nguoi_nhan_ky_ten: $("nguoi_nhan_ky_ten").value.trim() || null,
+      docs: collectDocs()
+    };
+  }
 
   // ===== Save / Create =====
   async function createApplicant(){
-    const body = payloadFromForm();
+    const body = payloadForCreate();
     if(!body.ma_ho_so || !body.ho_ten || !body.ma_so_hv || !body.ngay_nhan_hs){
       showToast("Thiếu Mã hồ sơ / Họ tên / MSHV / Ngày nhận.", "error");
       return null;
@@ -468,7 +525,7 @@
     const r = await apiFetch("/applicants", { method: "POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
     if (handleAuth(r)) return null;
     const j = await safeJson(r);
-    if (!r.ok){ showToast(j.detail || `Lỗi lưu (HTTP ${r.status})`, "error", 4000); return null; }
+    if (!r || !r.ok){ showToast(j.detail || `Lỗi lưu (HTTP ${r ? r.status : '???'})`, "error", 4000); return null; }
     window.loadedApplicant = { id: j.id, ma_ho_so: body.ma_ho_so };
     setPrintButtonsEnabled(true);
     return j;
@@ -513,9 +570,7 @@
 
   async function loadApplicantByCode(code){
     let r = await apiFetch(`/applicants/find?ma_ho_so=${encodeURIComponent(code)}`);
-    if (!r || r.status === 404 || r.status === 405) {
-      r = await apiFetch(`/applicants/by-code/${encodeURIComponent(code)}`);
-    }
+    if (!r || r.status === 404 || r.status === 405) r = await apiFetch(`/applicants/by-code/${encodeURIComponent(code)}`);
     if (!r || !r.ok) {
       if (r && r.status === 404) showToast(`Không tìm thấy hồ sơ ${code}`, "warn");
       const t = r ? await r.text() : "(không phản hồi)";
@@ -523,17 +578,16 @@
     }
     const data = await r.json();
     const raw = (data && data.applicant) ? { ...data.applicant, docs: data.docs || [] } : data;
-    raw.ngay_nhan_hs = dmyToYMD(raw.ngay_nhan_hs);
-    raw.ngay_sinh    = dmyToYMD(raw.ngay_sinh);
+    // backend có thể trả dd/mm hoặc ISO, đã normalize khi set input
     return raw;
   }
 
   async function updateLoadedApplicant(){
     if(!loadedApplicant?.id){ throw new Error("Chưa tải hồ sơ nào để cập nhật."); }
-    const body = payloadFromForm();
+    const body = payloadForUpdate();
     const r = await apiFetch(`/applicants/${loadedApplicant.id}`, { method: "PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
     if (handleAuth(r)) return;
-    if(!r.ok){ const t = await r.text(); throw new Error(`Cập nhật thất bại (HTTP ${r.status})\n${t}`); }
+    if(!r || !r.ok){ const t = r ? await r.text() : "(không phản hồi)"; throw new Error(`Cập nhật thất bại (HTTP ${r ? r.status : '???'})\n${t}`); }
     return r.json();
   }
 
@@ -542,7 +596,7 @@
     if(!confirm(`Xoá hồ sơ ${loadedApplicant.ma_ho_so}?`)) return;
     const r = await apiFetch(`/applicants/${loadedApplicant.id}`, { method: "DELETE" });
     if (handleAuth(r)) return;
-    if(!r.ok){ const t = await r.text(); throw new Error(`Xoá thất bại (HTTP ${r.status})\n${t}`); }
+    if(!r || !r.ok){ const t = r ? await r.text() : "(không phản hồi)"; throw new Error(`Xoá thất bại (HTTP ${r ? r.status : '???'})\n${t}`); }
     loadedApplicant = null; loadedDocsByCode = {};
     setPrintButtonsEnabled(false);
     $("lookupMsg").textContent = "Đã xoá hồ sơ.";
@@ -601,11 +655,7 @@
   $("btnBatchPDF").onclick = async () => {
     const d = $("batchDate").value;
     if (!d) { alert("Chọn ngày nhận HS"); return; }
-    let resp = await apiFetch(`/batch/print?day=${encodeURIComponent(d)}`);
-    if (!resp || !resp.ok) {
-      const ddmmyyyy = ymdToDMY(d);
-      resp = await apiFetch(`/batch/print?date=${encodeURIComponent(ddmmyyyy)}`);
-    }
+    const resp = await apiFetch(`/batch/print?day=${encodeURIComponent(d)}`);
     if (!resp || !resp.ok) {
       let msg = `Không thể in (HTTP ${resp?.status||'???'})`;
       try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
@@ -619,11 +669,7 @@
   $("btnExportExcel").onclick = async () => {
     const d = $("batchDate").value;
     if (!d) { alert("Chọn ngày nhận HS"); return; }
-    let resp = await apiFetch(`/export/excel?day=${encodeURIComponent(d)}`);
-    if (!resp || !resp.ok) {
-      const ddmmyyyy = ymdToDMY(d);
-      resp = await apiFetch(`/export/excel?date=${encodeURIComponent(ddmmyyyy)}`);
-    }
+    const resp = await apiFetch(`/export/excel?day=${encodeURIComponent(d)}`);
     if (!resp || !resp.ok) {
       let msg = `Không thể xuất Excel (HTTP ${resp?.status||'???'})`;
       try { const j = await resp.json(); if (j?.detail) msg = j.detail; } catch {}
@@ -670,18 +716,23 @@
 
   // ===== Bind form actions =====
   $("btnSave").onclick = async () => {
-    const res = await createApplicant();
-    if (res) {
-      $("msg").textContent = `Đã lưu hồ sơ ${res.ma_ho_so} (id=${res.id}).`;
-      showToast(`Đã lưu hồ sơ <b>${res.ma_ho_so}</b>.`, "success");
+    const btn = $("btnSave");
+    btn.disabled = true; const old = btn.textContent; btn.textContent = "Đang lưu...";
+    try{
+      const res = await createApplicant();
+      if (res) {
+        $("msg").textContent = `Đã lưu hồ sơ ${res.ma_ho_so} (id=${res.id}).`;
+        showToast(`Đã lưu hồ sơ <b>${res.ma_ho_so}</b>.`, "success");
+      }
+    } finally{
+      btn.disabled = false; btn.textContent = old;
     }
   };
 
   $("btnSavePrint").onclick = async () => {
     const res = await createApplicant();
     if (res) {
-      const base = apiBase();
-      openPdf(`${base}/api/print/a4-two-up/${res.id}`);
+      openPdf(makeUrl(`/print/a4-two-up/${res.id}`));
       $("msg").textContent = `Đã lưu & in A4 (2-up) hồ sơ ${res.ma_ho_so}.`;
       showToast(`Đã lưu & gửi in <b>${res.ma_ho_so}</b>.`, "success");
     }
@@ -690,8 +741,7 @@
   $("btnSavePrintA5").onclick = async () => {
     const res = await createApplicant();
     if (res) {
-      const base = apiBase();
-      openPdf(`${base}/api/print/a5/${res.id}`);
+      openPdf(makeUrl(`/print/a5/${res.id}`));
       $("msg").textContent = `Đã lưu & in A5 hồ sơ ${res.ma_ho_so}.`;
       showToast(`Đã lưu & gửi in <b>${res.ma_ho_so}</b>.`, "success");
     }
@@ -755,27 +805,39 @@
   // Print loaded
   $("btnPrintLoadedA5").onclick = () => {
     if (!loadedApplicant?.id) return alert("Chưa tải hồ sơ nào.");
-    const base = apiBase();
-    openPdf(`${base}/api/print/a5/${loadedApplicant.id}`);
+    openPdf(makeUrl(`/print/a5/${loadedApplicant.id}`));
   };
   $("btnPrintLoadedA42up").onclick = () => {
     if (!loadedApplicant?.id) return alert("Chưa tải hồ sơ nào.");
-    const base = apiBase();
-    openPdf(`${base}/api/print/a4-two-up/${loadedApplicant.id}`);
+    openPdf(makeUrl(`/print/a4-two-up/${loadedApplicant.id}`));
   };
 
   // Reload checklist
   $("btnReloadChecklist").onclick = () => loadChecklist();
 
+  // Test API button
+  $("btnTestApi").onclick = async ()=>{
+    const base = apiBase();
+    const pref = await pingPrefix(base);
+    if (pref === null) showToast("Không ping được API /health", "error");
+    else { API_PREFIX = pref; localStorage.setItem(STORAGE_KEY, base); showToast(`Kết nối OK (${base}${pref||""}/health)`, "success"); }
+  };
+  $("apiBase").addEventListener("change", async ()=>{
+    const base = apiBase();
+    localStorage.setItem(STORAGE_KEY, base);
+    const pref = await pingPrefix(base);
+    if (pref === null) showToast("Không ping được API /health", "warn");
+    else { API_PREFIX = pref; showToast("Đã cập nhật máy chủ API", "success"); }
+  });
+
   // ===== init =====
   window.addEventListener('load', async () => {
-    // default API base = origin
-    $("apiBase").value = window.location.origin;
     const today = new Date().toISOString().slice(0,10);
     $("ngay_nhan_hs").value = today;
     $("batchDate").value = today;
     $("q_ma_ho_so")?.focus();
-    await detectPrefix();
+
+    await ensureApiBaseAndPrefix();
     await refreshAuthUI();
     await loadChecklist();
     setPrintButtonsEnabled(false);

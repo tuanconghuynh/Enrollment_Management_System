@@ -66,22 +66,22 @@
           </div>
           <button id="btnSearch" class="btn btn-outline shrink-0">Tìm</button>
         </div>
+          <!-- Theo ngày -->
+          <div class="flex flex-wrap items-center gap-2 min-w-0">
+            <input id="day" type="date"
+                  class="input w-36 sm:w-40 md:w-44 lg:w-48 flex-none" />
+            <button id="btnExportDay" class="btn btn-outline shrink-0" title="Xuất Excel theo ngày">⬇️ Excel</button>
+            <button id="btnPrintDay"  class="btn btn-primary shrink-0" title="In PDF gộp theo ngày">🖨️ PDF</button>
+            <p class="w-full text-xs text-gray-500">Theo ngày nhận hồ sơ.</p>
+          </div>
 
-        <!-- Theo ngày -->
-        <div class="flex flex-wrap items-center gap-2 min-w-0">
-          <input id="day" type="date" class="input flex-1 min-w-[180px]" />
-          <button id="btnExportDay" class="btn btn-outline shrink-0" title="Xuất Excel theo ngày">⬇️ Excel</button>
-          <button id="btnPrintDay"  class="btn btn-primary shrink-0" title="In PDF gộp theo ngày">🖨️ PDF</button>
-          <p class="w-full text-xs text-gray-500">Theo ngày nhận hồ sơ.</p>
-        </div>
-
-        <!-- Theo đợt -->
-        <div class="flex flex-wrap items-center gap-2 min-w-0">
-          <input id="dot" class="input flex-1 min-w-[200px]" placeholder="Nhập tên đợt (VD: 1/2025)" />
-          <button id="btnExportDot" class="btn btn-outline shrink-0" title="Xuất Excel theo đợt">⬇️ Excel</button>
-          <button id="btnPrintDot"  class="btn btn-primary shrink-0" title="In PDF gộp theo đợt">🖨️ PDF</button>
-          <p class="w-full text-xs text-gray-500">Tên đợt giống dữ liệu trong hệ thống.</p>
-        </div>
+          <!-- Theo đợt -->
+          <div class="flex flex-wrap items-center gap-2 min-w-0">
+            <input id="dot" class="input flex-1 min-w-[200px]" placeholder="Nhập tên đợt (VD: 1/2025)" />
+            <button id="btnExportDot" class="btn btn-outline shrink-0" title="Xuất Excel theo đợt">⬇️ Excel</button>
+            <button id="btnPrintDot"  class="btn btn-primary shrink-0" title="In PDF gộp theo đợt">🖨️ PDF</button>
+            <p class="w-full text-xs text-gray-500">Tên đợt giống dữ liệu trong hệ thống.</p>
+          </div>
       </div>
     </section>
 
