@@ -21,7 +21,6 @@
     .table th, .table td { border-bottom:1px solid #e5e7eb; padding:.6rem .75rem; }
     .table thead th { background:#f8fafc; font-weight:700; position:sticky; top:0; z-index:1; }
     .row-alt:nth-child(odd) td { background:#fafafa; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .badge { display:inline-block; padding:.1rem .5rem; border-radius:.5rem; background:#eef2ff; color:#3730a3; font-size:.75rem; }
     .text-muted { color:#9ca3af; }
   </style>
@@ -66,22 +65,23 @@
           </div>
           <button id="btnSearch" class="btn btn-outline shrink-0">Tìm</button>
         </div>
-          <!-- Theo ngày -->
-          <div class="flex flex-wrap items-center gap-2 min-w-0">
-            <input id="day" type="date"
-                  class="input w-36 sm:w-40 md:w-44 lg:w-48 flex-none" />
-            <button id="btnExportDay" class="btn btn-outline shrink-0" title="Xuất Excel theo ngày">⬇️ Excel</button>
-            <button id="btnPrintDay"  class="btn btn-primary shrink-0" title="In PDF gộp theo ngày">🖨️ PDF</button>
-            <p class="w-full text-xs text-gray-500">Theo ngày nhận hồ sơ.</p>
-          </div>
 
-          <!-- Theo đợt -->
-          <div class="flex flex-wrap items-center gap-2 min-w-0">
-            <input id="dot" class="input flex-1 min-w-[200px]" placeholder="Nhập tên đợt (VD: 1/2025)" />
-            <button id="btnExportDot" class="btn btn-outline shrink-0" title="Xuất Excel theo đợt">⬇️ Excel</button>
-            <button id="btnPrintDot"  class="btn btn-primary shrink-0" title="In PDF gộp theo đợt">🖨️ PDF</button>
-            <p class="w-full text-xs text-gray-500">Tên đợt giống dữ liệu trong hệ thống.</p>
-          </div>
+        <!-- Theo ngày -->
+        <div class="flex flex-wrap items-center gap-2 min-w-0">
+          <!-- THU GỌN Ô NGÀY -->
+          <input id="day" type="date" class="input w-36 sm:w-40 md:w-44 lg:w-48 flex-none" />
+          <button id="btnExportDay" class="btn btn-outline shrink-0" title="Xuất Excel theo ngày">⬇️ Excel</button>
+          <button id="btnPrintDay"  class="btn btn-primary shrink-0" title="In PDF gộp theo ngày">🖨️ PDF</button>
+          <p class="w-full text-xs text-gray-500">Theo ngày nhận hồ sơ.</p>
+        </div>
+
+        <!-- Theo đợt -->
+        <div class="flex flex-wrap items-center gap-2 min-w-0">
+          <input id="dot" class="input flex-1 min-w-[200px]" placeholder="Nhập tên đợt (VD: 1/2025)" />
+          <button id="btnExportDot" class="btn btn-outline shrink-0" title="Xuất Excel theo đợt">⬇️ Excel</button>
+          <button id="btnPrintDot"  class="btn btn-primary shrink-0" title="In PDF gộp theo đợt">🖨️ PDF</button>
+          <p class="w-full text-xs text-gray-500">Tên đợt giống dữ liệu trong hệ thống.</p>
+        </div>
       </div>
     </section>
 
@@ -140,18 +140,19 @@
 
     async function detectPrefix() {
       for (const p of PREFIX_CANDIDATES) {
-        try { const r = await fetch(apiBase() + p + "/health"); if (r.ok) { API_PREFIX = p; return; } } catch(_){}
+        try { const r = await fetch(apiBase() + p + "/health", {credentials:"include"}); if (r.ok) { API_PREFIX = p; return; } } catch(_){}
       }
       API_PREFIX = "";
     }
     const makeUrl = (path) => apiBase() + API_PREFIX + path;
 
     async function apiFetch(path, init={}){
-      let r = await fetch(makeUrl(path), init);
+      const opts = {credentials:"include", ...init};
+      let r = await fetch(makeUrl(path), opts);
       if (r.status === 404) {
         const alt = API_PREFIX === "" ? "/api" : "";
         try {
-          const r2 = await fetch(apiBase() + alt + path, init);
+          const r2 = await fetch(apiBase() + alt + path, opts);
           if (r2.ok) { API_PREFIX = alt; return r2; }
           return r2;
         } catch(e){ throw e; }
@@ -180,6 +181,9 @@
       $("tableWrap").classList.toggle("hidden", loading || empty);
     }
 
+    const dashIfEmpty = (x) =>
+      (x && String(x).trim() !== "" ? x : '<span class="text-muted">—</span>');
+
     // ===== User status (/me) =====
     async function ensureMe(){
       try{
@@ -197,6 +201,45 @@
         $("btnLogout").classList.add("hidden");
         $("loginLink").classList.remove("hidden");
       }
+    }
+
+    // ===== hydrate thiếu field (gọi by-code) =====
+    async function hydrateMissing(list){
+      const need = list.filter(it =>
+        !(it.nganh_nhap_hoc || it.nganh) ||
+        !it.khoa ||
+        !(it.nguoi_nhan_ky_ten || it.nguoi_nhan || it.nguoi_ky)
+      );
+      if (need.length === 0) return;
+
+      const updateCell = (key, id, value) => {
+        if (value == null || value === "") return;
+        const el = document.querySelector(`[data-id="${id}"] [data-cell="${key}"]`);
+        if (el) el.innerHTML = dashIfEmpty(value);
+      };
+
+      // giới hạn đồng thời 4 request
+      const tasks = [];
+      let idx = 0;
+      const worker = async () => {
+        while (idx < need.length) {
+          const it = need[idx++];
+          let r = await apiFetch(`/applicants/by-code/${encodeURIComponent(it.ma_ho_so)}`).catch(()=>null);
+          if (!r || !r.ok) {
+            // thử thêm đường /applicants/{id} nếu API có
+            r = await apiFetch(`/applicants/${it.id}`).catch(()=>null);
+          }
+          if (r && r.ok) {
+            const data = await r.json();
+            const a = data.applicant || data;
+            updateCell("nganh", it.id, a.nganh_nhap_hoc || a.nganh);
+            updateCell("khoa",  it.id, a.khoa || a.nien_khoa);
+            updateCell("nguoi", it.id, a.nguoi_nhan_ky_ten || a.nguoi_nhan || a.nguoi_ky);
+          }
+        }
+      };
+      for (let i=0;i<4;i++) tasks.push(worker());
+      await Promise.all(tasks);
     }
 
     // ===== Search & render =====
@@ -227,19 +270,18 @@
         const dot   = it.dot ?? it.dot_tuyen ?? "";
         const nguoi = it.nguoi_nhan_ky_ten ?? it.nguoi_nhan ?? it.nguoi_ky ?? "";
 
-        const val = (x) => (x && String(x).trim() !== "" ? x : '<span class="text-muted">—</span>');
-
         const tr = document.createElement("tr");
         tr.className = "row-alt";
+        tr.setAttribute("data-id", it.id);
         tr.innerHTML = `
-          <td class="border-b whitespace-nowrap font-medium">${val(it.ma_ho_so)}</td>
-          <td class="border-b">${val(it.ho_ten)}</td>
-          <td class="border-b">${val(it.ma_so_hv)}</td>
-          <td class="border-b text-center whitespace-nowrap">${val(fmtDMY(it.ngay_nhan_hs))}</td>
-          <td class="border-b">${val(nganh)}</td>
-          <td class="border-b text-center">${val(dot)}</td>
-          <td class="border-b text-center">${val(khoa)}</td>
-          <td class="border-b">${val(nguoi)}</td>
+          <td class="border-b whitespace-nowrap font-medium">${dashIfEmpty(it.ma_ho_so)}</td>
+          <td class="border-b">${dashIfEmpty(it.ho_ten)}</td>
+          <td class="border-b">${dashIfEmpty(it.ma_so_hv)}</td>
+          <td class="border-b text-center whitespace-nowrap">${dashIfEmpty(fmtDMY(it.ngay_nhan_hs))}</td>
+          <td class="border-b" data-cell="nganh">${dashIfEmpty(nganh)}</td>
+          <td class="border-b text-center">${dashIfEmpty(dot)}</td>
+          <td class="border-b text-center" data-cell="khoa">${dashIfEmpty(khoa)}</td>
+          <td class="border-b" data-cell="nguoi">${dashIfEmpty(nguoi)}</td>
           <td class="border-b text-center whitespace-nowrap">
             <div class="inline-flex gap-2">
               <a class="btn btn-soft btn-xs btn-pill"
@@ -252,9 +294,13 @@
           </td>`;
         tbody.appendChild(tr);
       });
+
       $("count").textContent = list.length.toString();
       $("msg").textContent = `Tìm thấy ${list.length} kết quả.`;
       setState({loading:false, empty:false});
+
+      // BÙ DỮ LIỆU nếu thiếu (ngành/khóa/người nhận)
+      hydrateMissing(list);
     }
 
     // ===== Export/In ấn theo ngày/đợt (router export.py) =====
@@ -262,7 +308,7 @@
 
     $("btnExportDay").onclick = async ()=>{
       const d = $("day").value; if(!d){ alert("Chọn ngày"); return; }
-      const resp = await fetch(makeUrl(`/export/excel?day=${d}`));
+      const resp = await fetch(makeUrl(`/export/excel?day=${d}`), {credentials:"include"});
       if(!resp.ok){ alert(`Lỗi xuất Excel: HTTP ${resp.status}`); return; }
       const blob = await resp.blob(); const a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = `tong_ngay_${d}.xlsx`;
@@ -277,7 +323,7 @@
 
     $("btnExportDot").onclick = async ()=>{
       const dot = $("dot").value.trim(); if(!dot){ alert("Nhập đợt"); return; }
-      const resp = await fetch(makeUrl(`/export/excel-dot?dot=${encodeURIComponent(dot)}`));
+      const resp = await fetch(makeUrl(`/export/excel-dot?dot=${encodeURIComponent(dot)}`), {credentials:"include"});
       if(!resp.ok){ alert(`Lỗi xuất Excel đợt: HTTP ${resp.status}`); return; }
       const blob = await resp.blob(); const a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = `tong_dot_${dot}.xlsx`;
@@ -298,7 +344,6 @@
       location.href = "/login";
     };
 
-    // detect prefix + lấy trạng thái đăng nhập khi vào trang
     (async function(){
       await detectPrefix();
       await ensureMe();
