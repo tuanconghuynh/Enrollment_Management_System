@@ -222,7 +222,11 @@ def get_by_code(
 # ----------------- CREATE -----------------
 @router.post("", response_model=ApplicantOut, status_code=201)
 @router.post("/", response_model=ApplicantOut, status_code=201)
-def create_applicant(payload: ApplicantIn, db: Session = Depends(get_db)):
+def create_applicant(
+    payload: ApplicantIn,
+    db: Session = Depends(get_db),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),  # ai có quyền tạo
+):
     v = (
         db.query(ChecklistVersion)
         .filter(ChecklistVersion.version_name == payload.checklist_version_name)
@@ -234,12 +238,17 @@ def create_applicant(payload: ApplicantIn, db: Session = Depends(get_db)):
     if db.query(Applicant).filter(Applicant.ma_ho_so == payload.ma_ho_so).first():
         raise HTTPException(409, "Mã hồ sơ đã tồn tại")
 
+    # Lấy tên người đăng nhập
+    me_name = (
+        getattr(me, "full_name", None) or getattr(me, "username", None) or
+        (me.get("full_name") if isinstance(me, dict) else None) or
+        (me.get("username") if isinstance(me, dict) else None)
+    )
     a = Applicant(
         ma_ho_so=payload.ma_ho_so.strip(),
-        ngay_nhan_hs=_parse_date_dmy_any(payload.ngay_nhan_hs),  # <== dùng hàm mới
+        ngay_nhan_hs=_parse_date_dmy_any(payload.ngay_nhan_hs),
         ho_ten=payload.ho_ten,
         ma_so_hv=payload.ma_so_hv,
-        # hệ thống của anh đang lưu ngay_sinh dạng string => chuẩn hoá "dd/mm/yyyy"
         ngay_sinh=_to_dmy_any(payload.ngay_sinh),
         so_dt=payload.so_dt,
         nganh_nhap_hoc=payload.nganh_nhap_hoc,
@@ -247,15 +256,15 @@ def create_applicant(payload: ApplicantIn, db: Session = Depends(get_db)):
         khoa=payload.khoa,
         da_tn_truoc_do=payload.da_tn_truoc_do,
         ghi_chu=payload.ghi_chu,
-        nguoi_nhan_ky_ten=payload.nguoi_nhan_ky_ten,
+        # 🔴 luôn ghi theo account đang login
+        nguoi_nhan_ky_ten = (me.full_name or me.username),
         checklist_version_id=v.id,
         status="saved",
         printed=False,
     )
     db.add(a)
-    db.flush()  # có a.id
+    db.flush()
 
-    # lưu docs (bỏ qua None/"", giữ 0 nếu gửi 0)
     for d in payload.docs:
         if d.so_luong in (None, ""):
             continue
@@ -350,35 +359,37 @@ def find_by_ma_ho_so(ma_ho_so: str = Query(...), db: Session = Depends(get_db)):
 
 # ----------------- UPDATE -----------------
 @router.put("/{applicant_id}")
-def update_applicant(applicant_id: int, body: dict = Body(...), db: Session = Depends(get_db)):
+def update_applicant(
+    applicant_id: int,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),   # <-- CTV được cập nhật
+):
     a = db.query(Applicant).get(applicant_id)
     if not a:
         raise HTTPException(404, "Applicant not found")
 
-    # Bắt buộc tối thiểu
     def get(k, default=None): return body.get(k, default)
     for f in ("ma_ho_so", "ho_ten", "ma_so_hv", "ngay_nhan_hs"):
-        if not str(get(f, "")).strip():
-            raise HTTPException(status_code=400, detail=f"Thiếu trường bắt buộc: {f}")
+      if not str(get(f, "")).strip():
+        raise HTTPException(status_code=400, detail=f"Thiếu trường bắt buộc: {f}")
 
-    # Ánh xạ & parse ngày (dd/mm/yyyy | dd-mm-yyyy | yyyy-mm-dd)
     try:
-        a.ma_ho_so           = get("ma_ho_so").strip()
-        a.ngay_nhan_hs       = _parse_date_dmy_any(get("ngay_nhan_hs"))
-        a.ho_ten             = get("ho_ten")
-        a.ma_so_hv           = get("ma_so_hv")
-        a.ngay_sinh          = _to_dmy_any(get("ngay_sinh"))  # hệ thống đang lưu string dd/mm/yyyy
-        a.so_dt              = get("so_dt")
-        a.nganh_nhap_hoc     = get("nganh_nhap_hoc")
-        a.dot                = get("dot")
-        a.khoa               = get("khoa")
-        a.da_tn_truoc_do     = get("da_tn_truoc_do")
-        a.ghi_chu            = get("ghi_chu")
-        a.nguoi_nhan_ky_ten  = get("nguoi_nhan_ky_ten")
+        a.ma_ho_so       = get("ma_ho_so").strip()
+        a.ngay_nhan_hs   = _parse_date_dmy_any(get("ngay_nhan_hs"))
+        a.ho_ten         = get("ho_ten")
+        a.ma_so_hv       = get("ma_so_hv")
+        a.ngay_sinh      = _to_dmy_any(get("ngay_sinh"))
+        a.so_dt          = get("so_dt")
+        a.nganh_nhap_hoc = get("nganh_nhap_hoc")
+        a.dot            = get("dot")
+        a.khoa           = get("khoa")
+        a.da_tn_truoc_do = get("da_tn_truoc_do")
+        a.ghi_chu        = get("ghi_chu")
+        # 🔴 BỎ giá trị FE gửi lên, luôn ghi đè theo account hiện tại
+        a.nguoi_nhan_ky_ten = (me.full_name or me.username)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-    # Upsert docs (nếu FE không gửi docs -> bỏ qua)
     docs = body.get("docs", None)
     if docs is not None:
         existing = {d.code: d for d in db.query(ApplicantDoc).filter_by(applicant_id=a.id).all()}
@@ -399,7 +410,6 @@ def update_applicant(applicant_id: int, body: dict = Body(...), db: Session = De
 
     db.commit()
     return {"ok": True, "id": a.id, "ma_ho_so": a.ma_ho_so}
-
 
 # ----------------- DELETE -----------------
 @router.delete("/{applicant_id}", status_code=status.HTTP_204_NO_CONTENT)

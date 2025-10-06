@@ -679,11 +679,18 @@ $("navLogout")?.addEventListener("click", async ()=>{
 
   async function searchByName(name){
     const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(name)}`);
-    if(!r || !r.ok){ const t = r ? await r.text() : "(không phản hồi)"; throw new Error(`Tìm theo tên lỗi (HTTP ${r ? r.status : '???'})\n${t}`); }
-    return r.json();
+    if(!r || !r.ok){
+      const t = r ? await r.text() : "(không phản hồi)";
+      throw new Error(`Tìm theo tên lỗi (HTTP ${r ? r.status : '???'})\n${t}`);
+    }
+    const j = await r.json();
+    // Chuẩn hóa: trả mảng dù backend trả list hay object
+    return Array.isArray(j) ? j : (Array.isArray(j.items) ? j.items : (Array.isArray(j.data) ? j.data : []));
   }
 
+
   function renderNameResults(list){
+    list = Array.isArray(list) ? list : (Array.isArray(list?.items) ? list.items : []);
     const box = $("nameResults");
     const ul  = $("nameResultsList");
     if(!list || list.length === 0){
@@ -875,8 +882,11 @@ $("navLogout")?.addEventListener("click", async ()=>{
       try{
         $("lookupMsg").textContent = "Đang cập nhật...";
         const res = await updateLoadedApplicant();
+        if (res?.nguoi_nhan_ky_ten) {
+          $("nguoi_nhan_ky_ten").value = res.nguoi_nhan_ky_ten; // hiển thị đúng tên hiện tại
+        }
         $("lookupMsg").textContent = `Cập nhật xong hồ sơ ${res.ma_ho_so}.`;
-        showToast(`Đã cập nhật hồ sơ <b>${res.ma_ho_so}</b> thành công.`, "success");
+        showToast(`Đã cập nhật hồ sơ <b>${res.ma_ho_so}</b>.`, "success");
       } catch(e){
         $("lookupMsg").textContent = e.message;
         showToast(e.message || "Cập nhật thất bại.", "error");
