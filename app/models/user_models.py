@@ -1,50 +1,42 @@
-from datetime import datetime
-from flask_login import UserMixin
-from werkzeug.security import check_password_hash
-from app.extensions import db, login_manager
+from sqlalchemy import (
+    Column, Integer, String, DateTime, ForeignKey, Text, func
+)
+from ..db.base import Base
 
-class User(UserMixin, db.Model):
-    __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default="CongTacVien")
-    full_name = db.Column(db.String(128))
-    email = db.Column(db.String(128))
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    def check_password(self, password): return check_password_hash(self.password_hash, password)
-
-@login_manager.user_loader
-def load_user(user_id): return User.query.get(int(user_id))
-
-class Student(db.Model):
+class Student(Base):
     __tablename__ = "students"
-    id = db.Column(db.Integer, primary_key=True)
-    student_code = db.Column(db.String(64), unique=True, nullable=False)
-    full_name = db.Column(db.String(128), nullable=False)
-    dob = db.Column(db.String(10))
-    gender = db.Column(db.String(16))
-    phone = db.Column(db.String(32))
-    email = db.Column(db.String(128))
-    id_number = db.Column(db.String(64))
-    address = db.Column(db.String(255))
-    note = db.Column(db.Text)
-    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-class Application(db.Model):
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    student_code = Column(String(64), unique=True, nullable=False)
+    full_name = Column(String(128), nullable=False)
+    dob = Column(String(10))
+    gender = Column(String(16))
+    phone = Column(String(32))
+    email = Column(String(128))
+    id_number = Column(String(64))
+    address = Column(String(255))
+    note = Column(Text)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self) -> str:
+        return f"<Student(id={self.id}, code='{self.student_code}', name='{self.full_name}')>"
+
+
+class Application(Base):
     __tablename__ = "applications"
-    id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False)
-    program = db.Column(db.String(128))
-    intake = db.Column(db.String(64))
-    status = db.Column(db.String(32), default="Draft")
-    documents_json = db.Column(db.Text)
-    assigned_to_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    last_modified_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    program = Column(String(128))
+    intake = Column(String(64))
+    status = Column(String(32), default="Draft")
+    documents_json = Column(Text)
+    assigned_to_user_id = Column(Integer, ForeignKey("users.id"))
+    last_modified_by_user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self) -> str:
+        return f"<Application(id={self.id}, student_id={self.student_id}, status='{self.status}')>"

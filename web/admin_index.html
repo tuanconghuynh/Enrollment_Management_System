@@ -42,9 +42,16 @@
       <form class="grid md:grid-cols-6 gap-3" method="post" action="/admin/users/create">
         <input class="input md:col-span-2" name="username" placeholder="username/email" required>
         <input class="input md:col-span-2" name="full_name" placeholder="Họ tên">
-        <input class="input md:col-span-2" name="email" placeholder="Email">
+        <input class="input md:col-span-2" type="email" name="email" placeholder="Email">
         <div class="relative md:col-span-2">
-          <input id="admin-create-pass" type="password" class="input pr-10" name="password" placeholder="Mật khẩu" required>
+          <input id="admin-create-pass"
+                type="password"
+                class="input pr-10"
+                name="password"
+                placeholder="Mật khẩu (tối thiểu 6 ký tự)"
+                minlength="6"
+                autocomplete="new-password"
+                required>
           <button type="button" class="absolute inset-y-0 right-2 flex items-center text-gray-500"
                   aria-label="Hiện/ẩn mật khẩu" data-toggle-eye="#admin-create-pass">👁️</button>
         </div>
@@ -91,10 +98,20 @@
                 </form>
 
                 <!-- Reset pass -->
-                <form class="inline" method="post" action="/admin/users/reset-pass">
+                <form class="inline"
+                      method="post"
+                      action="/admin/users/reset-pass"
+                      onsubmit="return confirm('Xác nhận đặt lại mật khẩu người dùng này?');">
                   <input type="hidden" name="user_id" value="{{u.id}}">
                   <div class="relative inline-block">
-                    <input id="np-{{u.id}}" type="password" class="input py-1 pr-8 text-sm" name="new_password" placeholder="mật khẩu mới" required>
+                    <input id="np-{{u.id}}"
+                          type="password"
+                          class="input py-1 pr-8 text-sm"
+                          name="new_password"
+                          placeholder="Mật khẩu mới (≥6 ký tự)"
+                          minlength="6"
+                          autocomplete="new-password"
+                          required>
                     <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
                             data-toggle-eye="#np-{{u.id}}">👁️</button>
                   </div>

@@ -83,7 +83,16 @@
               <option>27</option><option>28</option><option>29</option><option>30</option>
             </select>
           </div>
-
+          <div>
+            <label class="label">Đợt</label>
+            <select class="input" id="dot">
+              <option value="">-- Chọn đợt --</option>
+              <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+              <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+              <option>11</option><option>12</option><option>13</option><option>14</option><option>15</option>
+              <option>16</option><option>17</option><option>18</option><option>19</option><option>20</option>
+            </select>
+          </div>
         </div>
 
         <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -104,6 +113,10 @@
             <input class="input" id="so_dt" />
           </div>
           <div>
+            <label class="label">Email học viên</label>
+            <input class="input" id="email_hoc_vien" type="email" />
+          </div>
+          <div>
             <label class="label">Ngành nhập học</label>
             <select class="input" id="nganh_nhap_hoc">
               <option value="">-- Chọn ngành --</option>
@@ -119,36 +132,24 @@
             </select>
           </div>
           <div>
-            <label class="label">Đợt</label>
-            <select class="input" id="dot">
-              <option value="">-- Chọn đợt --</option>
-              <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-              <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
-              <option>11</option><option>12</option><option>13</option><option>14</option><option>15</option>
-              <option>16</option><option>17</option><option>18</option><option>19</option><option>20</option>
-            </select>
-          </div>
-          <div>
             <label class="label">Đã TN trước đó</label>
             <select class="input" id="da_tn_truoc_do">
               <option value="">-- Chọn Đối tượng --</option>
               <option>THPT</option><option>Trung cấp</option><option>Cao đẳng</option><option>Đại học</option>
             </select>
           </div>
-            <div>
-              <label class="label">Người nhận (Chữ ký)</label>
-              <div class="relative">
-                <input
-                  id="nguoi_nhan_ky_ten"
-                  class="input pr-9 bg-gray-100 text-gray-500 cursor-not-allowed"
-                  readonly
-                  title="Tự động lấy theo tài khoản đăng nhập"
-                />
-                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 select-none" title="Đã khóa">
-                  🔒
-                </span>
-              </div>
+          <div>
+            <label class="label">Người nhận (Chữ ký)</label>
+            <div class="relative">
+              <input
+                id="nguoi_nhan_ky_ten"
+                class="input pr-9 bg-gray-100 text-gray-500 cursor-not-allowed"
+                readonly
+                title="Tự động lấy theo tài khoản đăng nhập"
+              />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 select-none" title="Đã khóa">🔒</span>
             </div>
+          </div>
           <div class="md:col-span-2">
             <label class="label">Ghi chú</label>
             <input class="input" id="ghi_chu" />
@@ -188,13 +189,14 @@
         <!-- Tra cứu & Chỉnh sửa -->
         <section>
           <div class="section-title">Tra cứu & Chỉnh sửa hồ sơ</div>
-          <label class="label">Nhập Mã hồ sơ</label>
+
+          <label class="label">Nhập Mã Số Học Viên</label>
           <div class="flex gap-2">
-            <input class="input flex-1" id="q_ma_ho_so" placeholder="VD: HS-0001" />
-            <button id="btnLoadApplicant" class="btn btn-outline">Tải</button>
+            <input class="input flex-1" id="q_ma_so_hv" placeholder="VD: 2510xxxxxx" />
+            <button id="btnLoadApplicantMSHV" class="btn btn-outline">Tải</button>
           </div>
 
-          <label class="label mt-3 block">Hoặc nhập Họ và tên</label>
+          <label class="label mt-3 block">Hoặc Nhập Họ và tên</label>
           <div class="flex gap-2">
             <input class="input flex-1" id="q_ho_ten" placeholder="VD: Nguyễn Văn A" />
             <button id="btnSearchByName" class="btn btn-outline">Tìm</button>
@@ -234,25 +236,25 @@
 
         <hr/>
 
-    <!-- In / Xuất theo đợt -->
-    <section>
-      <div class="section-title">In / Xuất theo đợt</div>
+        <!-- In / Xuất theo đợt -->
+        <section>
+          <div class="section-title">In / Xuất theo đợt</div>
 
-      <label class="label">Đợt (ví dụ: Đợt 1/2025)</label>
-      <div class="flex flex-wrap items-center gap-2">
-        <input class="input flex-1 min-w-[200px]" id="batchDot" placeholder="Nhập tên đợt..." />
-        <input class="input w-20 text-center" id="batchKhoa" placeholder="Khóa" title="VD: 27" />
-      </div>
+          <label class="label">Nhập (ví dụ: Đợt 1 Khóa 24)</label>
+          <div class="flex flex-wrap items-center gap-2">
+            <input class="input w-24 sm:w-28 md:w-32 flex-noneinput w-25 text-center" id="batchDot" placeholder="Nhập đợt" />
+            <input class="input w-24 sm:w-28 md:w-32 flex-none" id="batchKhoa" placeholder="Nhập Khóa" title="VD: 25" />
+          </div>
 
-      <div class="grid grid-cols-1 gap-2 mt-3">
-        <button id="btnBatchPDFDot"   class="btn btn-primary  w-full">In PDF gộp theo đợt</button>
-        <button id="btnExportExcelDot" class="btn btn-outline w-full">Xuất Excel theo đợt</button>
-      </div>
+          <div class="grid grid-cols-1 gap-2 mt-3">
+            <button id="btnBatchPDFDot"   class="btn btn-primary  w-full">In PDF gộp theo đợt</button>
+            <button id="btnExportExcelDot" class="btn btn-outline w-full">Xuất Excel theo đợt</button>
+          </div>
 
-      <p class="text-xs text-gray-500 mt-2">
-        Có thể nhập thêm <b>Khóa</b> để lọc đúng “đợt thuộc khóa nào” (tránh trùng tên đợt).
-      </p>
-    </section>
+          <p class="text-xs text-gray-500 mt-2">
+            Có thể nhập thêm <b>Khóa</b> để lọc đúng “đợt thuộc khóa nào” (tránh trùng tên đợt).
+          </p>
+        </section>
 
         <hr/>
 
@@ -265,7 +267,7 @@
             <li>Đổi API Base ở góc trên nếu bạn deploy nơi khác.</li>
             <li>PDF mở trong tab mới; nếu bị chặn sẽ mở ngay tại tab.</li>
             <li>In A5: giấy A4, in 2 mặt, cắt đôi; A4 (2-up) gộp sẵn hai A5.</li>
-            <li>Tìm kiếm theo mã hồ sơ hoặc họ tên.</li>
+            <li>Tìm kiếm theo <b>MSHV</b> hoặc <b>Họ tên</b>.</li>
             <li>Để trống số lượng trong checklist để đánh dấu có/không.</li>
             <li>Ngày sinh có thể để trống nếu không rõ.</li>
             <li>Liên hệ Email: <a href="mailto:hc.tuan@hutech.edu.vn">hc.tuan@hutech.edu.vn</a></li>
@@ -276,48 +278,43 @@
     </div>
   </div>
 
-<footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
-  © <span class="font-semibold">
-    <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">
-      V-HT.PTĐT HUTECH
-    </a>
-  </span>
-  ➖ Code by:
-  <span class="font-semibold">
-    <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">
-      HC- Tuan
-    </a>
-  </span>
-</footer>
-
+  <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
+    © <span class="font-semibold">
+      <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">V-HT.PTĐT HUTECH</a>
+    </span>
+    ➖ Code by:
+    <span class="font-semibold">
+      <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">HC- Tuan</a>
+    </span>
+  </footer>
 
   <!-- Scripts -->
   <script>
- 
- // Ẩn trang trong lúc kiểm tra, tránh nháy nội dung
+  // Ẩn trang trong lúc kiểm tra
   document.documentElement.style.visibility = 'hidden';
 
   (async () => {
     const base = location.origin.replace(/\/+$/, '');
-    const candidates = ["", "/api"]; // thử cả 2 prefix
-    let loggedIn = false;
+    const candidates = ["", "/api"];
+    let ok = false;
+    let matchedPrefix = "";
 
     for (const p of candidates) {
       try {
-        const r = await fetch(base + p + "/me", { credentials: "include" });
-        if (r.ok) { loggedIn = true; break; }
-        if (r.status === 401 || r.status === 403) { break; }
+        const r = await fetch(base + p + "/me", { credentials: "include", cache: "no-store" });
+        if (r.ok) { ok = true; matchedPrefix = p; break; }
       } catch (_) {}
     }
 
-    if (!loggedIn) {
-      // quay về login và giữ lại đích quay về
+    if (!ok) {
       const next = encodeURIComponent(location.pathname + location.search);
       location.replace(`/login?next=${next}`);
-      return; // dừng ở đây để không hiện trang
+      return;
     }
 
-    // OK -> hiển thị lại
+    try { localStorage.setItem("apiBase", base); } catch {}
+    window.__API_PREFIX = matchedPrefix;
+
     document.documentElement.style.visibility = '';
   })();
 
@@ -337,20 +334,15 @@
     el.onclick = ()=>{ clearTimeout(t); el.remove(); };
   }
 
-  // ==== Date utils (2 dạng cho POST vs PUT) ====
-  // input date (YYYY-MM-DD) -> "DD-MM-YYYY" (create dùng)
-  function ymdToDMY_HYPHEN(s){
+  // ==== Date utils (POST dùng DD/MM/YYYY) ====
+  function ymdToDMY_SLASH(s){
     if(!s) return "";
     const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
   }
-  // input date (YYYY-MM-DD) -> "YYYY-MM-DD" (update dùng luôn)
   function ymdKeep(s){ return (s||"").slice(0,10); }
-
-  // server trả ISO/str -> set vào <input type=date>
   function fmtDateToInput(s){
     if(!s) return "";
-    // chấp nhận dd/mm hoặc dd-mm
     const m = String(s).match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
     const d = new Date(s);
@@ -359,41 +351,28 @@
 
   // ========= API base / prefix =========
   const STORAGE_KEY = "apiBase";
-  let API_PREFIX = ""; // "" hoặc "/api"
+  let API_PREFIX = window.__API_PREFIX || "";
 
-  function apiBase(){ return $("apiBase").value.trim().replace(/\/+$/,''); }
+  function apiBase(){ return ($("apiBase").value || localStorage.getItem(STORAGE_KEY) || window.location.origin).trim().replace(/\/+$/,''); }
 
   async function pingPrefix(base){
-    try{
-      let r = await fetch(base + "/health", {credentials:"include"});
-      if (r.ok) return "";
-    }catch(_){}
-    try{
-      let r2 = await fetch(base + "/api/health", {credentials:"include"});
-      if (r2.ok) return "/api";
-    }catch(_){}
+    try{ let r = await fetch(base + "/health", {credentials:"include"}); if (r.ok) return ""; }catch(_){}
+    try{ let r2 = await fetch(base + "/api/health", {credentials:"include"}); if (r2.ok) return "/api"; }catch(_){}
     return null;
   }
 
   async function ensureApiBaseAndPrefix(){
-    // ưu tiên localStorage, fallback origin
     let base = localStorage.getItem(STORAGE_KEY) || window.location.origin;
     $("apiBase").value = base;
     let pref = await pingPrefix(base);
     if (pref !== null){ API_PREFIX = pref; return; }
 
-    // gợi ý vài base
-    const guesses = [
-      base, window.location.origin,
-      "http://127.0.0.1:8000",
-      "http://localhost:8000"
-    ];
+    const guesses = [base, window.location.origin, "http://127.0.0.1:8000", "http://localhost:8000"];
     for (const g of guesses){
       const p = await pingPrefix(g);
       if (p !== null){ $("apiBase").value = g; localStorage.setItem(STORAGE_KEY, g); API_PREFIX = p; return; }
     }
 
-    // hỏi tay đến khi OK hoặc hủy
     for(;;){
       const m = prompt("Không kết nối được API.\nNhập IP/URL server (vd: http://192.168.2.82:8000):", base);
       if (!m) break;
@@ -401,16 +380,15 @@
       if (p !== null){ $("apiBase").value = m.trim(); localStorage.setItem(STORAGE_KEY, m.trim()); API_PREFIX = p; return; }
       base = m.trim();
     }
-    // nếu vẫn chưa set được, để prefix = "" (fetch sẽ lỗi và hiện toast)
     API_PREFIX = "";
   }
 
-  function makeUrl(path){ return apiBase() + API_PREFIX + path; }
+  function makeUrl(path){ return apiBase() + (API_PREFIX || "") + path; }
 
   async function apiFetch(path, init={}){
     const opts = { credentials: "include", ...init };
     let r = await fetch(makeUrl(path), opts).catch(()=>null);
-    return r; // đã xác định prefix từ đầu
+    return r;
   }
 
   function handleAuth(r){
@@ -424,58 +402,45 @@
   const safeJson = async (r)=>{ try{ return await r.json(); }catch{ return {}; } };
 
   // ====== NAV / Auth UI ======
-async function refreshAuthUI(){
-  try{
-    // luôn kèm credentials
-    const r = await apiFetch('/me', { credentials:'include' });
+  async function refreshAuthUI(){
+    try{
+      const r = await apiFetch('/me', { credentials:'include' });
+      if (!r || !r.ok){
+        ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
+        $("navLogin")?.classList.remove("hidden");
+        $("navLogout")?.classList.add("hidden");
+        return;
+      }
 
-    // Chưa đăng nhập hoặc lỗi => chỉ ẩn/hiện nút, KHÔNG redirect
-    if (!r || !r.ok){
+      const me   = await r.json();
+      const role = me.role || "";
+      const isAdmin = role === "Admin";
+      const isStaff = isAdmin || role === "NhanVien";
+      const canViewStudents = isStaff || role === "CongTacVien";
+
+      $("navHello").textContent = `Xin chào, ${me.full_name || me.username} (${role})`;
+      $("navHello").classList.remove("hidden");
+      $("navLogin")?.classList.add("hidden");
+      $("navLogout")?.classList.remove("hidden");
+
+      if (isStaff) $("navImport")?.classList.remove("hidden"); else $("navImport")?.classList.add("hidden");
+      if (isAdmin) $("navAdmin")?.classList.remove("hidden"); else $("navAdmin")?.classList.add("hidden");
+      if (canViewStudents) $("navStudents")?.classList.remove("hidden"); else $("navStudents")?.classList.add("hidden");
+
+      const rec = $("nguoi_nhan_ky_ten");
+      if (rec && !rec.value) rec.value = me.full_name || me.username || "";
+    }catch(_){
       ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
       $("navLogin")?.classList.remove("hidden");
       $("navLogout")?.classList.add("hidden");
-      return;
     }
-
-    // Đã đăng nhập
-    const me   = await r.json();
-    const role = me.role || "";
-    const isAdmin = role === "Admin";
-    const isStaff = isAdmin || role === "NhanVien";
-    const canViewStudents = isStaff || role === "CongTacVien"; // CTV cũng được xem DS
-
-    $("navHello").textContent = `Xin chào, ${me.full_name || me.username} (${role})`;
-    $("navHello").classList.remove("hidden");
-    $("navLogin")?.classList.add("hidden");
-    $("navLogout")?.classList.remove("hidden");
-
-    // Quyền menu
-    if (isStaff) $("navImport")?.classList.remove("hidden");
-    else         $("navImport")?.classList.add("hidden");
-
-    if (isAdmin) $("navAdmin")?.classList.remove("hidden");
-    else         $("navAdmin")?.classList.add("hidden");
-
-    if (canViewStudents) $("navStudents")?.classList.remove("hidden");
-    else                 $("navStudents")?.classList.add("hidden");
-
-    // Auto điền Người nhận nếu trống
-    const rec = $("nguoi_nhan_ky_ten");
-    if (rec && !rec.value) rec.value = me.full_name || me.username || "";
-  }catch(_){
-    // Lỗi mạng… coi như chưa đăng nhập, KHÔNG redirect
-    ["navImport","navStudents","navAdmin","navHello"].forEach(id=>$(id)?.classList.add("hidden"));
-    $("navLogin")?.classList.remove("hidden");
-    $("navLogout")?.classList.add("hidden");
   }
-}
 
-// Logout
-$("navLogout")?.addEventListener("click", async ()=>{
-  try{ await apiFetch('/logout', { method:'POST', credentials:'include' }); }catch(_){}
-  // chỗ này redirect về /login là hợp lý (người dùng bấm Đăng xuất)
-  location.href = '/login';
-});
+  // Logout
+  $("navLogout")?.addEventListener("click", async ()=>{
+    try{ await apiFetch('/logout', { method:'POST', credentials:'include' }); }catch(_){}
+    location.href = '/login';
+  });
 
   // ===== Checklist =====
   const DEFAULT_QTY = {
@@ -516,7 +481,6 @@ $("navLogout")?.addEventListener("click", async ()=>{
           body.appendChild(tr);
         });
 
-      // toggle enable/disable ô số lượng
       document.querySelectorAll('.has-doc').forEach((chk) => {
         const code = chk.dataset.code;
         const qty = document.querySelector(`.qty[data-code="${code}"]`);
@@ -552,15 +516,16 @@ $("navLogout")?.addEventListener("click", async ()=>{
     });
   }
 
-  // ===== Payloads: create vs update (khác định dạng ngày) =====
+  // ===== Payloads =====
   function payloadForCreate() {
     return {
       ma_ho_so: $("ma_ho_so").value.trim(),
-      ngay_nhan_hs: ymdToDMY_HYPHEN($("ngay_nhan_hs").value), // DD-MM-YYYY
+      ngay_nhan_hs: ymdToDMY_SLASH($("ngay_nhan_hs").value), // DD/MM/YYYY
       ho_ten: $("ho_ten").value.trim(),
       ma_so_hv: $("ma_so_hv").value.trim(),
-      ngay_sinh: ymdToDMY_HYPHEN($("ngay_sinh").value) || null, // DD-MM-YYYY
+      ngay_sinh: ymdToDMY_SLASH($("ngay_sinh").value) || null, // DD/MM/YYYY
       so_dt: $("so_dt").value.trim() || null,
+      email_hoc_vien: $("email_hoc_vien").value.trim() || null,
       nganh_nhap_hoc: $("nganh_nhap_hoc").value.trim() || null,
       dot: $("dot").value.trim() || null,
       khoa: $("khoa").value.trim() || null,
@@ -579,6 +544,7 @@ $("navLogout")?.addEventListener("click", async ()=>{
       ma_so_hv: $("ma_so_hv").value.trim(),
       ngay_sinh: ymdKeep($("ngay_sinh").value) || null, // YYYY-MM-DD
       so_dt: $("so_dt").value.trim() || null,
+      email_hoc_vien: $("email_hoc_vien").value.trim() || null,
       nganh_nhap_hoc: $("nganh_nhap_hoc").value.trim() || null,
       dot: $("dot").value.trim() || null,
       khoa: $("khoa").value.trim() || null,
@@ -600,13 +566,13 @@ $("navLogout")?.addEventListener("click", async ()=>{
     if (handleAuth(r)) return null;
     const j = await safeJson(r);
     if (!r || !r.ok){ showToast(j.detail || `Lỗi lưu (HTTP ${r ? r.status : '???'})`, "error", 4000); return null; }
-    window.loadedApplicant = { id: j.id, ma_ho_so: body.ma_ho_so };
+    // >>> dùng ma_so_hv làm khóa
+    window.loadedApplicant = { ma_so_hv: j.ma_so_hv || body.ma_so_hv, ma_ho_so: j.ma_ho_so || body.ma_ho_so };
     setPrintButtonsEnabled(true);
     return j;
   }
 
   // ===== Lookup / Update / Delete =====
-  let loadedApplicant = null;
   let loadedDocsByCode = {};
 
   function setPrintButtonsEnabled(on) {
@@ -622,6 +588,7 @@ $("navLogout")?.addEventListener("click", async ()=>{
     $("ma_so_hv").value = a.ma_so_hv || "";
     $("ngay_sinh").value = fmtDateToInput(a.ngay_sinh);
     $("so_dt").value = a.so_dt || "";
+    $("email_hoc_vien").value = a.email_hoc_vien || "";
     $("nganh_nhap_hoc").value = a.nganh_nhap_hoc || "";
     $("dot").value = a.dot || "";
     $("da_tn_truoc_do").value = a.da_tn_truoc_do || "";
@@ -642,41 +609,62 @@ $("navLogout")?.addEventListener("click", async ()=>{
     if (document.querySelectorAll('#docsBody tr').length === 0) loadChecklist().then(applyDocsToTable); else applyDocsToTable();
   }
 
-  async function loadApplicantByCode(code){
-    let r = await apiFetch(`/applicants/find?ma_ho_so=${encodeURIComponent(code)}`);
-    if (!r || r.status === 404 || r.status === 405) r = await apiFetch(`/applicants/by-code/${encodeURIComponent(code)}`);
+  // Tra cứu THEO MSHV
+  async function loadApplicantByMSHV(mshv){
+    let r = await apiFetch(`/applicants/by-mshv/${encodeURIComponent(mshv)}`);
+    if (!r || r.status === 404 || r.status === 405) {
+      const rs = await apiFetch(`/applicants/search?q=${encodeURIComponent(mshv)}`);
+      if (rs && rs.ok) {
+        const j = await rs.json();
+        const list = Array.isArray(j.items) ? j.items : (Array.isArray(j) ? j : []);
+        const hit = list.find(x => (x.ma_so_hv || "").toLowerCase() === String(mshv).toLowerCase()) || list[0];
+        if (hit) {
+          r = await apiFetch(`/applicants/by-code/${encodeURIComponent(hit.ma_ho_so)}`);
+        }
+      }
+    }
     if (!r || !r.ok) {
-      if (r && r.status === 404) showToast(`Không tìm thấy hồ sơ ${code}`, "warn");
+      if (r && r.status === 404) showToast(`Không tìm thấy MSHV ${mshv}`, "warn");
       const t = r ? await r.text() : "(không phản hồi)";
       throw new Error(`Lỗi tải hồ sơ (HTTP ${r ? r.status : '???'})\n${t}`);
     }
     const data = await r.json();
     const raw = (data && data.applicant) ? { ...data.applicant, docs: data.docs || [] } : data;
-    // backend có thể trả dd/mm hoặc ISO, đã normalize khi set input
     return raw;
   }
 
   async function updateLoadedApplicant(){
-    if(!loadedApplicant?.id){ throw new Error("Chưa tải hồ sơ nào để cập nhật."); }
+    if(!window.loadedApplicant?.ma_so_hv){ throw new Error("Chưa tải hồ sơ nào để cập nhật."); }
     const body = payloadForUpdate();
-    const r = await apiFetch(`/applicants/${loadedApplicant.id}`, { method: "PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    if(!body.ma_ho_so || !body.ho_ten){
+      throw new Error("Thiếu Mã hồ sơ / Họ tên.");
+    }
+    const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {
+      method: "PUT",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    });
     if (handleAuth(r)) return;
     if(!r || !r.ok){ const t = r ? await r.text() : "(không phản hồi)"; throw new Error(`Cập nhật thất bại (HTTP ${r ? r.status : '???'})\n${t}`); }
-    return r.json();
+    const res = await r.json();
+    // đồng bộ lại
+    window.loadedApplicant.ma_ho_so = res.ma_ho_so || body.ma_ho_so;
+    return res;
   }
 
   async function deleteLoadedApplicant(){
-    if(!loadedApplicant?.id){ throw new Error("Chưa tải hồ sơ nào để xoá."); }
-    if(!confirm(`Xoá hồ sơ ${loadedApplicant.ma_ho_so}?`)) return;
-    const r = await apiFetch(`/applicants/${loadedApplicant.id}`, { method: "DELETE" });
+    if(!window.loadedApplicant?.ma_so_hv){ throw new Error("Chưa tải hồ sơ nào để xoá."); }
+    if(!confirm(`Xoá hồ sơ ${window.loadedApplicant.ma_ho_so}?`)) return;
+    const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, { method: "DELETE" });
     if (handleAuth(r)) return;
     if(!r || !r.ok){ const t = r ? await r.text() : "(không phản hồi)"; throw new Error(`Xoá thất bại (HTTP ${r ? r.status : '???'})\n${t}`); }
-    loadedApplicant = null; loadedDocsByCode = {};
+    window.loadedApplicant = null; loadedDocsByCode = {};
     setPrintButtonsEnabled(false);
     $("lookupMsg").textContent = "Đã xoá hồ sơ.";
     showToast("Đã xoá hồ sơ.", "info");
   }
 
+  // Tìm theo tên (trả list)
   async function searchByName(name){
     const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(name)}`);
     if(!r || !r.ok){
@@ -684,10 +672,8 @@ $("navLogout")?.addEventListener("click", async ()=>{
       throw new Error(`Tìm theo tên lỗi (HTTP ${r ? r.status : '???'})\n${t}`);
     }
     const j = await r.json();
-    // Chuẩn hóa: trả mảng dù backend trả list hay object
     return Array.isArray(j) ? j : (Array.isArray(j.items) ? j.items : (Array.isArray(j.data) ? j.data : []));
   }
-
 
   function renderNameResults(list){
     list = Array.isArray(list) ? list : (Array.isArray(list?.items) ? list.items : []);
@@ -701,13 +687,13 @@ $("navLogout")?.addEventListener("click", async ()=>{
     ul.innerHTML = list.map(it => {
       const ngay = it.ngay_nhan_hs ? String(it.ngay_nhan_hs).slice(0,10) : '';
       return `
-        <li class="p-2 hover:bg-gray-50 cursor-pointer" data-code="${it.ma_ho_so}">
+        <li class="p-2 hover:bg-gray-50 cursor-pointer" data-mshv="${it.ma_so_hv||''}">
           <div class="flex justify-between">
             <div class="font-medium">${it.ho_ten}</div>
             <div class="text-xs text-gray-500">${ngay}</div>
           </div>
           <div class="text-xs text-gray-600">
-            Mã: <span class="font-semibold">${it.ma_ho_so}</span>
+            Mã HS: <span class="font-semibold">${it.ma_ho_so}</span>
             • MSHV: ${it.ma_so_hv||''}
             • Đợt: ${it.dot||''}
           </div>
@@ -715,12 +701,12 @@ $("navLogout")?.addEventListener("click", async ()=>{
     }).join("");
     if (!ul._boundClick) {
       ul.addEventListener('click', (e)=>{
-        const li = e.target.closest('li[data-code]');
+        const li = e.target.closest('li[data-mshv]');
         if (!li) return;
-        const code = li.dataset.code;
-        $("q_ma_ho_so").value = code;
+        const mshv = li.dataset.mshv;
+        $("q_ma_so_hv").value = mshv;
         box.classList.add('hidden');
-        $("btnLoadApplicant").click();
+        $("btnLoadApplicantMSHV").click();
       });
       ul._boundClick = true;
     }
@@ -764,7 +750,6 @@ $("navLogout")?.addEventListener("click", async ()=>{
     setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
   };
 
-    // In PDF theo đợt (+Khóa)
   $("btnBatchPDFDot").onclick = async () => {
     const dot  = $("batchDot").value.trim();
     const khoa = $("batchKhoa")?.value.trim();
@@ -784,7 +769,6 @@ $("navLogout")?.addEventListener("click", async ()=>{
     window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
   };
 
-  // Xuất Excel theo đợt (+Khóa)
   $("btnExportExcelDot").onclick = async () => {
     const dot  = $("batchDot").value.trim();
     const khoa = $("batchKhoa")?.value.trim();
@@ -807,7 +791,6 @@ $("navLogout")?.addEventListener("click", async ()=>{
     setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
   };
 
-
   // ===== Bind form actions =====
   $("btnSave").onclick = async () => {
     const btn = $("btnSave");
@@ -815,8 +798,8 @@ $("navLogout")?.addEventListener("click", async ()=>{
     try{
       const res = await createApplicant();
       if (res) {
-        $("msg").textContent = `Đã lưu hồ sơ ${res.ma_ho_so} (id=${res.id}).`;
-        showToast(`Đã lưu hồ sơ <b>${res.ma_ho_so}</b>.`, "success");
+        $("msg").textContent = `Đã lưu hồ sơ ${res.ma_ho_so || $("ma_ho_so").value}.`;
+        showToast(`Đã lưu hồ sơ <b>${res.ma_ho_so || $("ma_ho_so").value}</b>.`, "success");
       }
     } finally{
       btn.disabled = false; btn.textContent = old;
@@ -826,44 +809,50 @@ $("navLogout")?.addEventListener("click", async ()=>{
   $("btnSavePrint").onclick = async () => {
     const res = await createApplicant();
     if (res) {
-      openPdf(makeUrl(`/print/a4-two-up/${res.id}`));
-      $("msg").textContent = `Đã lưu & in A4 (2-up) hồ sơ ${res.ma_ho_so}.`;
-      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so}</b>.`, "success");
+      // in bằng MSSV
+      const mshv = (res.ma_so_hv || $("ma_so_hv").value).trim();
+      if (mshv) openPdf(makeUrl(`/print/a4-two-up/${encodeURIComponent(mshv)}`));
+      $("msg").textContent = `Đã lưu & in A4 (2-up) hồ sơ ${res.ma_ho_so || $("ma_ho_so").value}.`;
+      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so || $("ma_ho_so").value}</b>.`, "success");
     }
   };
 
   $("btnSavePrintA5").onclick = async () => {
     const res = await createApplicant();
     if (res) {
-      openPdf(makeUrl(`/print/a5/${res.id}`));
-      $("msg").textContent = `Đã lưu & in A5 hồ sơ ${res.ma_ho_so}.`;
-      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so}</b>.`, "success");
+      const mshv = (res.ma_so_hv || $("ma_so_hv").value).trim();
+      if (mshv) openPdf(makeUrl(`/print/a5/${encodeURIComponent(mshv)}`));
+      $("msg").textContent = `Đã lưu & in A5 hồ sơ ${res.ma_ho_so || $("ma_ho_so").value}.`;
+      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so || $("ma_ho_so").value}</b>.`, "success");
     }
   };
 
-  // Alt+P -> Lưu & In (A4 2-up)
+  // Alt+P -> Lưu & In
   document.addEventListener('keydown', (e) => {
     if (e.altKey && (e.key === 'p' || e.key === 'P')) $("btnSavePrint").click();
   });
 
-  // Lookup bindings
-  $("btnLoadApplicant").onclick = async () => {
+  // Bind tra cứu THEO MSHV
+  $("btnLoadApplicantMSHV").onclick = async () => {
     try{
-      const code = $("q_ma_ho_so").value.trim();
-      if(!code){ alert("Nhập Mã hồ sơ hoặc dùng ô tìm theo tên phía dưới."); return; }
-      $("lookupMsg").textContent = "Đang tải...";
-      const a = await loadApplicantByCode(code);
-      loadedApplicant = { id: a.id, ma_ho_so: a.ma_ho_so };
+      const mshv = $("q_ma_so_hv").value.trim();
+      if(!mshv){ alert("Nhập MSHV (MSSV) để tải."); return; }
+      $("lookupMsg").textContent = "Đang tải theo MSHV...";
+      const a = await loadApplicantByMSHV(mshv);
+      window.loadedApplicant = { ma_so_hv: a.ma_so_hv, ma_ho_so: a.ma_ho_so }; // <<< dùng MSSV
       populateFormFromApplicant(a, a.docs || []);
       setPrintButtonsEnabled(true);
-      $("lookupMsg").textContent = `Đã tải hồ sơ ${a.ma_ho_so} (id=${a.id}).`;
+      $("lookupMsg").textContent = `Đã tải hồ sơ: ${a.ho_ten} • Mã HS ${a.ma_ho_so} • MSHV ${a.ma_so_hv}`;
     }catch(e){
       $("lookupMsg").textContent = e.message;
       setPrintButtonsEnabled(false);
     }
   };
-  $("q_ma_ho_so").addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); $("btnLoadApplicant").click(); } });
+  $("q_ma_so_hv").addEventListener('keydown', (e)=>{
+    if(e.key==='Enter'){ e.preventDefault(); $("btnLoadApplicantMSHV").click(); }
+  });
 
+  // Tìm theo tên
   $("btnSearchByName").onclick = async () => {
     try{
       const name = $("q_ho_ten").value.trim();
@@ -883,7 +872,7 @@ $("navLogout")?.addEventListener("click", async ()=>{
         $("lookupMsg").textContent = "Đang cập nhật...";
         const res = await updateLoadedApplicant();
         if (res?.nguoi_nhan_ky_ten) {
-          $("nguoi_nhan_ky_ten").value = res.nguoi_nhan_ky_ten; // hiển thị đúng tên hiện tại
+          $("nguoi_nhan_ky_ten").value = res.nguoi_nhan_ky_ten;
         }
         $("lookupMsg").textContent = `Cập nhật xong hồ sơ ${res.ma_ho_so}.`;
         showToast(`Đã cập nhật hồ sơ <b>${res.ma_ho_so}</b>.`, "success");
@@ -894,19 +883,19 @@ $("navLogout")?.addEventListener("click", async ()=>{
     });
   });
 
-  // Delete
+  // Xoá
   $("btnDeleteApplicant").onclick = async () => {
     try{ await deleteLoadedApplicant(); } catch(e){ $("lookupMsg").textContent = e.message; showToast(e.message, "error"); }
   };
 
-  // Print loaded
+  // In hồ sơ đang mở
   $("btnPrintLoadedA5").onclick = () => {
-    if (!loadedApplicant?.id) return alert("Chưa tải hồ sơ nào.");
-    openPdf(makeUrl(`/print/a5/${loadedApplicant.id}`));
+    if (!window.loadedApplicant?.ma_so_hv) return alert("Chưa tải hồ sơ nào.");
+    openPdf(makeUrl(`/print/a5/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`));
   };
   $("btnPrintLoadedA42up").onclick = () => {
-    if (!loadedApplicant?.id) return alert("Chưa tải hồ sơ nào.");
-    openPdf(makeUrl(`/print/a4-two-up/${loadedApplicant.id}`));
+    if (!window.loadedApplicant?.ma_so_hv) return alert("Chưa tải hồ sơ nào.");
+    openPdf(makeUrl(`/print/a4-two-up/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`));
   };
 
   // Reload checklist
@@ -932,12 +921,20 @@ $("navLogout")?.addEventListener("click", async ()=>{
     const today = new Date().toISOString().slice(0,10);
     $("ngay_nhan_hs").value = today;
     $("batchDate").value = today;
-    $("q_ma_ho_so")?.focus();
+    $("q_ma_so_hv")?.focus();
 
     await ensureApiBaseAndPrefix();
     await refreshAuthUI();
     await loadChecklist();
     setPrintButtonsEnabled(false);
+
+    // Auto-load khi có ?mshv=... trên URL (nút "Sửa" từ danh sách)
+    const url = new URL(window.location.href);
+    const mshv = url.searchParams.get('mshv');
+    if (mshv) {
+      $("q_ma_so_hv").value = mshv;
+      $("btnLoadApplicantMSHV").click();
+    }
   });
   </script>
 </body>

@@ -1,33 +1,36 @@
+# app/routers/batch.py
 from datetime import datetime, timedelta, date
 import io
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.responses import StreamingResponse
 from sqlalchemy.orm import Session
-
-from ..db.session import get_db
-from ..models.applicant import Applicant, ApplicantDoc
-from ..models.checklist import ChecklistItem
-from ..services.pdf_service import render_batch_pdf
 from sqlalchemy import func
 
+from app.db.session import get_db
+from app.models.applicant import Applicant, ApplicantDoc
+from app.models.checklist import ChecklistItem
+from app.services.pdf_service import render_batch_pdf
 
-router = APIRouter(prefix="/batch", tags=["batch"])
+router = APIRouter(prefix="/batch", tags=["Batch"])
 
 # -------- helpers --------
 def _parse_day(raw: str) -> date:
     """
-    Hỗ trợ 'YYYY-MM-DD' (input type=date) và 'dd/MM/yyyy' (gõ tay).
+    Ưu tiên 'dd/MM/YYYY' (theo yêu cầu), vẫn chấp nhận 'YYYY-MM-DD' (input type=date).
     """
     s = (raw or "").strip()
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
         try:
             return datetime.strptime(s, fmt).date()
         except ValueError:
             pass
     raise HTTPException(
         status_code=400,
-        detail="Sai định dạng ngày. Dùng 'day=YYYY-MM-DD' hoặc 'date=dd/MM/yyyy'."
+        detail="Sai định dạng ngày. Dùng 'date=dd/MM/YYYY' (ưu tiên) hoặc 'day=YYYY-MM-DD'."
     )
+
+def _fmt_dmy(d: date) -> str:
+    return d.strftime("%d/%m/%Y") if d else ""
 
 def _load_items_by_version(db: Session, version_ids):
     items_by_version = {}
@@ -42,65 +45,64 @@ def _load_items_by_version(db: Session, version_ids):
         items_by_version[vid] = q.all()
     return items_by_version
 
-def _docs_by_applicant(db: Session, app_ids):
+def _docs_by_mssv(db: Session, mssv_list):
+    """
+    Trả về dict { ma_so_hv: [ApplicantDoc, ...] }
+    (Đã đổi sang khóa bằng MSSV thay cho applicant_id cũ)
+    """
     out = {}
-    if not app_ids:
+    if not mssv_list:
         return out
-    docs = db.query(ApplicantDoc).filter(ApplicantDoc.applicant_id.in_(app_ids)).all()
+    docs = (
+        db.query(ApplicantDoc)
+        .filter(ApplicantDoc.applicant_ma_so_hv.in_(mssv_list))
+        .all()
+    )
     for d in docs:
-        out.setdefault(d.applicant_id, []).append(d)
+        out.setdefault(d.applicant_ma_so_hv, []).append(d)
     return out
 
 # -------- In PDF gộp theo NGÀY --------
 @router.get("/print")
 def batch_print(
-    day: str | None = Query(None, description="YYYY-MM-DD"),
-    date_q: str | None = Query(None, alias="date", description="dd/MM/yyyy"),
+    day: str | None = Query(None, description="YYYY-MM-DD (tùy chọn)"),
+    date_q: str | None = Query(None, alias="date", description="dd/MM/YYYY (khuyến nghị)"),
     db: Session = Depends(get_db),
 ):
-    # Chấp nhận cả 'day' hoặc 'date'
-    raw = day or date_q
+    raw = date_q or day
     if not raw:
-        raise HTTPException(status_code=400, detail="Thiếu tham số 'day' hoặc 'date'")
+        raise HTTPException(status_code=400, detail="Thiếu tham số 'date=dd/MM/YYYY' hoặc 'day=YYYY-MM-DD'.")
 
-    d = _parse_day(raw)
+    d = _parse_day(raw)  # trả về datetime.date
 
-    # Cover cả cột kiểu DATETIME lẫn DATE
-    d1 = datetime.combine(d, datetime.min.time())
-    d2 = d1 + timedelta(days=1)
-
+    # LỌC THEO NGÀY: dùng DATE(...) để tương thích cả DATE lẫn DATETIME
     apps = (
         db.query(Applicant)
-        .filter(Applicant.ngay_nhan_hs >= d1, Applicant.ngay_nhan_hs < d2)
-        .order_by(Applicant.id.asc())
+        .filter(func.date(Applicant.ngay_nhan_hs) == d)
+        .order_by(Applicant.created_at.asc(), Applicant.ma_so_hv.asc())
         .all()
     )
     if not apps:
-        apps = (
-            db.query(Applicant)
-            .filter(Applicant.ngay_nhan_hs == d)
-            .order_by(Applicant.id.asc())
-            .all()
-        )
-    if not apps:
         raise HTTPException(
             status_code=404,
-            detail=f"Không có hồ sơ nào trong ngày {d.strftime('%d/%m/%Y')}"
+            detail=f"Không có hồ sơ nào trong ngày { _fmt_dmy(d) }"
         )
 
-    version_ids = {a.checklist_version_id for a in apps}
+    version_ids = {a.checklist_version_id for a in apps if a.checklist_version_id is not None}
     items_by_version = _load_items_by_version(db, version_ids)
-    docs_by_app = _docs_by_applicant(db, [a.id for a in apps])
+
+    mssv_list = [a.ma_so_hv for a in apps]
+    docs_by_app = _docs_by_mssv(db, mssv_list)
 
     pdf_bytes = render_batch_pdf(apps, items_by_version, docs_by_app)
-    filename = f"Batch_{d.isoformat()}.pdf"
+
+    filename = f"Batch_{d.strftime('%d-%m-%Y')}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
     )
-
-# -------- In PDF gộp theo ĐỢT (mới) --------
+# -------- In PDF gộp theo ĐỢT --------
 @router.get("/print-dot")
 def batch_print_dot(
     dot: str = Query(..., description="Tên đợt, ví dụ: 'Đợt 1/2025' hoặc '9'"),
@@ -109,7 +111,7 @@ def batch_print_dot(
 ):
     dot_norm = (dot or "").strip()
     if not dot_norm:
-        raise HTTPException(status_code=400, detail="Thiếu tham số 'dot'")
+        raise HTTPException(status_code=400, detail="Thiếu tham số 'dot'.")
 
     q = (
         db.query(Applicant)
@@ -117,37 +119,19 @@ def batch_print_dot(
         .filter(Applicant.dot.ilike(f"%{dot_norm}%"))
     )
 
-    # nếu có truyền khóa thì lọc thêm theo khóa
     if (khoa or "").strip():
         k = khoa.strip()
-        q = (
-            q.filter(Applicant.khoa.isnot(None))
-             .filter(func.lower(func.trim(Applicant.khoa)) == k.lower())
-        )
+        q = q.filter(Applicant.khoa.isnot(None)).filter(func.lower(func.trim(Applicant.khoa)) == k.lower())
 
-    apps = q.order_by(Applicant.id.asc()).all()
+    apps = q.order_by(Applicant.created_at.asc(), Applicant.ma_so_hv.asc()).all()
     if not apps:
-        raise HTTPException(status_code=404, detail="Không có hồ sơ nào thuộc đợt đã chọn")
+        raise HTTPException(status_code=404, detail="Không có hồ sơ nào thuộc đợt đã chọn.")
 
-    # lấy danh mục theo version
-    version_ids = {a.checklist_version_id for a in apps}
-    items_by_version = {}
-    for vid in version_ids:
-        qitems = db.query(ChecklistItem).filter(ChecklistItem.version_id == vid)
-        if hasattr(ChecklistItem, "order_index"):
-            qitems = qitems.order_by(getattr(ChecklistItem, "order_index").asc())
-        elif hasattr(ChecklistItem, "order_no"):
-            qitems = qitems.order_by(getattr(ChecklistItem, "order_no").asc())
-        else:
-            qitems = qitems.order_by(ChecklistItem.id.asc())
-        items_by_version[vid] = qitems.all()
+    version_ids = {a.checklist_version_id for a in apps if a.checklist_version_id is not None}
+    items_by_version = _load_items_by_version(db, version_ids)
 
-    # map docs theo applicant
-    app_ids = [a.id for a in apps]
-    docs = db.query(ApplicantDoc).filter(ApplicantDoc.applicant_id.in_(app_ids)).all()
-    docs_by_app = {}
-    for ddoc in docs:
-        docs_by_app.setdefault(ddoc.applicant_id, []).append(ddoc)
+    mssv_list = [a.ma_so_hv for a in apps]
+    docs_by_app = _docs_by_mssv(db, mssv_list)
 
     pdf_bytes = render_batch_pdf(apps, items_by_version, docs_by_app)
 
@@ -159,10 +143,10 @@ def batch_print_dot(
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
     )
 
-# -------- Giữ route cũ để tương thích (trỏ sang /print-dot) --------
+# -------- Giữ route cũ để tương thích --------
 @router.get("/print-by-dot")
 def batch_print_by_dot_compat(
     dot: str = Query(..., description="Tên đợt cũ"),

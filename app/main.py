@@ -1,6 +1,5 @@
 # app/main.py
 import os
-from time import time
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -13,30 +12,34 @@ from app.db.session import engine
 # Routers
 from app.routers import health, applicants, checklist, export, batch
 from app.routers import auth, admin
+# Dùng chung hằng số timeout với auth.py để không lệch
+from app.routers.auth import IDLE_TIMEOUT_SEC as AUTH_IDLE_TIMEOUT_SEC
 
 app = FastAPI()
 
-# Cookie sống 7 ngày; idle timeout sẽ xử lý riêng (3 giờ)
+# Cookie sống 7 ngày; idle timeout xử lý riêng (3 giờ trong auth + middleware)
 app.add_middleware(
     SessionMiddleware,
-    secret_key="change-me-please",   # nhớ đổi ở production
+    secret_key="change-me-please",   # nhớ đổi ở production / đặt qua ENV
     max_age=60 * 60 * 24 * 7,        # 7 ngày
     same_site="lax",
 )
 
-# ===== Idle timeout 3 giờ =====
-MAX_IDLE_SECONDS = 3 * 60 * 60  # 3h
+# ===== Idle timeout =====
+MAX_IDLE_SECONDS = AUTH_IDLE_TIMEOUT_SEC  # 3h từ auth.py
 
 WHITELIST_PREFIXES = (
-    "/", "/index.html",           # trang tĩnh gốc
-    "/login", "/api/login",       # login
-    "/health", "/api/health",     # health
-    "/auth_login.html",           # file login tĩnh
-    "/hutech.png", "/favicon",    # assets phổ biến
-    "/static", "/assets",         # nếu có mount assets
+    # KHÔNG để "/" ở đây kẻo bypass mọi route
+    "/index.html",
+    "/login", "/api/login",          # login
+    "/health", "/api/health",        # health
+    "/auth_login.html",              # file login tĩnh
+    "/hutech.png", "/favicon",       # assets phổ biến
+    "/static", "/assets",            # mount assets
 )
 
 STATIC_EXTS = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".map", ".woff", ".woff2", ".ttf")
+
 
 @app.middleware("http")
 async def idle_timeout_middleware(request, call_next):
@@ -56,22 +59,23 @@ async def idle_timeout_middleware(request, call_next):
     if uid:
         from time import time as _now
         now = int(_now())
-        last = int(sess.get("last_seen") or 0)
+        # DÙNG CÙNG KEY VỚI auth.py
+        last = int(sess.get("_last_seen") or 0)
 
         # Hết hạn do không hoạt động
         if last and now - last > MAX_IDLE_SECONDS:
             request.session.clear()
             # API -> 401 JSON ; Web -> redirect /login
             if path.startswith("/api"):
-                from starlette.responses import JSONResponse
                 return JSONResponse({"detail": "Session expired"}, status_code=401)
-            from starlette.responses import RedirectResponse
             return RedirectResponse(url="/login", status_code=302)
 
-        # Còn hạn -> cập nhật mốc hoạt động
-        sess["last_seen"] = now
+        # Còn hạn -> cập nhật mốc hoạt động (đồng bộ với auth.py)
+        sess["_last_seen"] = now
 
     return await call_next(request)
+
+
 # ================== Mount routers ==================
 app.include_router(auth.router,  tags=["Auth"])
 app.include_router(admin.router, tags=["Admin"])

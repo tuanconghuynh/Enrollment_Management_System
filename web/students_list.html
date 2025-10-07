@@ -20,10 +20,16 @@
     .btn-pill { border-radius:999px; }
     .table { width:100%; border-collapse: separate; border-spacing:0; }
     .table th, .table td { border-bottom:1px solid #e5e7eb; padding:.6rem .75rem; }
-    .table thead th { background:#f8fafc; font-weight:700; position:sticky; top:0; z-index:1; }
+    .table thead th { background:#f8fafc; font-weight:700; position:sticky; top:0; z-index:1; user-select:none; }
     .row-alt:nth-child(odd) td { background:#fafafa; }
     .badge { display:inline-block; padding:.1rem .5rem; border-radius:.5rem; background:#eef2ff; color:#3730a3; font-size:.75rem; }
     .text-muted { color:#9ca3af; }
+    .th-sortable { cursor:pointer; }
+    .th-sortable .arrow { opacity:.4; margin-left:.25rem; }
+    .th-sortable.active .arrow { opacity:1; }
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50}
+    .modal{background:#fff;border-radius:1rem;box-shadow:0 30px 60px rgba(0,0,0,.3);max-width:720px;width:calc(100% - 2rem)}
   </style>
   <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
   <link rel="apple-touch-icon" href="hutech.png">
@@ -57,17 +63,24 @@
 
     <!-- Toolbar -->
     <section class="card space-y-4">
-      <!-- Hàng 1: Tìm kiếm (giữa) -->
-      <div class="flex justify-center">
-        <div class="w-full max-w-2xl flex flex-wrap items-center gap-2">
-          <div class="relative flex-1 min-w-[260px]">
-            <input id="q" class="input w-full pl-10" placeholder="Nhập họ tên hoặc mã hồ sơ..." />
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
+      <!-- Hàng 1: Tìm kiếm + Lọc đợt/khóa -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 items-end">
+        <!-- Ô tìm chung -->
+        <div class="xl:col-span-2">
+          <div class="flex items-center gap-2">
+            <div class="relative flex-1 min-w-[240px]">
+              <input id="q" class="input w-full pl-10" placeholder="Nhập họ tên hoặc MSHV..." />
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input id="filterDot"  class="input" placeholder="Lọc theo Đợt"  title="VD: 1 hoặc 1/2025" />
+              <input id="filterKhoa" class="input" placeholder="Lọc theo Khóa" title="VD: 27" />
+            </div>
+            <button id="btnSearch" class="btn btn-outline shrink-0">🔎 Tìm</button>
           </div>
-          <button id="btnSearch" class="btn btn-outline shrink-0">🔎Tìm</button>
         </div>
       </div>
-
+      <h2 class="font-bold">IN / XUẤT DỮ LIỆU</h2>
       <!-- Hàng 2: Theo ngày + Theo đợt -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <!-- Theo ngày -->
@@ -75,16 +88,16 @@
           <input id="day" type="date" class="input w-36 sm:w-40 md:w-44 lg:w-48 flex-none" />
           <button id="btnExportDay" class="btn btn-outline shrink-0" title="Xuất Excel theo ngày">⬇️ Excel</button>
           <button id="btnPrintDay"  class="btn btn-primary shrink-0" title="In PDF gộp theo ngày">🖨️ PDF</button>
-          <p class="w-full text-xs text-gray-500">Theo ngày nhận hồ sơ.</p>
+          <p class="w-full text-xs text-gray-500">Gửi in theo ngày nhận hồ sơ.</p>
         </div>
 
-        <!-- Theo đợt (+Khóa) -->
+        <!-- Theo đợt (+Khóa) server-side -->
         <div class="flex flex-wrap items-center gap-2 min-w-0">
           <input id="dot" class="input w-24 sm:w-28 md:w-32 flex-none" placeholder="Nhập tên đợt" title="VD: 1" />
-          <input id="dotKhoa" class="input w-24 sm:w-28 md:w-32 flex-none" placeholder="Nhập Khóa" title="VD: 27" />
+          <input id="dotKhoa" class="input w-24 sm:w-28 md:w-32 flex-none" placeholder="Nhập Khóa" title="VD: 25" />
           <button id="btnExportDot" class="btn btn-outline shrink-0" title="Xuất Excel theo đợt + khóa">⬇️ Excel</button>
           <button id="btnPrintDot"  class="btn btn-primary shrink-0" title="In PDF gộp theo đợt + khóa">🖨️ PDF</button>
-          <p class="w-full text-xs text-gray-500">Lọc theo <b>đợt</b>; nếu cần, nhập thêm <b>Khóa</b> để tránh trùng.</p>
+          <p class="w-full text-xs text-gray-500">Gửi in/xuất theo <b>đợt</b>;hoặc nhập thêm <b>Khóa</b> nếu cần.</p>
         </div>
       </div>
     </section>
@@ -101,10 +114,7 @@
         <div class="flex items-center gap-2 text-sm">
           <span>Hiển thị</span>
           <select id="pageSize" class="input w-24">
-            <option>10</option>
-            <option selected>20</option>
-            <option>50</option>
-            <option>100</option>
+            <option>10</option><option selected>20</option><option>50</option><option>100</option>
           </select>
           <span>dòng/trang</span>
         </div>
@@ -130,13 +140,15 @@
               <tr>
                 <th class="text-left">Mã HS</th>
                 <th class="text-left">Họ tên</th>
-                <th class="text-left">MSHV</th>
-                <th>Ngày nhận</th>
-                <th class="text-left">Ngành</th>
-                <th>Đợt</th>
-                <th>Khóa</th>
-                <th class="text-left">Người nhận</th>
+                <th class="text-left th-sortable" data-sort="ma_so_hv">MSHV <span class="arrow"></span></th>
+                <th>Email</th>
+                <th class="th-sortable" data-sort="ngay_nhan_hs">Ngày nhận <span class="arrow"></span></th>
+                <th class="th-sortable" data-sort="nganh">Ngành <span class="arrow"></span></th>
+                <th class="th-sortable" data-sort="dot">Đợt <span class="arrow"></span></th>
+                <th class="th-sortable" data-sort="khoa">Khóa <span class="arrow"></span></th>
+                <th class="th-sortable" data-sort="nguoi_nhan">Người nhận <span class="arrow"></span></th>
                 <th class="text-center">In</th>
+                <th class="text-center">Sửa/Xóa</th>
               </tr>
             </thead>
             <tbody id="tbody"></tbody>
@@ -148,60 +160,83 @@
           <span class="ml-2">Đang tải…</span>
         </div>
       </div>
-          <div class="ml-auto flex items-center gap-1 text-sm">
-          <button id="btnFirst" class="btn btn-outline btn-xs" title="Trang đầu">⏮️</button>
-          <button id="btnPrev"  class="btn btn-outline btn-xs" title="Trang trước">⏪</button>
-          <span id="pageInfo" class="mx-2 min-w-[160px] text-center">Trang 1/1 • 0 mục</span>
-          <button id="btnNext"  class="btn btn-outline btn-xs" title="Trang sau">⏩</button>
-          <button id="btnLast"  class="btn btn-outline btn-xs" title="Trang cuối">⏭️</button>
-        </div>
     </section>
   </div>
-  <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
-  © <span class="font-semibold">
-    <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">
-      V-HT.PTĐT HUTECH
-    </a>
-  </span>
-  ➖ Code by:
-  <span class="font-semibold">
-    <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">
-      HC- Tuan
-    </a>
-  </span>
-</footer>
 
+  <!-- Modal Edit -->
+  <div id="editModal" class="modal-backdrop">
+    <div class="modal p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">Chỉnh sửa hồ sơ</h3>
+        <button id="btnCloseModal" class="btn btn-outline btn-xs">✕</button>
+      </div>
+      <form id="editForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div><label class="text-sm text-gray-600">MSHV (khóa)</label><input id="e_mshv" class="input bg-gray-100" readonly></div>
+        <div><label class="text-sm text-gray-600">Mã hồ sơ</label><input id="e_ma_ho_so" class="input"></div>
+        <div><label class="text-sm text-gray-600">Họ tên</label><input id="e_ho_ten" class="input"></div>
+        <div><label class="text-sm text-gray-600">Email học viên</label><input id="e_email" class="input" type="email"></div>
+        <div><label class="text-sm text-gray-600">Số ĐT</label><input id="e_so_dt" class="input"></div>
+        <div><label class="text-sm text-gray-600">Ngành nhập học</label><input id="e_nganh" class="input"></div>
+        <div><label class="text-sm text-gray-600">Đợt</label><input id="e_dot" class="input"></div>
+        <div><label class="text-sm text-gray-600">Khóa</label><input id="e_khoa" class="input"></div>
+        <div><label class="text-sm text-gray-600">Ngày nhận HS</label><input id="e_ngay_nhan" class="input" type="date"></div>
+        <div><label class="text-sm text-gray-600">Ngày sinh</label><input id="e_ngay_sinh" class="input" type="date"></div>
+        <div class="md:col-span-2"><label class="text-sm text-gray-600">Ghi chú</label><input id="e_ghi_chu" class="input"></div>
+        <div class="md:col-span-2 flex items-center justify-end gap-2 pt-2">
+          <button type="button" id="btnCancelEdit" class="btn btn-outline">Hủy</button>
+          <button type="submit" id="btnSaveEdit" class="btn btn-primary">Lưu thay đổi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
+    © <span class="font-semibold">
+      <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">
+        V-HT.PTĐT HUTECH
+      </a>
+    </span>
+    ➖ Code by:
+    <span class="font-semibold">
+      <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">
+        HC- Tuan
+      </a>
+    </span>
+  </footer>
 
   <script>
+    // Ẩn lúc kiểm tra login
+    document.documentElement.style.visibility = 'hidden';
+
     // ===== helpers =====
     const $ = id => document.getElementById(id);
-    const apiBase = () => $("apiBase").value.trim().replace(/\/+$/,'');
+    const STORAGE_KEY = "apiBase";
     const PREFIX_CANDIDATES = ["", "/api"];
     let API_PREFIX = "";
 
     (function initApiBase(){
-      const el = $("apiBase");
-      if (!el.value) el.value = window.location.origin;
+      const saved = localStorage.getItem(STORAGE_KEY) || window.location.origin;
+      $("apiBase").value = saved;
     })();
+
+    const apiBase = () => $("apiBase").value.trim().replace(/\/+$/,'');
+    const makeUrl = (path) => apiBase() + API_PREFIX + path;
 
     async function detectPrefix() {
       for (const p of PREFIX_CANDIDATES) {
         try { const r = await fetch(apiBase() + p + "/health", {credentials:"include"}); if (r.ok) { API_PREFIX = p; return; } } catch(_){}
       }
-      API_PREFIX = "";
+      API_PREFIX = ""; // fallback
     }
-    const makeUrl = (path) => apiBase() + API_PREFIX + path;
 
     async function apiFetch(path, init={}){
       const opts = {credentials:"include", ...init};
-      let r = await fetch(makeUrl(path), opts);
-      if (r.status === 404) {
-        const alt = API_PREFIX === "" ? "/api" : "";
-        try {
-          const r2 = await fetch(apiBase() + alt + path, opts);
-          if (r2.ok) { API_PREFIX = alt; return r2; }
-          return r2;
-        } catch(e){ throw e; }
+      let r = await fetch(makeUrl(path), opts).catch(()=>null);
+      if (r && r.status !== 404) return r;
+      // thử prefix còn lại nếu 404
+      const alt = (API_PREFIX === "" ? "/api" : "");
+      if (alt !== API_PREFIX) {
+        try { const r2 = await fetch(apiBase() + alt + path, opts); if (r2.ok) { API_PREFIX = alt; return r2; } return r2; } catch(e){ return null; }
       }
       return r;
     }
@@ -220,6 +255,7 @@
       }
       return t;
     }
+    const dash = (x)=> (x && String(x).trim()!=="") ? x : '<span class="text-muted">—</span>';
 
     function setState({loading=false, empty=false}){
       $("loading").classList.toggle("hidden", !loading);
@@ -227,148 +263,208 @@
       $("tableWrap").classList.toggle("hidden", loading || empty);
     }
 
-    const dashIfEmpty = (x) =>
-      (x && String(x).trim() !== "" ? x : '<span class="text-muted">—</span>');
-
-    // ===== User status (/me) + quyền =====
-    async function ensureMe(){
+    // ===== Auth check (/me) =====
+    async function ensureLoggedIn(){
+      await detectPrefix();
       try{
-        await detectPrefix();
         const r = await apiFetch("/me");
-        if(!r.ok) throw new Error();
+        if (!r || !r.ok) throw new Error();
         const me = await r.json();
-
         $("meName").textContent = me.full_name || me.username || "";
         $("meRole").textContent = me.role || "";
         $("meText").classList.remove("hidden");
-        $("btnLogout").classList.remove("hidden");
         $("loginLink").classList.add("hidden");
-
-        // Quyền
-        const role   = me.role || "";
-        const isAdmin = role === "Admin";
-        const isStaff = isAdmin || role === "NhanVien";
-        const isCTV   = role === "CongTacVien";
-
-        // Ẩn Excel với CTV
-        $("btnExportDay")?.classList.toggle("hidden", isCTV);
-        $("btnExportDot")?.classList.toggle("hidden", isCTV);
-
-        // (nếu có các nav khác trên trang)
-        $("navImport")?.classList.toggle("hidden", !isStaff);
-        $("navAdmin")?.classList.toggle("hidden", !isAdmin);
-        $("navStudents")?.classList.toggle("hidden", !(isStaff || isCTV));
-      } catch {
-        $("meText").classList.add("hidden");
-        $("btnLogout").classList.add("hidden");
-        $("loginLink").classList.remove("hidden");
-        $("btnExportDay")?.classList.add("hidden");
-        $("btnExportDot")?.classList.add("hidden");
+        $("btnLogout").classList.remove("hidden");
+        document.documentElement.style.visibility = '';
+      }catch{
+        const next = encodeURIComponent(location.pathname + location.search);
+        location.replace(`/login?next=${next}`);
       }
     }
+    $("btnLogout")?.addEventListener("click", async ()=>{
+      try{ await apiFetch("/logout", {method:"POST"}); }catch(_) {}
+      location.href = "/login";
+    });
 
-    // ====== Phân trang phía server ======
+    // ===== Data/paging/sort state =====
     const state = {
       q: "",
       page: 1,
       size: Number(localStorage.getItem("students.pageSize") || 20),
       total: 0,
+      cachedAllForFilter: [],
+      sort: { key: null, dir: 'asc' }, // key: 'ma_so_hv' | 'dot' | 'khoa'
+      lastRendered: [] // giữ items đang render để sắp xếp lại
     };
-
     function pagesTotal(){ return Math.max(1, Math.ceil(state.total / state.size)); }
 
     function renderRows(items){
+      state.lastRendered = items.slice();
       const tbody = $("tbody"); tbody.innerHTML = "";
-      items.forEach((it) => {
+      (items||[]).forEach((it) => {
         const nganh = it.nganh_nhap_hoc ?? it.nganh ?? "";
         const khoa  = it.khoa ?? it.khoa_hoc ?? it.khoahoc ?? "";
         const dot   = it.dot ?? it.dot_tuyen ?? "";
         const nguoi = it.nguoi_nhan_ky_ten ?? it.nguoi_nhan ?? it.nguoi_ky ?? "";
+        const mail  = it.email_hoc_vien ?? "";
 
+        const mshv = it.ma_so_hv;
         const tr = document.createElement("tr");
         tr.className = "row-alt";
-        tr.setAttribute("data-id", it.id);
         tr.innerHTML = `
-          <td class="border-b whitespace-nowrap font-medium">${dashIfEmpty(it.ma_ho_so)}</td>
-          <td class="border-b">${dashIfEmpty(it.ho_ten)}</td>
-          <td class="border-b">${dashIfEmpty(it.ma_so_hv)}</td>
-          <td class="border-b text-center whitespace-nowrap">${dashIfEmpty(fmtDMY(it.ngay_nhan_hs))}</td>
-          <td class="border-b" data-cell="nganh">${dashIfEmpty(nganh)}</td>
-          <td class="border-b text-center">${dashIfEmpty(dot)}</td>
-          <td class="border-b text-center" data-cell="khoa">${dashIfEmpty(khoa)}</td>
-          <td class="border-b" data-cell="nguoi">${dashIfEmpty(nguoi)}</td>
+          <td class="border-b whitespace-nowrap font-medium">${dash(it.ma_ho_so)}</td>
+          <td class="border-b">${dash(it.ho_ten)}</td>
+          <td class="border-b">${dash(mshv)}</td>
+          <td class="border-b">${dash(mail)}</td>
+          <td class="border-b text-center whitespace-nowrap">${dash(fmtDMY(it.ngay_nhan_hs))}</td>
+          <td class="border-b">${dash(nganh)}</td>
+          <td class="border-b text-center">${dash(dot)}</td>
+          <td class="border-b text-center">${dash(khoa)}</td>
+          <td class="border-b">${dash(nguoi)}</td>
           <td class="border-b text-center whitespace-nowrap">
             <div class="inline-flex gap-2">
-              <a class="btn btn-soft btn-xs btn-pill"
-                 href="${makeUrl(`/print/a5/${it.id}`)}"
-                 target="_blank" rel="noopener" title="In A5">A5</a>
-              <a class="btn btn-primary btn-xs btn-pill"
-                 href="${makeUrl(`/print/a4-two-up/${it.id}`)}"
-                 target="_blank" rel="noopener" title="In A4 (2-up)">A4</a>
+              <a class="btn btn-soft btn-xs btn-pill" href="${makeUrl(`/print/a5/${encodeURIComponent(mshv)}`)}" target="_blank" rel="noopener">A5</a>
+              <a class="btn btn-primary btn-xs btn-pill" href="${makeUrl(`/print/a4-two-up/${encodeURIComponent(mshv)}`)}" target="_blank" rel="noopener">A4</a>
+            </div>
+          </td>
+          <td class="border-b text-center whitespace-nowrap">
+            <div class="inline-flex gap-2">
+              <a class="btn btn-outline btn-xs btn-pill" href="/?mshv=${encodeURIComponent(mshv)}">Sửa</a>
+              <button class="btn btn-outline btn-xs btn-pill btn-del"  data-mshv="${encodeURIComponent(mshv)}">Xóa</button>
             </div>
           </td>`;
         tbody.appendChild(tr);
       });
-    }
 
-    function updatePagerUI(){
-      $("count").textContent = String(state.total);
-      $("pageInfo").textContent = `Trang ${state.page}/${pagesTotal()} • ${state.total} mục`;
-      $("btnFirst").disabled = state.page <= 1;
-      $("btnPrev").disabled  = state.page <= 1;
-      $("btnNext").disabled  = state.page >= pagesTotal();
-      $("btnLast").disabled  = state.page >= pagesTotal();
-    }
-
-    async function hydrateMissing(items){
-      const need = (items||[]).filter(it =>
-        !(it.nganh_nhap_hoc || it.nganh) ||
-        !it.khoa ||
-        !(it.nguoi_nhan_ky_ten || it.nguoi_nhan || it.nguoi_ky)
-      );
-      if (need.length === 0) return;
-
-      const updateCell = (key, id, value) => {
-        if (value == null || value === "") return;
-        const el = document.querySelector(`[data-id="${id}"] [data-cell="${key}"]`);
-        if (el) el.innerHTML = dashIfEmpty(value);
-      };
-
-      const tasks = [];
-      let idx = 0;
-      const worker = async () => {
-        while (idx < need.length) {
-          const it = need[idx++];
-          let r = await apiFetch(`/applicants/by-code/${encodeURIComponent(it.ma_ho_so)}`).catch(()=>null);
-          if (!r || !r.ok) r = await apiFetch(`/applicants/${it.id}`).catch(()=>null);
-          if (r && r.ok) {
-            const data = await r.json();
-            const a = data.applicant || data;
-            updateCell("nganh", it.id, a.nganh_nhap_hoc || a.nganh);
-            updateCell("khoa",  it.id, a.khoa || a.nien_khoa);
-            updateCell("nguoi", it.id, a.nguoi_nhan_ky_ten || a.nguoi_nhan || a.nguoi_ky);
+      // bind delete
+      document.querySelectorAll(".btn-del").forEach(btn=>{
+        btn.addEventListener("click", async ()=>{
+          const mshv = decodeURIComponent(btn.getAttribute("data-mshv")||"");
+          if (!mshv) return;
+          if (!confirm(`Xóa hồ sơ MSHV ${mshv}?`)) return;
+          const r = await apiFetch(`/applicants/${encodeURIComponent(mshv)}`, {method:"DELETE"});
+          if (!r || (r.status!==204 && !r.ok)) {
+            alert(`Xóa thất bại (HTTP ${r ? r.status : '???'})`);
+            return;
           }
-        }
-      };
-      for (let i=0;i<4;i++) tasks.push(worker());
-      await Promise.all(tasks);
+          await runSearch();
+        });
+      });
+
+      // bind edit (open modal)
+      document.querySelectorAll(".btn-edit").forEach(btn=>{
+        btn.addEventListener("click", async ()=>{
+          const mshv = decodeURIComponent(btn.getAttribute("data-mshv")||"");
+          if (!mshv) return;
+          await openEditModal(mshv);
+        });
+      });
     }
 
-    async function fetchPage(){
-      setState({loading:true});
-      const url = `/applicants/search?q=${encodeURIComponent(state.q)}&page=${state.page}&size=${state.size}`;
-      const r = await apiFetch(url).catch(()=>null);
-      if (!r || !r.ok){
-        setState({empty:true});
-        $("msg").textContent = `Lỗi tải dữ liệu (HTTP ${r ? r.status : "???"})`;
-        return;
+    function updatePagerUI(total, page, size){
+      $("count").textContent = String(total);
+      $("pageInfo").textContent = `Trang ${page}/${Math.max(1, Math.ceil(total/size))} • ${total} mục`;
+
+      $("btnFirst").disabled = page <= 1;
+      $("btnPrev").disabled  = page <= 1;
+      $("btnNext").disabled  = page >= Math.max(1, Math.ceil(total/size));
+      $("btnLast").disabled  = page >= Math.max(1, Math.ceil(total/size));
+    }
+
+    // sắp xếp client-side trên items đang hiển thị (hoặc cachedAll khi đang lọc)
+    function applySort(list){
+      const {key, dir} = state.sort;
+      if (!key) return list;
+      const getVal = (it)=>{
+        if (key === 'ma_so_hv') return (it.ma_so_hv || "").toString();
+        if (key === 'dot')     return (it.dot || it.dot_tuyen || "").toString();
+        if (key === 'khoa')    return (it.khoa || it.khoa_hoc || it.khoahoc || "").toString();
+        return "";
+      };
+      const collator = new Intl.Collator('vi', {numeric:true, sensitivity:'base'});
+      const arr = list.slice().sort((a,b)=> collator.compare(getVal(a), getVal(b)));
+      return dir === 'asc' ? arr : arr.reverse();
+    }
+    function toggleSort(key){
+      const ths = document.querySelectorAll('.th-sortable');
+      ths.forEach(th=> th.classList.remove('active'));
+      if (state.sort.key === key){
+        state.sort.dir = (state.sort.dir === 'asc' ? 'desc' : 'asc');
+      } else {
+        state.sort.key = key; state.sort.dir = 'asc';
       }
-      const data = await r.json(); // {items, page, size, total}
-      state.total = data.total || 0;
-      renderRows(data.items || []);
-      setState({loading:false, empty: (data.items||[]).length===0});
-      updatePagerUI();
-      hydrateMissing(data.items || []);
+      const th = document.querySelector(`.th-sortable[data-sort="${key}"]`);
+      if (th) th.classList.add('active');
+      // re-render với sort
+      const source = ( $("filterDot").value.trim() || $("filterKhoa").value.trim() )
+        ? state.cachedAllForFilter
+        : state.lastRendered;
+      const sorted = applySort(source);
+      renderRows(sorted);
+      updatePagerUI(sorted.length || state.total, 1, (sorted.length||state.size));
+      setState({loading:false, empty: (sorted.length===0)});
+    }
+
+    // lấy 1 trang server
+    async function fetchPageServer(q, page, size){
+      const url = `/applicants/search?q=${encodeURIComponent(q)}&page=${page}&size=${size}`;
+      const r = await apiFetch(url).catch(()=>null);
+      if (!r || !r.ok) throw new Error(`Lỗi tải dữ liệu (HTTP ${r ? r.status : "???"})`);
+      return r.json(); // {items, page, size, total}
+    }
+
+    // lấy nhiều (để lọc client theo đợt/khóa)
+    async function fetchUpTo(limit=1000){
+      const out = [];
+      let page = 1;
+      const size = 200;
+      for(;;){
+        const data = await fetchPageServer(state.q, page, size);
+        (data.items||[]).forEach(x=>out.push(x));
+        if (out.length >= (data.total||0) || out.length >= limit) break;
+        page += 1;
+      }
+      return out.slice(0, limit);
+    }
+
+    function applyClientFilters(list){
+      const dot  = $("filterDot").value.trim().toLowerCase();
+      const khoa = $("filterKhoa").value.trim().toLowerCase();
+      return (list||[]).filter(it=>{
+        const _dot  = String(it.dot ?? it.dot_tuyen ?? "").toLowerCase();
+        const _khoa = String(it.khoa ?? it.khoa_hoc ?? it.khoahoc ?? "").toLowerCase();
+        const okDot  = !dot  || _dot.includes(dot);
+        const okKhoa = !khoa || _khoa === khoa || _khoa.includes(khoa);
+        return okDot && okKhoa;
+      });
+    }
+
+    async function runSearch(){
+      setState({loading:true});
+      const wantFilter = $("filterDot").value.trim() !== "" || $("filterKhoa").value.trim() !== "";
+      try{
+        let items=[], total;
+        if (wantFilter){
+          // lấy nhiều rồi lọc client
+          state.cachedAllForFilter = await fetchUpTo(1000);
+          let filtered = applyClientFilters(state.cachedAllForFilter);
+          filtered = applySort(filtered);
+          total = filtered.length;
+          renderRows(filtered);
+          updatePagerUI(total, 1, total || 1);
+        }else{
+          // phân trang bình thường
+          const data = await fetchPageServer(state.q, state.page, state.size);
+          items = applySort(data.items || []);
+          total = data.total || 0;
+          renderRows(items);
+          updatePagerUI(total, state.page, state.size);
+        }
+        setState({loading:false, empty: total===0});
+      }catch(e){
+        setState({loading:false, empty:true});
+        $("msg").textContent = e.message || "Lỗi không xác định";
+      }
     }
 
     // ===== Export/In ấn theo ngày/đợt =====
@@ -418,34 +514,160 @@
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
     };
 
-    // ===== Events =====
-    $("btnSearch").onclick = () => { state.q = $("q").value.trim(); state.page = 1; fetchPage(); };
-    $("q").addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ state.q = $("q").value.trim(); state.page = 1; fetchPage(); } });
-    $("btnLogout").onclick = async () => {
-      try { await apiFetch("/logout", {method:"POST"}); } catch {}
-      location.href = "/login";
-    };
-
-    $("pageSize").addEventListener("change", () => {
-      state.size = Number($("pageSize").value) || 20;
-      localStorage.setItem("students.pageSize", state.size);
-      state.page = 1;
-      fetchPage();
+    // ===== Sort header bindings =====
+    document.addEventListener('click', (e)=>{
+      const th = e.target.closest('.th-sortable');
+      if (!th) return;
+      const key = th.getAttribute('data-sort');
+      if (!key) return;
+      toggleSort(key);
     });
-    $("btnFirst").onclick = () => { if (state.page>1){ state.page=1; fetchPage(); } };
-    $("btnPrev").onclick  = () => { if (state.page>1){ state.page--; fetchPage(); } };
-    $("btnNext").onclick  = () => { if (state.page<pagesTotal()){ state.page++; fetchPage(); } };
-    $("btnLast").onclick  = () => { const pt=pagesTotal(); if (state.page<pt){ state.page=pt; fetchPage(); } };
 
-    // init
-    (async function(){
-      await detectPrefix();
-      await ensureMe();
-      $("pageSize").value = String(state.size);
-      setState({loading:true});
-      // load trang 1 (q rỗng = lấy tất cả)
-      fetchPage();
-    })();
+    // ===== Bind search/paging =====
+    $("btnSearch").onclick = ()=>{
+      state.q = $("q").value.trim();
+      state.page = 1;
+      runSearch();
+    };
+    $("q").addEventListener("keydown", e=>{ if(e.key==="Enter") $("btnSearch").click(); });
+
+    $("pageSize").value = String(state.size);
+    $("pageSize").addEventListener("change", ()=>{
+      state.size = Number($("pageSize").value) || 20;
+      localStorage.setItem("students.pageSize", String(state.size));
+      state.page = 1;
+      runSearch();
+    });
+
+    $("btnFirst").onclick = ()=>{ state.page = 1; runSearch(); };
+    $("btnPrev").onclick  = ()=>{ if(state.page>1){ state.page--; runSearch(); } };
+    $("btnNext").onclick  = ()=>{ state.page++; runSearch(); };
+    $("btnLast").onclick  = ()=>{ state.page = pagesTotal(); runSearch(); };
+
+    // lọc client theo đợt/khóa (gõ là lọc ngay nếu đã có cache)
+    ["filterDot","filterKhoa"].forEach(id=>{
+      $(id).addEventListener("input", ()=>{
+        const has = $("filterDot").value.trim()!=="" || $("filterKhoa").value.trim()!=="";
+        if (has && state.cachedAllForFilter.length>0){
+          let filtered = applyClientFilters(state.cachedAllForFilter);
+          filtered = applySort(filtered);
+          renderRows(filtered);
+          updatePagerUI(filtered.length, 1, filtered.length||1);
+          setState({loading:false, empty: filtered.length===0});
+        }
+      });
+    });
+    
+
+    // ===== Modal Edit logic =====
+    const modal = $("editModal");
+    const openModal = ()=>{ modal.style.display='flex'; };
+    const closeModal = ()=>{ modal.style.display='none'; };
+    $("btnCloseModal").onclick = closeModal;
+    $("btnCancelEdit").onclick = closeModal;
+
+    async function openEditModal(mshv){
+      // tải chi tiết
+      const r = await apiFetch(`/applicants/by-mshv/${encodeURIComponent(mshv)}`).catch(()=>null);
+      if (!r || !r.ok){ alert(`Không tải được hồ sơ (HTTP ${r ? r.status : '???'})`); return; }
+      const data = await r.json();
+      const a = data.applicant || data;
+
+      // đổ form
+      $("e_mshv").value    = a.ma_so_hv || mshv;
+      $("e_ma_ho_so").value= a.ma_ho_so || "";
+      $("e_ho_ten").value  = a.ho_ten || "";
+      $("e_email").value   = a.email_hoc_vien || "";
+      $("e_so_dt").value   = a.so_dt || "";
+      $("e_nganh").value   = a.nganh_nhap_hoc || a.nganh || "";
+      $("e_dot").value     = a.dot || a.dot_tuyen || "";
+      $("e_khoa").value    = a.khoa || a.khoa_hoc || a.khoahoc || "";
+      $("e_ngay_nhan").value = (a.ngay_nhan_hs_iso || a.ngay_nhan_hs || "").slice(0,10);
+      $("e_ngay_sinh").value  = (a.ngay_sinh_iso || a.ngay_sinh || "").slice(0,10);
+      $("e_ghi_chu").value    = a.ghi_chu || "";
+
+      openModal();
+    }
+
+    $("editForm").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const mshv = $("e_mshv").value.trim();
+      const body = {
+        ma_ho_so: $("e_ma_ho_so").value.trim(),
+        ho_ten: $("e_ho_ten").value.trim(),
+        email_hoc_vien: $("e_email").value.trim() || null,
+        so_dt: $("e_so_dt").value.trim() || null,
+        nganh_nhap_hoc: $("e_nganh").value.trim() || null,
+        dot: $("e_dot").value.trim() || null,
+        khoa: $("e_khoa").value.trim() || null,
+        ngay_nhan_hs: $("e_ngay_nhan").value || null, // YYYY-MM-DD
+        ngay_sinh: $("e_ngay_sinh").value || null,    // YYYY-MM-DD
+        ghi_chu: $("e_ghi_chu").value.trim() || null
+      };
+      if (!body.ma_ho_so || !body.ho_ten){
+        alert("Thiếu Mã hồ sơ / Họ tên.");
+        return;
+      }
+      const btn = $("btnSaveEdit");
+      btn.disabled = true; btn.textContent = "Đang lưu...";
+      const r = await apiFetch(`/applicants/${encodeURIComponent(mshv)}`, {
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(body)
+      }).catch(()=>null);
+      btn.disabled = false; btn.textContent = "Lưu thay đổi";
+      if (!r || !r.ok){
+        const t = r ? await r.text() : "(không phản hồi)";
+        alert(`Cập nhật thất bại (HTTP ${r ? r.status : '???'})\n${t}`);
+        return;
+      }
+      closeModal();
+      await runSearch();
+    });
+
+    // ===== init =====
+    window.addEventListener('load', async ()=>{
+      await ensureLoggedIn();
+      $("q").focus();
+      runSearch(); // lần đầu: lấy rỗng
+    });
+
+    // lưu base khi sửa
+    $("apiBase").addEventListener("change", ()=>{
+      localStorage.setItem(STORAGE_KEY, $("apiBase").value.trim());
+    });
+
+    // --- ENTER to search for Đợt / Khóa ---
+  (function bindEnterForFilters(){
+    // chọn input theo id hoặc theo placeholder (để khỏi lệ thuộc tên cụ thể)
+    const dotInput  = document.querySelector('#filterDot, #qDot, input[placeholder="Lọc theo Đợt"]');
+    const khoaInput = document.querySelector('#filterKhoa, #qKhoa, input[placeholder="Lọc theo Khóa"]');
+
+    // Hàm kích hoạt tìm kiếm hiện có của trang
+    function triggerSearch(){
+      // ưu tiên gọi hàm có sẵn
+      if (typeof loadList === 'function')         return loadList();       // nếu trang dùng loadList()
+      if (typeof applyFilters === 'function')     return applyFilters();   // nếu trang dùng applyFilters()
+      // nếu không có, giả lập bấm nút "Tìm"
+      const btn = document.getElementById('btnSearch')
+              || document.querySelector('button[data-action="search"]')
+              || document.querySelector('button:contains("Tìm")'); // optional
+      btn && btn.click();
+    }
+
+    function bindEnter(el){
+      if (!el) return;
+      el.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter'){
+          e.preventDefault();
+          triggerSearch();
+        }
+      });
+    }
+
+    bindEnter(dotInput);
+    bindEnter(khoaInput);
+  })();
   </script>
 </body>
 </html>

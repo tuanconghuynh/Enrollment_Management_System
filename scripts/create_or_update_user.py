@@ -2,6 +2,8 @@
 from app.db.session import SessionLocal
 from app.models import User
 from passlib.hash import bcrypt
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
 
 USERNAME   = "vhtpt@hutech.edu.vn"
 PASSWORD   = "VHTPT@hutech123"
@@ -35,4 +37,5 @@ def main():
         db.close()
 
 if __name__ == "__main__":
-    main()
+    username = sys.argv[1] if len(sys.argv) > 1 else USERNAME
+    main(username)

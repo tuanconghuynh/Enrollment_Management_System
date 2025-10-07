@@ -237,9 +237,13 @@ def render_single_pdf(a: Applicant, items: List[ChecklistItem], docs: List[Appli
     y_r = _draw_kv(c, right_lbl, right_val, y, "Số ĐT:",   a.so_dt or "")
     y   = min(y_l, y_r)
 
-    y_l = _draw_kv(c, left_lbl, left_val, y, "Ngành nhập học:", a.nganh_nhap_hoc or "")
-    y_r = _draw_kv(c, right_lbl, right_val, y, "Đợt:",           a.dot or "")
+    # ✨ Thêm dòng Email HV:
+    y_l = _draw_kv(c, left_lbl, left_val, y, "Email HV:", getattr(a, "email_hoc_vien", "") or "")
+    # giữ nguyên dòng bên phải:
+    y_r = _draw_kv(c, right_lbl, right_val, y, "Đợt:", a.dot or "")
     y   = min(y_l, y_r)
+
+    y = _draw_kv(c, left_lbl, left_val, y, "Ngành nhập học:", a.nganh_nhap_hoc or "")
 
     y = _draw_kv(c, left_lbl, left_val, y, "Đã TN:", a.da_tn_truoc_do or "")
 
@@ -262,7 +266,11 @@ def render_single_pdf(a: Applicant, items: List[ChecklistItem], docs: List[Appli
     return buf.getvalue()
 
 
-def render_batch_pdf(apps: List[Applicant], items_by_version: Dict[int, List[ChecklistItem]], docs_by_app: Dict[int, List[ApplicantDoc]]):
+def render_batch_pdf(
+    apps: List[Applicant],
+    items_by_version: Dict[int, List[ChecklistItem]],
+    docs_by_app: Dict[str, List[ApplicantDoc]],   # <-- key = MSSV
+):
     _register_font_times()
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
@@ -270,7 +278,7 @@ def render_batch_pdf(apps: List[Applicant], items_by_version: Dict[int, List[Che
 
     for a in apps:
         items = items_by_version.get(a.checklist_version_id, [])
-        docs  = docs_by_app.get(a.id, [])
+        docs  = docs_by_app.get(a.ma_so_hv, [])
 
         y = _header_block(
             c, W, H,
@@ -387,6 +395,10 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
     c.setFont(FONT_BOLD, text_sz); c.drawString(val_x,   y, _fmt_dmy(a.ngay_sinh))
     c.setFont(FONT_REG, text_sz);  c.drawString(r_left_x, y, "SDT:")
     c.setFont(FONT_BOLD, text_sz); c.drawString(r_val_x,  y, a.so_dt or "")
+    y -= info_step
+
+    c.setFont(FONT_REG, text_sz);  c.drawString(left_x,  y, "Email HV:")
+    c.setFont(FONT_BOLD, text_sz); c.drawString(val_x,   y, getattr(a, "email_hoc_vien", "") or "")
     y -= info_step
 
     c.setFont(FONT_REG, text_sz);  c.drawString(left_x,  y, "Ngành:")

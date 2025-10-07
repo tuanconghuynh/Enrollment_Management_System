@@ -1,123 +1,137 @@
-
 # ================================
-# app/services/export_service.py (updated, no pandas)
+# app/services/export_service.py
 # ================================
-from typing import List
+from __future__ import annotations
+from typing import List, Dict, Iterable, Any, Optional
 from io import BytesIO
+from datetime import date, datetime
+
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from ..models import Applicant, ApplicantDoc, ChecklistItem
-from datetime import date, datetime
 from openpyxl.styles import Alignment
 
-DOC_PREFIX = "doc_"  # column prefix for document quantities
+from ..models import Applicant, ApplicantDoc, ChecklistItem
+
+DOC_PREFIX = "doc_"
 
 
-def build_excel_bytes(apps: List[Applicant], docs: List[ApplicantDoc], items: List[ChecklistItem]) -> bytes:
-    # Map docs by applicant_id -> {code: qty}
-    by_app = {}
+# ---------- Helper ----------
+def _parse_to_date(v: Optional[object]) -> Optional[date]:
+    if v in (None, ""):
+        return None
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, date):
+        return v
+    s = str(v).strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+def _autosize(ws):
+    ws.freeze_panes = "A2"
+    for col in ws.columns:
+        w = max(10, *(len(str(c.value)) if c.value else 0 for c in col)) + 2
+        ws.column_dimensions[col[0].column_letter].width = min(w, 40)
+
+
+# ---------- Export 1: có cột checklist ----------
+def build_excel_bytes_by_items(apps: List[Applicant], docs: List[ApplicantDoc], items: List[ChecklistItem]) -> bytes:
+    docs_by_mssv: Dict[str, Dict[str, int]] = {}
     for d in docs:
-        by_app.setdefault(d.applicant_id, {})[d.code] = d.so_luong
+        docs_by_mssv.setdefault(d.applicant_ma_so_hv, {})[d.code] = int(d.so_luong or 0)
 
-    # Define columns
-    base_cols = [
-        "Ngày nhận HS","Niên Khóa","Mã hồ sơ", "Mã số HV", "Họ tên", "Ngày sinh", "Số ĐT",
-        "Ngành nhập học", "Đợt", "Đối tượng", "Ghi chú", "Printed"
+    base_headers = [
+        "Ngày nhận HS", "Niên Khóa", "Mã hồ sơ", "Mã số HV", "Họ tên",
+        "Email học viên", "Ngày sinh", "Số ĐT", "Ngành nhập học",
+        "Đợt", "Đối tượng", "Ghi chú", "Printed"
     ]
-    doc_columns = [f"{DOC_PREFIX}{it.code}" for it in items] if items else []
-    headers = base_cols + doc_columns
+    doc_headers = [f"{DOC_PREFIX}{it.code}" for it in items or []]
+    headers = base_headers + doc_headers
 
-    # Create workbook
     wb = Workbook()
     ws = wb.active
-    ws.title = "Data_Tongngay"
-
-    # Write header
+    ws.title = "Data_TongNgay"
     ws.append(headers)
 
-    # Write rows
     for a in apps:
+        dm = docs_by_mssv.get(a.ma_so_hv, {})
         row = [
-            a.ngay_nhan_hs.isoformat() if a.ngay_nhan_hs else "",
-            a.khoa or "",
-            a.ma_ho_so,
-            a.ma_so_hv,
-            a.ho_ten,
-            a.ngay_sinh or "",
+            _parse_to_date(a.ngay_nhan_hs),
+            getattr(a, "khoa", ""),
+            a.ma_ho_so or "",
+            a.ma_so_hv or "",
+            a.ho_ten or "",
+            getattr(a, "email_hoc_vien", "") or "",
+            _parse_to_date(a.ngay_sinh),
             a.so_dt or "",
             a.nganh_nhap_hoc or "",
             a.dot or "",
             a.da_tn_truoc_do or "",
             a.ghi_chu or "",
-            a.printed,
+            bool(a.printed),
         ]
-        doc_map = by_app.get(a.id, {})
-        for col in doc_columns:
-            code = col[len(DOC_PREFIX):]
-            qty = int(by_app.get(a.id, {}).get(code, 0) or 0)
+        for it in items or []:
+            qty = int(dm.get(it.code, 0))
             row.append("" if qty == 0 else qty)
         ws.append(row)
 
-    # Optional: set column widths a bit wider
-    for i, header in enumerate(headers, start=1):
-        ws.column_dimensions[get_column_letter(i)].width = max(12, len(header) + 2)
+    # format cột ngày
+    for col in (1, 7):
+        for cell in ws.iter_cols(min_col=col, max_col=col, min_row=2):
+            for c in cell:
+                if isinstance(c.value, (date, datetime)):
+                    c.number_format = "dd/mm/yyyy"
+                    c.alignment = Alignment(horizontal="center")
 
-    # Save to bytes
-    output = BytesIO()
-    wb.save(output)
-    return output.getvalue()
+    _autosize(ws)
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return out.getvalue()
 
-def _to_date(v):
-    if v is None or v == "": return None
-    if isinstance(v, (date, datetime)): return v.date() if isinstance(v, datetime) else v
-    s = str(v)
-    # yyyy-mm-dd...
-    try:
-        return date.fromisoformat(s[:10])
-    except Exception:
-        # dd/mm/yyyy
-        try:
-            d, m, y = s.split("/")[:3]
-            return date(int(y), int(m), int(d))
-        except Exception:
-            return None
 
-def build_excel_bytes(rows):
-    """
-    rows: list[Applicant-like] hoặc dict có keys: ngay_nhan_hs, ngay_sinh, ...
-    """
+# ---------- Export 2: bảng đơn giản ----------
+def build_excel_bytes_simple(rows: Iterable[Any]) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "TongHop"
 
-    headers = ["Mã HS","Họ tên","MSHV","Ngày nhận HS","Ngày sinh","Ngành","Đợt","Khóa","Người nhận","Ghi chú"]
+    headers = [
+        "Mã HS", "Họ tên", "MSHV", "Email học viên",
+        "Ngày nhận HS", "Ngày sinh", "Ngành", "Đợt",
+        "Khóa", "Người nhận", "Ghi chú"
+    ]
     ws.append(headers)
 
     for a in rows:
+        get = a.get if isinstance(a, dict) else lambda k, d=None: getattr(a, k, d)
         ws.append([
-            a.ma_ho_so, a.ho_ten, a.ma_so_hv,
-            _to_date(getattr(a, "ngay_nhan_hs", None)),
-            _to_date(getattr(a, "ngay_sinh", None)),
-            getattr(a,"nganh_nhap_hoc",None),
-            getattr(a,"dot",None),
-            getattr(a,"khoa",None),
-            getattr(a,"nguoi_nhan_ky_ten",None),
-            getattr(a,"ghi_chu",None),
+            get("ma_ho_so"),
+            get("ho_ten"),
+            get("ma_so_hv"),
+            get("email_hoc_vien", ""),
+            _parse_to_date(get("ngay_nhan_hs")),
+            _parse_to_date(get("ngay_sinh")),
+            get("nganh_nhap_hoc"),
+            get("dot"),
+            get("khoa"),
+            get("nguoi_nhan_ky_ten"),
+            get("ghi_chu"),
         ])
 
-    # set format dd/mm/yyyy cho 2 cột ngày: "Ngày nhận HS"(4) & "Ngày sinh"(5)
-    for row in ws.iter_rows(min_row=2, min_col=4, max_col=5):
-        for cell in row:
-            if cell.value:
-                cell.number_format = "dd/mm/yyyy"
-                cell.alignment = Alignment(horizontal="center")
+    for col in (5, 6):
+        for cell in ws.iter_cols(min_col=col, max_col=col, min_row=2):
+            for c in cell:
+                if isinstance(c.value, (date, datetime)):
+                    c.number_format = "dd/mm/yyyy"
+                    c.alignment = Alignment(horizontal="center")
 
-    # autosize đơn giản
-    for col in ws.columns:
-        w = max(10, *(len(str(c.value)) if c.value is not None else 0 for c in col)) + 2
-        ws.column_dimensions[col[0].column_letter].width = min(w, 40)
-
-    from io import BytesIO
+    _autosize(ws)
     out = BytesIO()
-    wb.save(out); out.seek(0)
+    wb.save(out)
+    out.seek(0)
     return out.getvalue()

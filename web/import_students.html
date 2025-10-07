@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Import học viên | Admission Check</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS để đọc/ghi Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
@@ -17,12 +16,17 @@
     .btn-primary { background:#2563eb; color:#fff; }
     .btn-soft { background:#eff6ff; color:#1e3a8a; }
     .btn-outline { background:#fff; border:1px solid #d1d5db; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; }
     .table { width:100%; border-collapse: separate; border-spacing:0; }
     .table th, .table td { border-bottom:1px solid #e5e7eb; padding:.55rem .75rem; }
     .table thead th { background:#f8fafc; font-weight:700; position:sticky; top:0; z-index:1; }
     .drop { border:2px dashed #cbd5e1; border-radius:1rem; background:#f8fafc; }
     .drop.drag { background:#eef2ff; border-color:#93c5fd; }
+    .input[readonly] {
+      opacity: 0.6;
+      background-color: #f9fafb; /* xám nhẹ */
+      cursor: not-allowed;
+    }
   </style>
   <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
   <link rel="apple-touch-icon" href="hutech.png">
@@ -48,9 +52,9 @@
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- LEFT: cấu hình -->
+      <!-- LEFT -->
       <aside class="card space-y-5 lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
-        <!-- Kéo-thả / chọn file -->
+        <!-- File -->
         <section class="space-y-2">
           <div class="font-semibold">Tệp dữ liệu</div>
           <div id="drop" class="drop p-5 text-center cursor-pointer select-none">
@@ -61,26 +65,20 @@
         </section>
 
         <!-- Defaults -->
-        <section class="grid grid-cols-2 gap-3">
+        <section class="grid grid-cols-1 gap-3">
           <div>
             <div class="font-semibold mb-1">Ngày nhận HS (mặc định)</div>
             <input id="defaultNgayNhan" type="date" class="input" />
           </div>
+        </section>
+        <section class="grid grid-cols-1 gap-3">
           <div>
-            <div class="font-semibold mb-1">Người nhập</div>
-            <div class="relative">
-              <input id="nguoiNhan" class="input pr-10" placeholder="Chưa đăng nhập" readonly>
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm" title="Khoá">🔒</span>
-            </div>
-            <p id="meStatus" class="text-xs text-gray-500 mt-1"></p>
-          </div>
-          <div>
-            <div class="font-semibold mb-1">Prefix Mã hồ sơ</div>
-            <input id="prefixHS" class="input" value="HS-" />
-          </div>
-          <div>
-            <div class="font-semibold mb-1">Số bắt đầu</div>
-            <input id="startNo" type="number" class="input" value="1" min="1" />
+              <div class="font-semibold mb-2">Người nhập</div>
+              <div class="relative">
+                <input id="nguoiNhan" class="input pr-10" placeholder="Chưa đăng nhập" readonly>
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm" title="Tự động lấy theo tài khoản đăng nhập">🔒</span>
+              </div>
+              <p id="meStatus" class="text-xs text-gray-500 mt-1"></p>
           </div>
         </section>
 
@@ -93,7 +91,9 @@
             </div>
           </div>
           <div id="mappings" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
-          <p class="text-xs text-gray-500">Nếu tiêu đề cột khớp tên trường, hệ thống tự map. Có thể chỉnh lại.</p>
+          <p class="text-xs text-gray-500">
+            Bắt buộc phải map: <b>ma_ho_so</b>, <b>ho_ten</b>, <b>ma_so_hv</b>, <b>ngay_nhan_hs</b>.
+          </p>
         </section>
 
         <!-- Actions -->
@@ -114,14 +114,13 @@
         </section>
       </aside>
 
-      <!-- RIGHT: xem trước + log -->
+      <!-- RIGHT -->
       <main class="card space-y-4 lg:col-span-2">
         <div class="flex flex-wrap items-end justify-between gap-2">
           <div>
             <div class="font-semibold">Xem trước dữ liệu</div>
             <div class="text-xs text-gray-500">Hiển thị tối đa 10 dòng đầu.</div>
           </div>
-          <!-- <div class="text-sm text-gray-500">API thử: <span id="apiTry" class="mono"></span></div> -->
         </div>
 
         <div class="overflow-hidden border rounded-xl">
@@ -133,29 +132,46 @@
           </div>
         </div>
 
-        <div>
-          <div class="flex items-center justify-between">
+        <!-- KẾT QUẢ -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
             <div class="font-semibold">Kết quả</div>
-            <button id="btnClearLog" class="btn btn-outline text-sm">Clear log</button>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">DONE: <span id="okCount">0</span></span>
+              <span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">ERROR: <span id="errCount">0</span></span>
+              <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">SKIP: <span id="skipCount">0</span></span>
+              <button id="btnCopyLog" class="btn btn-outline btn-xs" title="Copy log thuần chữ">Copy log</button>
+              <button id="btnClearLog" class="btn btn-outline btn-xs">Clear</button>
+            </div>
           </div>
-          <div id="log" class="text-sm mono whitespace-pre-wrap bg-gray-50 p-3 border rounded-xl h-64 overflow-auto"></div>
+
+          <div class="overflow-hidden border rounded-xl">
+            <div class="overflow-auto max-h-72">
+              <table class="table min-w-full">
+                <thead>
+                  <tr>
+                    <th class="text-center w-16">STT</th>
+                    <th class="text-left w-36">Mã HS</th>
+                    <th class="text-left w-40">Trạng thái</th>
+                    <th class="text-left">Thông điệp</th>
+                  </tr>
+                </thead>
+                <tbody id="resBody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
+
+        <!-- log text ẩn để copy nếu cần -->
+        <div id="log" class="hidden"></div>
       </main>
     </div>
   </div>
-<footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
-  © <span class="font-semibold">
-    <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">
-      V-HT.PTĐT HUTECH
-    </a>
-  </span>
-  ➖ Code by:
-  <span class="font-semibold">
-    <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">
-      HC- Tuan
-    </a>
-  </span>
-</footer>
+
+  <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
+    © <span class="font-semibold"><a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">V-HT.PTĐT HUTECH</a></span>
+    ➖ Code by: <span class="font-semibold"><a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">HC- Tuan</a></span>
+  </footer>
 
   <script>
     // ===== Helpers & API base =====
@@ -165,9 +181,7 @@
     let API_PREFIX = "";
 
     (function initApiBase(){
-      const el = $("apiBase");
-      if (!el.value) el.value = window.location.origin;
-      // default ngày hôm nay (input type="date" nhận ISO)
+      if (!$("apiBase").value) $("apiBase").value = window.location.origin;
       $("defaultNgayNhan").value = new Date().toISOString().slice(0,10);
     })();
 
@@ -179,7 +193,6 @@
     }
     const makeUrl = (path) => apiBase() + API_PREFIX + path;
 
-    // luôn gửi cookie theo session
     async function apiFetch(path, init = {}){
       const opts = { credentials: "include", ...init };
       let r;
@@ -198,25 +211,82 @@
     }
 
     // ===== Log & progress =====
-    let parsedRows = []; // array of row objects
+    let parsedRows = [];
     let stopFlag = false;
-    function log(msg){ const el=$("log"); el.textContent += msg + "\n"; el.scrollTop = el.scrollHeight; }
+
+    // Kết quả
+    const results = []; // {type:'OK'|'ERR'|'SKIP', idx:number, hs:string, msg:string}
+
+    //--- Xử lý lỗi thường gặp ---
+    function translateMessage(msg){
+      if (msg.includes("HTTP 409") && msg.includes("MSSV")) return "❗ Mã số học viên (MSSV) đã tồn tại.";
+      if (msg.includes("HTTP 422") && msg.includes("10 chữ số")) return "⚠️ MSSV phải gồm đúng 10 chữ số.";
+      if (msg.includes("HTTP 400")) return "⚠️ Dữ liệu không hợp lệ hoặc thiếu trường bắt buộc.";
+      if (msg.includes("HTTP 500")) return "💥 Lỗi hệ thống (Internal Server Error).";
+      return msg.replace(/\(id=(\d+)\)/, "(MSSV: $1)");
+    }
+
+    function renderResults(){
+      const tbody = $('resBody');
+      const ok = results.filter(r=>r.type==='OK').length;
+      const err = results.filter(r=>r.type==='ERR').length;
+      const skip = results.filter(r=>r.type==='SKIP').length;
+      $('okCount').textContent = ok;
+      $('errCount').textContent = err;
+      $('skipCount').textContent = skip;
+
+      const badge = (type)=> {
+        if (type==='OK')   return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">THÀNH CÔNG</span>';
+        if (type==='SKIP') return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700" title="Thiếu dữ liệu bắt buộc">BỎ QUA</span>';
+        return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">LỖI</span>';
+      };
+      const rowClass = (type)=> type==='OK' ? 'bg-green-50/50' : (type==='SKIP' ? 'bg-amber-50/50' : 'bg-red-50/50');
+
+      tbody.innerHTML = results.map(r => `
+        <tr class="${rowClass(r.type)}">
+          <td class="text-center border-b">${r.idx}</td>
+          <td class="border-b whitespace-nowrap font-medium">${r.hs || '—'}</td>
+          <td class="border-b">${badge(r.type)}</td>
+          <td class="border-b">${translateMessage(r.msg || '')}</td>
+        </tr>
+      `).join('');
+    }
+
+    function addResult(type, idx, hs, msg){
+      results.push({type, idx, hs, msg});
+      renderResults();
+    }
+
+    // Ẩn log text, giữ API tương thích
+    function log(){ /* no-op: không hiển thị log text nữa */ }
+
+    // Copy / Clear
+    $('btnCopyLog')?.addEventListener('click', ()=>{
+      const text = results.map(r => `#${r.idx} [${r.type}] ${r.hs||''} - ${translateMessage(r.msg||'')}`).join('\n');
+      navigator.clipboard.writeText(text).then(()=>{
+        const s = $('stats'); const old = s.textContent; s.textContent = 'Đã copy log!';
+        setTimeout(()=> s.textContent = old, 1200);
+      });
+    });
+    $('btnClearLog')?.addEventListener('click', ()=>{
+      results.splice(0, results.length); renderResults();
+    });
+
     function setBar(done, total){
       const pct = total ? Math.round(done*100/total) : 0;
-      const bar = $("bar");
-      bar.style.width = pct + "%";
-      bar.textContent = pct + "%";
-      $("stats").textContent = total ? `Đã gửi ${done}/${total}` : "Chưa chạy.";
+      $('bar').style.width = pct + "%";
+      $('bar').textContent = pct + "%";
+      $('stats').textContent = total ? `Đã gửi ${done}/${total}` : "Chưa chạy.";
     }
-    $("btnClearLog").onclick = ()=>{ $("log").textContent=""; };
 
-    // ===== Field defs: key (backend) + label (UI) + aliases để auto-map =====
+    // ===== Field defs =====
     const FIELD_DEFS = [
       {key:"ma_ho_so",       label:"Mã HS",           aliases:["ma ho so","ma_hs","mhs"]},
       {key:"ho_ten",         label:"Họ tên",          aliases:["ho va ten","hovaten","hoten","ten_hv","tenhv","ten"]},
       {key:"ma_so_hv",       label:"Mã số HV",        aliases:["mshv","ma so","ma hoc vien","ma_hv","mahv"]},
       {key:"ngay_sinh",      label:"Ngày sinh",       aliases:["dob","date of birth","ns"]},
       {key:"so_dt",          label:"Số ĐT",           aliases:["sdt","so dien thoai","dien thoai","so lien he"]},
+      {key:"email_hoc_vien", label:"Email học viên",  aliases:["email","email hoc vien","mail","gmail"]},
       {key:"nganh_nhap_hoc", label:"Ngành nhập học",  aliases:["nganh","nganh hoc"]},
       {key:"dot",            label:"Đợt",             aliases:["dot nhap hoc","dot tuyen"]},
       {key:"khoa",           label:"Khóa",            aliases:["nien khoa","khoa hoc","nk"]},
@@ -224,20 +294,14 @@
       {key:"ghi_chu",        label:"Ghi chú",         aliases:["note","ghi chu"]},
       {key:"ngay_nhan_hs",   label:"Ngày nhận HS",    aliases:["ngay nhan","ngay tiep nhan"]}
     ];
-
     const LABEL_BY_KEY = Object.fromEntries(FIELD_DEFS.map(f=>[f.key,f.label]));
-
-    const norm = s => String(s||"")
-      .toLowerCase().trim()
-      .replace(/\s+/g,' ')
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const norm = s => String(s||"").toLowerCase().trim().replace(/\s+/g,' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
     function guessMappings(headers){
       const hNorm = headers.map(h=>norm(h));
       const map = {};
       FIELD_DEFS.forEach(f=>{
-        const idxExact =
-          hNorm.findIndex(hn => hn === norm(f.key) || hn === norm(f.label));
+        const idxExact = hNorm.findIndex(hn => hn === norm(f.key) || hn === norm(f.label));
         if (idxExact >= 0) { map[f.key] = headers[idxExact]; return; }
         if (f.aliases?.length){
           const idxAli = hNorm.findIndex(hn => f.aliases.some(a=> hn === norm(a)));
@@ -248,7 +312,7 @@
     }
 
     function renderMappingUI(headers){
-      const container = $("mappings");
+      const container = $('mappings');
       container.innerHTML = "";
       const guess = guessMappings(headers);
       FIELD_DEFS.forEach(f=>{
@@ -268,10 +332,7 @@
       const m = {}; selects.forEach(sel=>{ if(sel.value) m[sel.dataset.field] = sel.value; });
       return m;
     }
-    $("btnResetMap").onclick = ()=>{
-      const selects = Array.from(document.querySelectorAll('#mappings select'));
-      selects.forEach(s=>{ s.selectedIndex = 0; });
-    };
+    $('btnResetMap').onclick = ()=>{ document.querySelectorAll('#mappings select').forEach(s=> s.selectedIndex = 0); };
 
     // ===== File parsing =====
     function toArrayBuffer(file) {
@@ -293,7 +354,7 @@
       return {headers, rows};
     }
 
-    const dz = $("drop"), fileInput = $("file");
+    const dz = $('drop'), fileInput = $('file');
     dz.addEventListener("click", ()=> fileInput.click());
     ["dragenter","dragover"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("drag"); }));
     ["dragleave","drop"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("drag"); }));
@@ -303,7 +364,7 @@
 
     fileInput.addEventListener("change", async (e)=>{
       const f = e.target.files[0]; if(!f) return;
-      parsedRows = []; $("thead").innerHTML=""; $("tbody").innerHTML=""; $("log").textContent="";
+      parsedRows = []; $('thead').innerHTML=""; $('tbody').innerHTML=""; $('log').textContent="";
       try{
         if (f.name.toLowerCase().endsWith(".csv")) {
           const text = await f.text();
@@ -324,9 +385,8 @@
     });
 
     function preview(headers, rows){
-      const thead = $("thead"), tbody = $("tbody");
-      thead.innerHTML = `<tr>${headers.map(h=>`<th class="text-left">${h}</th>`).join("")}</tr>`;
-      tbody.innerHTML = rows.slice(0,10).map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
+      $('thead').innerHTML = `<tr>${headers.map(h=>`<th class="text-left">${h}</th>`).join("")}</tr>`;
+      $('tbody').innerHTML = rows.slice(0,10).map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
     }
 
     // ===== Date helpers =====
@@ -339,29 +399,21 @@
       if (v == null) return "";
       const s = String(v).trim();
       if (!s) return "";
-      if (/^\d+$/.test(s)) return excelSerialToISO(Number(s));        // số Excel
-      let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);      // dd/mm/yyyy
+      if (/^\d+$/.test(s)) return excelSerialToISO(Number(s));
+      let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
       if (m){ const dd=m[1].padStart(2,"0"), mm=m[2].padStart(2,"0"); return `${m[3]}-${mm}-${dd}`; }
-      m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);                         // yyyy-mm-dd
+      m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (m) return `${m[1]}-${m[2]}-${m[3]}`;
       const d = new Date(s); if (!isNaN(d)) return d.toISOString().slice(0,10);
       return "";
     }
 
     // ===== Build payload & call API =====
-    function makeApplicantPayload(src, map, seqNo){
+    function makeApplicantPayload(src, map){
       const pick = (key, d="") => (map[key] ? (src[map[key]] ?? "").trim() : d);
 
-      // Mã HS: cho phép auto sinh nếu trống
-      let ma_ho_so = pick("ma_ho_so","");
-      if(!ma_ho_so){
-        const pre = $("prefixHS").value.trim() || "HS-";
-        const num = Number($("startNo").value||1) + seqNo;
-        ma_ho_so = pre + String(num).padStart(4,"0");
-      }
-
-      // Ngày nhận & ngày sinh -> ISO yyyy-mm-dd
-      const ngay_nhan_hs = parseDateFlexible(pick("ngay_nhan_hs", $("defaultNgayNhan").value)) || $("defaultNgayNhan").value;
+      const ma_ho_so = pick("ma_ho_so","");
+      const ngay_nhan_hs = parseDateFlexible(pick("ngay_nhan_hs", $('defaultNgayNhan').value)) || $('defaultNgayNhan').value;
       const ngay_sinh_iso = parseDateFlexible(pick("ngay_sinh")) || null;
 
       return {
@@ -371,45 +423,51 @@
         ma_so_hv: pick("ma_so_hv"),
         ngay_sinh: ngay_sinh_iso,
         so_dt: pick("so_dt") || null,
+        email_hoc_vien: pick("email_hoc_vien") || null,
         nganh_nhap_hoc: pick("nganh_nhap_hoc") || null,
         dot: pick("dot") || null,
         khoa: pick("khoa") || null,
         da_tn_truoc_do: pick("da_tn_truoc_do") || null,
         ghi_chu: pick("ghi_chu") || null,
-        nguoi_nhan_ky_ten: $("nguoiNhan").value.trim() || null,
+        nguoi_nhan_ky_ten: $('nguoiNhan').value.trim() || null,
         docs: [],
         checklist_version_name: "v1"
       };
     }
 
-    $("btnPreview").onclick = () => {
+    function requireMappings(m){
+      const need = ["ma_ho_so","ho_ten","ma_so_hv","ngay_nhan_hs"];
+      const miss = need.filter(k=>!m[k]);
+      if (miss.length){ alert("Thiếu map cột: " + miss.join(", ")); return false; }
+      return true;
+    }
+
+    $('btnPreview').onclick = () => {
       const m = getMappingFromUI();
-      if (!m.ho_ten || !m.ma_so_hv) { alert("Cần map tối thiểu: ho_ten và ma_so_hv."); return; }
-      const test = parsedRows.slice(0,5).map((row, i)=> makeApplicantPayload(row, m, i));
-      $("apiTry").textContent = makeUrl("/applicants");
-      $("log").textContent = JSON.stringify(test, null, 2);
+      if (!requireMappings(m)) return;
+      const test = parsedRows.slice(0,5).map(row=> makeApplicantPayload(row, m));
+      $('log').textContent = JSON.stringify(test, null, 2);
     };
 
-    $("btnUpload").onclick = async ()=>{
+    $('btnUpload').onclick = async ()=>{
       if (parsedRows.length === 0) { alert("Chưa chọn tệp hoặc tệp rỗng"); return; }
       await detectPrefix();
-      $("apiTry").textContent = makeUrl("/applicants");
-      stopFlag = false; $("btnStop").classList.remove("hidden");
-      $("btnUpload").disabled = true;
+      stopFlag = false; $('btnStop').classList.remove('hidden');
+      $('btnUpload').disabled = true;
 
       const m = getMappingFromUI();
-      if (!m.ho_ten || !m.ma_so_hv) { alert("Cần map tối thiểu: ho_ten và ma_so_hv."); $("btnUpload").disabled=false; return; }
+      if (!requireMappings(m)) { $('btnUpload').disabled=false; return; }
 
       const total = parsedRows.length; let done=0, ok=0, fail=0;
-      setBar(0,total); $("log").textContent=""; log("== BẮT ĐẦU IMPORT ==");
+      setBar(0,total); $('log').textContent=""; log("== BẮT ĐẦU IMPORT ==");
 
       for (let i=0;i<parsedRows.length;i++){
         if (stopFlag) { log("== ĐÃ DỪNG =="); break; }
-        const body = makeApplicantPayload(parsedRows[i], m, i);
+        const body = makeApplicantPayload(parsedRows[i], m);
 
-        if (!body.ho_ten || !body.ma_so_hv || !body.ngay_nhan_hs){
+        if (!body.ma_ho_so || !body.ho_ten || !body.ma_so_hv || !body.ngay_nhan_hs){
           fail++; done++; setBar(done,total);
-          log(`SKIP #${i+1}: thiếu trường bắt buộc (ho_ten/ma_so_hv/ngay_nhan_hs)`); 
+          addResult('SKIP', i+1, body.ma_ho_so, 'Thiếu bắt buộc (ma_ho_so/ho_ten/ma_so_hv/ngay_nhan_hs)');
           continue;
         }
         try{
@@ -419,25 +477,25 @@
           });
           if(!r.ok){
             const t = await r.text();
-            fail++; log(`ERR #${i+1} (${body.ma_ho_so}): HTTP ${r.status} ${t}`);
+            fail++; addResult('ERR', i+1, body.ma_ho_so, `HTTP ${r.status} ${t}`);
           } else {
             const j = await r.json();
-            ok++; log(`OK  #${i+1} (${body.ma_ho_so}) -> id=${j.id}`);
+            ok++; addResult('OK', i+1, body.ma_ho_so, `Tạo thành công (MSSV: ${j.ma_so_hv || j.id || body.ma_so_hv})`);
           }
         }catch(e){
-          fail++; log(`ERR #${i+1} (${body.ma_ho_so}): ${e.message}`);
+          fail++; addResult('ERR', i+1, body.ma_ho_so, e.message);
         }finally{
           done++; setBar(done,total);
           await new Promise(res=>setTimeout(res, 25));
         }
       }
-      $("btnStop").classList.add("hidden");
-      $("btnUpload").disabled = false;
+      $('btnStop').classList.add('hidden');
+      $('btnUpload').disabled = false;
       log(`== XONG: OK=${ok}, FAIL=${fail}, TOTAL=${total} ==`);
     };
-    $("btnStop").onclick = ()=>{ stopFlag = true; };
+    $('btnStop').onclick = ()=>{ stopFlag = true; };
 
-    // ===== Lấy /me, gán tên người nhập & CHẶN CTV =====
+    // ===== /me
     async function ensureNguoiNhanFromSession(){
       try{
         await detectPrefix();
@@ -445,44 +503,45 @@
         if (!r.ok) throw new Error();
         const me = await r.json();
         const name = me.full_name || me.username || "";
-        $("nguoiNhan").value = name;
-        $("nguoiNhan").setAttribute("readonly", "readonly");
+        $('nguoiNhan').value = name;
+        $('nguoiNhan').setAttribute("readonly", "readonly");
         if (me.role === "Admin" || me.role === "NhanVien") {
-          $("meStatus").textContent = `Đã gắn người nhận: ${name} (${me.role})`;
-          $("btnUpload").disabled = false;
-          $("btnPreview").disabled = false;
+          $('meStatus').textContent = `Đã gắn tự động: ${name} (${me.role})`;
+          $('btnUpload').disabled = false;
+          $('btnPreview').disabled = false;
         } else {
-          $("meStatus").innerHTML = `Tài khoản <b>${name}</b> (${me.role}) không có quyền import.`;
-          $("btnUpload").disabled = true;
-          $("btnPreview").disabled = true;
+          $('meStatus').innerHTML = `Tài khoản <b>${name}</b> (${me.role}) không có quyền import.`;
+          $('btnUpload').disabled = true;
+          $('btnPreview').disabled = true;
         }
       } catch {
-        $("nguoiNhan").value = "";
-        $("nguoiNhan").setAttribute("readonly", "readonly");
-        $("meStatus").innerHTML = 'Chưa đăng nhập. <a class="text-blue-600 hover:underline" href="/login">Đăng nhập</a> để gán người nhận.';
-        $("btnUpload").disabled = true;
-        $("btnPreview").disabled = true;
+        $('nguoiNhan').value = "";
+        $('nguoiNhan').setAttribute("readonly", "readonly");
+        $('meStatus').innerHTML = 'Chưa đăng nhập. <a class="text-blue-600 hover:underline" href="/login">Đăng nhập</a> để gán người nhận.';
+        $('btnUpload').disabled = true;
+        $('btnPreview').disabled = true;
       }
     }
     window.addEventListener("load", ensureNguoiNhanFromSession);
 
-    // ===== Tải template mẫu (cột chuẩn key backend) =====
+    // ===== Template
     function buildTemplateHeaders(){
-      return ["ma_ho_so","ho_ten","ma_so_hv","ngay_sinh","so_dt","nganh_nhap_hoc","dot","khoa","da_tn_truoc_do","ghi_chu","ngay_nhan_hs"];
+      return ["ma_ho_so","ho_ten","ma_so_hv","ngay_sinh","so_dt","email_hoc_vien",
+              "nganh_nhap_hoc","dot","khoa","da_tn_truoc_do","ghi_chu","ngay_nhan_hs"];
     }
     function sampleRows(){
       const today = new Date();
       const dmy = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
       return [
-        { ma_ho_so:"HS-0001", ho_ten:"Nguyễn Văn A", ma_so_hv:"123456", ngay_sinh:"15/01/2005",
-          so_dt:"0901234567", nganh_nhap_hoc:"Công nghệ thông tin", dot:"1/2025", khoa:"25",
+        { ma_ho_so:"HS-0001", ho_ten:"Nguyễn Văn A", ma_so_hv:"1234567890", ngay_sinh:"15/01/2005",
+          so_dt:"0901234567", email_hoc_vien:"vana@example.com", nganh_nhap_hoc:"Công nghệ thông tin", dot:"1/2025", khoa:"25",
           da_tn_truoc_do:"THPT", ghi_chu:"", ngay_nhan_hs: dmy },
-        { ma_ho_so:"HS-0002", ho_ten:"Trần Thị B",   ma_so_hv:"654321", ngay_sinh:"20/12/2004",
-          so_dt:"0912345678", nganh_nhap_hoc:"Quản trị kinh doanh", dot:"1/2025", khoa:"25",
+        { ma_ho_so:"HS-0002", ho_ten:"Trần Thị B",   ma_so_hv:"0987654321", ngay_sinh:"20/12/2004",
+          so_dt:"0912345678", email_hoc_vien:"tran@example.com", nganh_nhap_hoc:"Quản trị kinh doanh", dot:"1/2025", khoa:"25",
           da_tn_truoc_do:"Cao đẳng", ghi_chu:"", ngay_nhan_hs: dmy }
       ];
     }
-    $("btnTplXlsx").onclick = ()=>{
+    $('btnTplXlsx').onclick = ()=>{
       const wb = XLSX.utils.book_new();
       const headers = buildTemplateHeaders();
       const data = [headers, ...sampleRows().map(r=>headers.map(h=>r[h]??""))];
@@ -497,7 +556,7 @@
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(guide), "HuongDan");
       XLSX.writeFile(wb, "template_hoc_vien.xlsx");
     };
-    $("btnTplCsv").onclick = ()=>{
+    $('btnTplCsv').onclick = ()=>{
       const headers = buildTemplateHeaders();
       const rows = sampleRows();
       const csv = [headers.join(",")].concat(rows.map(r=>headers.map(h=>String(r[h]??"").replace(/,/g," ")).join(","))).join("\n");

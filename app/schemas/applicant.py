@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List, Literal
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel
 
 # ---- Docs (tài liệu kèm hồ sơ) ----
@@ -17,25 +17,21 @@ class ApplicantDocUpdate(BaseModel):
 
 # ---- Tạo mới ----
 class ApplicantIn(BaseModel):
-    # BẮT BUỘC
     ma_ho_so: str
-    ngay_nhan_hs: str          # 'YYYY-MM-DD' (MySQL nhận được vào DATE/DATETIME)
     ho_ten: str
     ma_so_hv: str
-
-    # TUỲ CHỌN
-    ngay_sinh: Optional[str] = None         # 'YYYY-MM-DD' hoặc chuỗi
+    ngay_nhan_hs: date
+    email_hoc_vien: Optional[str] = None
+    ngay_sinh: Optional[date] = None
     so_dt: Optional[str] = None
     nganh_nhap_hoc: Optional[str] = None
     dot: Optional[str] = None
-    khoa: Optional[str] = None              # dùng cho tiêu đề/in
-    bien_nhan_nhap_hoc: Optional[str] = None
+    khoa: Optional[str] = None
     da_tn_truoc_do: Optional[str] = None
     ghi_chu: Optional[str] = None
     nguoi_nhan_ky_ten: Optional[str] = None
-
-    checklist_version_name: str
-    docs: List[ApplicantDocIn]
+    docs: Optional[List[dict]] = []
+    checklist_version_name: Optional[str] = None
 
 
 # ---- Cập nhật (PATCH) ----
@@ -45,8 +41,8 @@ class ApplicantUpdate(BaseModel):
     ngay_nhan_hs: Optional[str] = None
     ho_ten: Optional[str] = None
     ma_so_hv: Optional[str] = None
-
-    ngay_sinh: Optional[str] = None
+    email_hoc_vien: Optional[str] = None
+    ngay_sinh: Optional[str] = None         # 'dd/MM/YYYY' hoặc 'YYYY-MM-DD'
     so_dt: Optional[str] = None
     nganh_nhap_hoc: Optional[str] = None
     dot: Optional[str] = None
@@ -82,6 +78,7 @@ class ApplicantDetailOut(BaseModel):
     ngay_nhan_hs: Optional[str] = None
     ho_ten: str
     ma_so_hv: str
+    email_hoc_vien: Optional[str] = None
     ngay_sinh: Optional[str] = None
     so_dt: Optional[str] = None
     nganh_nhap_hoc: Optional[str] = None
@@ -95,6 +92,12 @@ class ApplicantDetailOut(BaseModel):
     status: str
     printed: bool
     docs: List[ApplicantDocOut]
+    class Config:
+        orm_mode = True
+        json_encoders = {
+            date: lambda v: v.strftime("%d/%m/%Y") if v else None,
+            datetime: lambda v: v.strftime("%d/%m/%Y") if v else None,
+        }
 
 class ApplicantListItem(BaseModel):
     id: int

@@ -27,19 +27,23 @@
       <form class="space-y-4" onsubmit="return doLogin(event)">
         <div>
           <label class="block text-sm text-gray-600 mb-1">Tài khoản</label>
-          <input id="u" class="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Mã NV hoặc email" required>
+          <input id="u" autocomplete="username" autofocus spellcheck="false" autocapitalize="off"
+                class="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                placeholder="Mã NV hoặc email" required>
         </div>
         <div>
           <label class="block text-sm text-gray-600 mb-1">Mật khẩu</label>
           <div class="relative">
-            <input id="p" type="password" class="w-full rounded-xl border border-gray-300 px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="••••••••" required>
+            <input id="p" type="password" minlength="6" autocomplete="current-password"
+                  class="w-full rounded-xl border border-gray-300 px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  placeholder="••••••••" required>
             <button type="button" id="toggle" class="absolute inset-y-0 right-2 px-2 text-gray-500" title="Hiện/ẩn">👁️</button>
           </div>
         </div>
         <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-2.5 transition">
           Đăng nhập
         </button>
-        <!-- <p id="err" class="text-sm text-red-600 min-h-[1.25rem]"></p> -->
+        <p id="err" class="text-sm text-red-600 min-h-[1.25rem]"></p>
       </form>
       <div class="mt-6 text-xs text-gray-500">
         <!-- <div>API: <code id="api" class="bg-gray-100 px-1 rounded"></code></div> -->
@@ -53,29 +57,44 @@
     <p class="text-center text-xs text-gray-400 mt-4">© V-HT.PTĐT HUTECH ➖ Code by: HC-TUAN</p>
   </div>
   <script>
-    // Hiện/ẩn mật khẩu
-    const p = document.getElementById('p');
-    document.getElementById('toggle').onclick = () => {
-      p.type = p.type === 'password' ? 'text' : 'password';
-    };
+  // Hiện/ẩn mật khẩu
+  const p = document.getElementById('p');
+  document.getElementById('toggle').onclick = () => {
+    p.type = p.type === 'password' ? 'text' : 'password';
+  };
 
-    // Điền API đang dùng để biết chắc origin
-    document.getElementById('api').textContent = window.location.origin;
+  // Điền API (có check phần tử tồn tại)
+  const apiEl = document.getElementById('api');
+  if (apiEl) apiEl.textContent = window.location.origin;
 
-    async function doLogin(e){
-      e.preventDefault();
-      const fd = new FormData();
-      fd.append('username', document.getElementById('u').value.trim());
-      fd.append('password', document.getElementById('p').value);
+  async function doLogin(e){
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"], button:not([type])') || e.target.querySelector('button');
+    const err = document.getElementById('err');
+    if (err) err.textContent = '';
+
+    const fd = new FormData();
+    fd.append('username', document.getElementById('u').value.trim());
+    fd.append('password', document.getElementById('p').value);
+
+    try {
+      if (btn) { btn.disabled = true; btn.classList.add('opacity-70'); }
       const r = await fetch('/api/login', { method:'POST', body: fd });
-      if(!r.ok){
-        document.getElementById('err').textContent = 'Sai tài khoản hoặc mật khẩu';
+      if (!r.ok) {
+        if (err) err.textContent = 'Sai tài khoản hoặc mật khẩu';
         return false;
       }
       // đăng nhập xong về trang chính
       location.href = '/';
       return false;
+    } catch (ex) {
+      if (err) err.textContent = 'Không thể kết nối máy chủ. Vui lòng thử lại.';
+      return false;
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove('opacity-70'); }
     }
-  </script>
+  }
+</script>
+
 </body>
 </html>

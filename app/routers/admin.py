@@ -35,7 +35,7 @@ def admin_create_user(username: str = Form(...),
                       me: User = Depends(require_admin),
                       db: Session = Depends(get_db)):
     # username hoặc email trùng
-    exists = db.query(User).filter((User.username == username) | (User.email == username)).first()
+    exists = db.query(User).filter((User.username == username) | (User.email == email)).first()
     if exists:
         raise HTTPException(400, "Username/Email đã tồn tại")
     u = User(

@@ -1,15 +1,18 @@
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
-from app.db.base import Base
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, func
+from ..db.base import Base
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    username = Column(String(128), unique=True, nullable=False)  # vd: admin hoặc email
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(64), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(String(20), nullable=False, default="CongTacVien")  # Admin|NhanVien|CongTacVien
+    role = Column(String(20), nullable=False, default="CongTacVien")
     full_name = Column(String(128))
     email = Column(String(128))
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self) -> str:
+        return f"<User(id={self.id}, username='{self.username}', role='{self.role}')>"
