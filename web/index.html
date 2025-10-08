@@ -713,6 +713,24 @@
     box.classList.remove('hidden');
   }
 
+  // helper: mở PDF nếu OK; nếu lỗi (400/404/...) thì hiện cảnh báo đẹp
+  async function openPdfOrAlert(url){
+    const resp = await fetch(makeUrl(url), { credentials: "include" });
+    if (!resp.ok) {
+      let msg = `Không thể thực hiện (HTTP ${resp.status})`;
+      try {
+        const txt = await resp.text();
+        const j = JSON.parse(txt);
+        if (j && j.detail) msg = j.detail; // dùng message từ backend
+      } catch (_) {}
+      alert(msg);
+      return;
+    }
+    const blob = await resp.blob();
+    const u = URL.createObjectURL(blob);
+    window.open(u, "_blank");
+    setTimeout(()=>URL.revokeObjectURL(u), 60000);
+  }
   // ===== In / Export =====
   function openPdf(url){
     const w = window.open(url, "_blank");

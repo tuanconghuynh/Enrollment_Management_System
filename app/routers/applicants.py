@@ -31,7 +31,7 @@ MSSV_REGEX = re.compile(r"^\d{10}$")
 
 def ensure_mssv(v: str):
     if not MSSV_REGEX.fullmatch(v or ""):
-        raise HTTPException(status_code=422, detail="ma_so_hv phải gồm đúng 10 chữ số.")
+        raise HTTPException(status_code=422, detail="MSSV phải gồm đúng 10 chữ số.")
 
 def _parse_date_flexible(v: Optional[object]) -> Optional[date]:
     if v in (None, ""):
@@ -225,32 +225,38 @@ def get_by_mshv(
 @router.post("", status_code=201)
 @router.post("/", status_code=201)
 def create_applicant(
-    payload: ApplicantIn,
+    payload: dict = Body(...),  # <- dùng dict để tự parse, tránh 422 của Pydantic
     db: Session = Depends(get_db),
     me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
 ):
+    # Checklist version
+    version_name = (payload.get("checklist_version_name") or "").strip() or "v1"
     v = db.query(ChecklistVersion).filter(
-        ChecklistVersion.version_name == getattr(payload, "checklist_version_name", None)
+        ChecklistVersion.version_name == version_name
     ).first()
     if not v:
         raise HTTPException(400, "Checklist version không tồn tại")
 
-    ma_so_hv = (getattr(payload, "ma_so_hv", "") or "").strip()
-    ensure_mssv(ma_so_hv)
+    # Lấy & kiểm tra MSSV (10 số)
+    ma_so_hv = (payload.get("ma_so_hv") or "").strip()
+    ensure_mssv(ma_so_hv)  # nếu sai -> 422 với thông điệp rõ ràng
 
-    ma_ho_so = (getattr(payload, "ma_ho_so", "") or "").strip()
-    ho_ten   = (getattr(payload, "ho_ten", "") or "").strip()
-    ngay_nhan_hs = _parse_date_flexible(getattr(payload, "ngay_nhan_hs", None))
+    # Trường bắt buộc cho tạo hồ sơ
+    ma_ho_so = (payload.get("ma_ho_so") or "").strip()
+    ho_ten   = (payload.get("ho_ten") or "").strip()
+    ngay_nhan_hs = _parse_date_flexible(payload.get("ngay_nhan_hs"))
 
     if not ma_ho_so:
-        raise HTTPException(400, "Thiếu trường bắt buộc: ma_ho_so")
+        raise HTTPException(422, "Thiếu trường bắt buộc: ma_ho_so")
     if not ho_ten:
-        raise HTTPException(400, "Thiếu trường bắt buộc: ho_ten")
+        raise HTTPException(422, "Thiếu trường bắt buộc: ho_ten")
     if not ngay_nhan_hs:
-        raise HTTPException(400, "Thiếu trường bắt buộc: ngay_nhan_hs (dd/MM/YYYY hoặc YYYY-MM-DD)")
+        raise HTTPException(422, "Thiếu trường bắt buộc: ngay_nhan_hs (dd/MM/YYYY hoặc YYYY-MM-DD)")
 
-    # CHỈ chặn trùng MSSV
-    if db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first():
+    # Cho phép trùng MA_HO_SO -> KHÔNG kiểm tra unique ma_ho_so nữa
+    # Vẫn phải đảm bảo MSSV không trùng
+    existed_mssv = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
+    if existed_mssv:
         raise HTTPException(409, "MSSV (ma_so_hv) đã tồn tại")
 
     a = Applicant(
@@ -258,40 +264,38 @@ def create_applicant(
         ma_ho_so=ma_ho_so,
         ngay_nhan_hs=ngay_nhan_hs,
         ho_ten=ho_ten,
-        email_hoc_vien=getattr(payload, "email_hoc_vien", None),
-        ngay_sinh=_parse_date_flexible(getattr(payload, "ngay_sinh", None)),
-        so_dt=getattr(payload, "so_dt", None),
-        nganh_nhap_hoc=getattr(payload, "nganh_nhap_hoc", None),
-        dot=getattr(payload, "dot", None),
-        khoa=getattr(payload, "khoa", None),
-        da_tn_truoc_do=getattr(payload, "da_tn_truoc_do", None),
-        ghi_chu=getattr(payload, "ghi_chu", None),
+        email_hoc_vien=payload.get("email_hoc_vien"),
+        ngay_sinh=_parse_date_flexible(payload.get("ngay_sinh")),
+        so_dt=payload.get("so_dt"),
+        nganh_nhap_hoc=payload.get("nganh_nhap_hoc"),
+        dot=payload.get("dot"),
+        khoa=payload.get("khoa"),
+        da_tn_truoc_do=payload.get("da_tn_truoc_do"),
+        ghi_chu=payload.get("ghi_chu"),
         nguoi_nhan_ky_ten=(getattr(me, "full_name", None) or getattr(me, "username", None)),
         checklist_version_id=v.id,
         status="saved",
         printed=False,
     )
     db.add(a)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        # Rất có thể do PK/Unique MSSV (ma_so_hv) đụng; trả thông điệp rõ ràng
+        raise HTTPException(409, "MSSV (ma_so_hv) đã tồn tại")
 
-    docs = getattr(payload, "docs", []) or []
+    # Docs (nếu có) – để trống cũng không sao
+    docs = (payload.get("docs") or [])
     for d in docs:
         code = d.get("code") if isinstance(d, dict) else getattr(d, "code", None)
         sl   = d.get("so_luong") if isinstance(d, dict) else getattr(d, "so_luong", None)
         if sl in (None, ""):
             continue
-        db.add(ApplicantDoc(applicant_ma_so_hv=ma_so_hv, code=code, so_luong=int(sl)))
+        db.add(ApplicantDoc(applicant_ma_so_hv=a.ma_so_hv, code=code, so_luong=int(sl)))
 
-    try:
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        # Nếu trong DB vẫn còn unique trên ma_ho_so → trả thông báo rõ ràng
-        if "ma_ho_so" in str(e.orig).lower() and "unique" in str(e.orig).lower():
-            raise HTTPException(409, "DB còn UNIQUE index trên ma_ho_so – hãy DROP INDEX trước khi import trùng.")
-        raise HTTPException(500, "Lỗi ghi dữ liệu.")
-
+    db.commit()
     return {
-        "id": a.ma_so_hv,
         "ma_so_hv": a.ma_so_hv,
         "ma_ho_so": a.ma_ho_so,
         "status": a.status,
@@ -393,56 +397,109 @@ def find_by_ma_ho_so(
 
 # ================= UPDATE by MSSV =================
 @router.put("/{ma_so_hv}")
-def update_applicant(ma_so_hv: str, body: dict = Body(...), db: Session = Depends(get_db), me=Depends(require_roles("Admin", "NhanVien", "CongTacVien"))):
+def update_applicant(
+    ma_so_hv: str,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
+):
     ensure_mssv(ma_so_hv)
+
     a = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
     if not a:
         raise HTTPException(404, "Applicant not found")
 
-    def has(k): return k in body and body[k] is not None
-    def get(k, default=None): return body.get(k, default)
+    # -------- helpers ----------
+    def has(k: str) -> bool:
+        # có key trong body dù giá trị là "" (để cho phép xóa)
+        return k in body
 
-    # Không cho đổi MSSV
-    if has("ma_so_hv") and get("ma_so_hv") != ma_so_hv:
-        raise HTTPException(400, "Không được phép thay đổi MSSV (ma_so_hv).")
+    def get(k: str, default=None):
+        return body.get(k, default)
 
-    # ✅ Cho phép ma_ho_so trùng, chỉ cần không rỗng nếu có gửi
+    def str_or_none(v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            s = v.strip()
+            return s if s != "" else None
+        return v
+
+    # Cho phép đổi MSSV nếu chưa bị trùng
+    if has("ma_so_hv"):
+        new_mssv = str(get("ma_so_hv") or "").strip()
+        if new_mssv and new_mssv != ma_so_hv:
+            # kiểm tra xem MSSV mới có trùng hồ sơ khác không
+            existed = db.query(Applicant).filter(Applicant.ma_so_hv == new_mssv).first()
+            if existed:
+                raise HTTPException(409, "MSSV mới đã tồn tại trong hệ thống.")
+            # cập nhật luôn khóa chính (cho phép đổi)
+            a.ma_so_hv = new_mssv
+
+    # ma_ho_so: CHO PHÉP TRÙNG & không cho phép xóa mã HS
     if has("ma_ho_so"):
-        new_code = (get("ma_ho_so") or "").strip()
-        if not new_code:
-            raise HTTPException(400, "ma_ho_so không được để trống.")
+        new_code = (str(get("ma_ho_so") or "").strip())
+        if new_code == "":
+            raise HTTPException(400, "Mã HS không được để trống.")
         a.ma_ho_so = new_code
 
-    # Ngày
-    if has("ngay_nhan_hs"): a.ngay_nhan_hs = _parse_date_flexible(get("ngay_nhan_hs"))
-    if has("ngay_sinh"):    a.ngay_sinh    = _parse_date_flexible(get("ngay_sinh"))
+    # Ngày: "" -> None, parse linh hoạt
+    if has("ngay_nhan_hs"):
+        a.ngay_nhan_hs = _parse_date_flexible(get("ngay_nhan_hs"))
+    if has("ngay_sinh"):
+        a.ngay_sinh = _parse_date_flexible(get("ngay_sinh"))
 
-    # Text
-    for f in ("ho_ten","email_hoc_vien","so_dt","nganh_nhap_hoc","dot","khoa","da_tn_truoc_do","ghi_chu"):
+    # Text fields: "" -> None
+    for f in ("ho_ten", "email_hoc_vien", "so_dt",
+              "nganh_nhap_hoc", "dot", "khoa",
+              "da_tn_truoc_do", "ghi_chu"):
         if has(f):
-            setattr(a, f, get(f))
+            setattr(a, f, str_or_none(get(f)))
 
+    # Lưu người cập nhật gần nhất
     a.nguoi_nhan_ky_ten = (getattr(me, "full_name", None) or getattr(me, "username", None))
 
-    # Docs (ghi đè theo số lượng, 0 => xoá)
+    # Docs: ghi đè theo số lượng; <=0 hoặc None -> xóa
     if has("docs"):
-        existing = {d.code: d for d in db.query(ApplicantDoc).filter_by(applicant_ma_so_hv=a.ma_so_hv).all()}
-        for d in get("docs") or []:
-            code = d.get("code") if isinstance(d, dict) else getattr(d, "code", None)
-            sl   = d.get("so_luong") if isinstance(d, dict) else getattr(d, "so_luong", None)
-            if code is None or sl is None:
+        existing = {
+            d.code: d
+            for d in db.query(ApplicantDoc).filter_by(applicant_ma_so_hv=a.ma_so_hv).all()
+        }
+        docs_in = get("docs") or []
+        for d in docs_in:
+            # hỗ trợ dict hoặc pydantic
+            code = (d.get("code") if isinstance(d, dict) else getattr(d, "code", None)) or None
+            sl   =  d.get("so_luong") if isinstance(d, dict) else getattr(d, "so_luong", None)
+
+            if not code:   # thiếu code => bỏ qua
                 continue
-            sl = int(sl)
-            if sl <= 0:
-                if code in existing: db.delete(existing[code])
+
+            try:
+                sl_int = int(sl) if sl is not None else 0
+            except Exception:
+                sl_int = 0
+
+            if sl_int <= 0:
+                if code in existing:
+                    db.delete(existing[code])
             else:
                 if code in existing:
-                    existing[code].so_luong = sl
+                    existing[code].so_luong = sl_int
                 else:
-                    db.add(ApplicantDoc(applicant_ma_so_hv=a.ma_so_hv, code=code, so_luong=sl))
+                    db.add(ApplicantDoc(
+                        applicant_ma_so_hv=a.ma_so_hv,
+                        code=code,
+                        so_luong=sl_int
+                    ))
 
     db.commit()
-    return {"ok": True, "ma_so_hv": a.ma_so_hv, "ma_ho_so": a.ma_ho_so}
+    return {
+        "ok": True,
+        "ma_so_hv": a.ma_so_hv,
+        "ma_ho_so": a.ma_ho_so,
+        "ho_ten": a.ho_ten,
+        "ngay_nhan_hs": a.ngay_nhan_hs.isoformat() if a.ngay_nhan_hs else None,
+    }
 
 
 # ================= DELETE by MSSV =================

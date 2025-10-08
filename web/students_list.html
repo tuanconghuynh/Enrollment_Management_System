@@ -141,7 +141,7 @@
                 <th class="text-left">Mã HS</th>
                 <th class="text-left">Họ tên</th>
                 <th class="text-left th-sortable" data-sort="ma_so_hv">MSHV <span class="arrow"></span></th>
-                <th>Email</th>
+                <!-- <th>Email</th> -->
                 <th class="th-sortable" data-sort="ngay_nhan_hs">Ngày nhận <span class="arrow"></span></th>
                 <th class="th-sortable" data-sort="nganh">Ngành <span class="arrow"></span></th>
                 <th class="th-sortable" data-sort="dot">Đợt <span class="arrow"></span></th>
@@ -163,7 +163,7 @@
         <div class="flex items-center gap-1 text-sm">
           <button id="btnFirst" class="btn btn-outline btn-xs" title="Trang đầu">⏮️</button>
           <button id="btnPrev"  class="btn btn-outline btn-xs" title="Trang trước">⏪</button>
-          <span id="pageInfo" class="mx-2 min-w-[160px] text-center">Trang 1/1 • 0 mục</span>
+          <span id="pageInfo1" class="mx-2 min-w-[160px] text-center">Trang 1/1 • 0 mục</span>
           <button id="btnNext"  class="btn btn-outline btn-xs" title="Trang sau">⏩</button>
           <button id="btnLast"  class="btn btn-outline btn-xs" title="Trang cuối">⏭️</button>
         </div>
@@ -313,7 +313,7 @@
         const khoa  = it.khoa ?? it.khoa_hoc ?? it.khoahoc ?? "";
         const dot   = it.dot ?? it.dot_tuyen ?? "";
         const nguoi = it.nguoi_nhan_ky_ten ?? it.nguoi_nhan ?? it.nguoi_ky ?? "";
-        const mail  = it.email_hoc_vien ?? "";
+        // const mail  = it.email_hoc_vien ?? "";
 
         const mshv = it.ma_so_hv;
         const tr = document.createElement("tr");
@@ -322,7 +322,7 @@
           <td class="border-b whitespace-nowrap font-medium">${dash(it.ma_ho_so)}</td>
           <td class="border-b">${dash(it.ho_ten)}</td>
           <td class="border-b">${dash(mshv)}</td>
-          <td class="border-b">${dash(mail)}</td>
+        
           <td class="border-b text-center whitespace-nowrap">${dash(fmtDMY(it.ngay_nhan_hs))}</td>
           <td class="border-b">${dash(nganh)}</td>
           <td class="border-b text-center">${dash(dot)}</td>
@@ -371,7 +371,7 @@
     function updatePagerUI(total, page, size){
       $("count").textContent = String(total);
       $("pageInfo").textContent = `Trang ${page}/${Math.max(1, Math.ceil(total/size))} • ${total} mục`;
-
+      $("pageInfo1").textContent = `Trang ${page}/${Math.max(1, Math.ceil(total/size))} • ${total} mục`;
       $("btnFirst").disabled = page <= 1;
       $("btnPrev").disabled  = page <= 1;
       $("btnNext").disabled  = page >= Math.max(1, Math.ceil(total/size));
@@ -474,51 +474,100 @@
       }
     }
 
-    // ===== Export/In ấn theo ngày/đợt =====
-    $("day").value = new Date().toISOString().slice(0,10);
-
-    $("btnExportDay").onclick = async ()=>{
-      const d = $("day").value; if(!d){ alert("Chọn ngày"); return; }
-      const resp = await fetch(makeUrl(`/export/excel?day=${d}`), {credentials:"include"});
-      if(!resp.ok){ alert(`Lỗi xuất Excel: HTTP ${resp.status}`); return; }
-      const blob = await resp.blob(); const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = `tong_ngay_${d}.xlsx`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
-    };
-
-    $("btnPrintDay").onclick = ()=>{
-      const d = $("day").value; if(!d){ alert("Chọn ngày"); return; }
-      window.open(makeUrl(`/batch/print?day=${d}`), "_blank");
-    };
-
-    $("btnPrintDot").onclick = async () => {
-      const dot  = $("dot").value.trim();
-      const khoa = $("dotKhoa").value.trim();
-      if (!dot) { alert("Nhập tên đợt trước đã"); return; }
-      let url = `/batch/print-dot?dot=${encodeURIComponent(dot)}`;
-      if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
-      const resp = await fetch(makeUrl(url), {credentials:"include"});
-      if (!resp.ok) { alert(`Không thể in theo đợt (HTTP ${resp.status})`); return; }
+    // helper: mở PDF nếu OK; nếu lỗi (400/404/...) thì hiện cảnh báo đẹp
+    async function openPdfOrAlert(url){
+      const resp = await fetch(makeUrl(url), { credentials: "include" });
+      if (!resp.ok) {
+        let msg = `Không thể thực hiện (HTTP ${resp.status})`;
+        try {
+          const txt = await resp.text();
+          const j = JSON.parse(txt);
+          if (j && j.detail) msg = j.detail; // dùng message từ backend
+        } catch (_) {}
+        alert(msg);
+        return;
+      }
       const blob = await resp.blob();
       const u = URL.createObjectURL(blob);
-      window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000);
-    };
+      window.open(u, "_blank");
+      setTimeout(()=>URL.revokeObjectURL(u), 60000);
+    }
+  // ===== Export/In ấn theo ngày/đợt =====
+    $("day").value = new Date().toISOString().slice(0,10);
 
-    $("btnExportDot").onclick = async () => {
-      const dot  = $("dot").value.trim();
-      const khoa = $("dotKhoa").value.trim();
-      if (!dot) { alert("Nhập tên đợt trước đã"); return; }
-      let url = `/export/excel-dot?dot=${encodeURIComponent(dot)}`;
-      if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
-      const resp = await fetch(makeUrl(url), {credentials:"include"});
-      if (!resp.ok) { alert(`Không thể xuất Excel theo đợt (HTTP ${resp.status})`); return; }
+    // helper dùng chung
+    async function fetchFileOrAlert(url, filename, type = "excel"){
+      const resp = await fetch(makeUrl(url), { credentials: "include" });
+      if (!resp.ok){
+        let msg = `Không thể ${type === "pdf" ? "in" : "xuất"} (HTTP ${resp.status})`;
+        try {
+          const t = await resp.text();
+          const j = JSON.parse(t);
+          if (j?.detail) msg = j.detail;
+        } catch(_){}
+        alert(msg);
+        return;
+      }
       const blob = await resp.blob();
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `tong_dot_${dot}${khoa ? `_khoa_${khoa}` : ""}.xlsx`;
+      a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
+    }
+
+    // helper mở PDF nếu ok, nếu lỗi thì alert (dùng chung với in)
+    async function openPdfOrAlert(url){
+      const resp = await fetch(makeUrl(url), { credentials: "include" });
+      if (!resp.ok){
+        let msg = `Không thể in (HTTP ${resp.status})`;
+        try {
+          const t = await resp.text();
+          const j = JSON.parse(t);
+          if (j?.detail) msg = j.detail;
+        } catch(_){}
+        alert(msg);
+        return;
+      }
+      const blob = await resp.blob();
+      const u = URL.createObjectURL(blob);
+      window.open(u, "_blank");
+      setTimeout(()=>URL.revokeObjectURL(u), 60000);
+    }
+
+    // --- Xuất Excel theo NGÀY ---
+    $("btnExportDay").onclick = async ()=>{
+      const d = $("day").value;
+      if (!d){ alert("Chọn ngày trước đã"); return; }
+      await fetchFileOrAlert(`/export/excel?day=${encodeURIComponent(d)}`, `tong_ngay_${d}.xlsx`, "excel");
+    };
+
+    // --- In PDF theo NGÀY ---
+    $("btnPrintDay").onclick = async ()=>{
+      const d = $("day").value;
+      if (!d){ alert("Chọn ngày trước đã"); return; }
+      await openPdfOrAlert(`/batch/print?day=${encodeURIComponent(d)}`);
+    };
+
+    // --- Xuất Excel theo ĐỢT ---
+    $("btnExportDot").onclick = async ()=>{
+      const dot  = $("dot").value.trim();
+      const khoa = $("dotKhoa").value.trim();
+      if (!dot){ alert("Nhập tên đợt trước đã"); return; }
+      let url = `/export/excel-dot?dot=${encodeURIComponent(dot)}`;
+      if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
+      const fname = `tong_dot_${dot}${khoa ? `_khoa_${khoa}` : ""}.xlsx`;
+      await fetchFileOrAlert(url, fname, "excel");
+    };
+
+    // --- In PDF theo ĐỢT ---
+    $("btnPrintDot").onclick = async ()=>{
+      const dot  = $("dot").value.trim();
+      const khoa = $("dotKhoa").value.trim();
+      if (!dot){ alert("Nhập tên đợt trước đã"); return; }
+      let url = `/batch/print-dot?dot=${encodeURIComponent(dot)}`;
+      if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
+      await openPdfOrAlert(url);
     };
 
     // ===== Sort header bindings =====
