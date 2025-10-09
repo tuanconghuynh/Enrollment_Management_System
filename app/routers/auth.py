@@ -8,6 +8,7 @@ from passlib.hash import bcrypt
 from app.db.session import get_db
 from app.models.user import User
 from starlette.responses import RedirectResponse
+from app.core.security import verify_password, hash_password
 
 router = APIRouter()
 

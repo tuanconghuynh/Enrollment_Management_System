@@ -10,7 +10,7 @@ from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import Table, TableStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from pypdf import PdfReader, PdfWriter, Transformation
+# from pypdf import PdfReader, PdfWriter, Transformation
 
 
 from ..core.config import settings
@@ -44,7 +44,7 @@ def _first_existing(paths):
 
 
 def _register_font_times():
-    """
+    r"""
     Tự dò Times New Roman/DejaVu:
       - settings.FONT_PATH / FONT_PATH_BOLD
       - assets\TimesNewRoman(.ttf/.Bold.ttf)
@@ -503,49 +503,49 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
 
 # ================== HẾT BẢN IN A5 ==================
 
-def a5_two_up_to_a4(a5_pdf_bytes: bytes, margin_pt: int = 8, gap_pt: int = 8, duplicate_if_needed: bool = True) -> bytes:
-    """
-    Ghép các trang A5 (dọc/ ngang) thành A4 *dọc*, 2-up (một trên, một dưới).
-    - Scale theo *chiều cao nửa A4* để bản in đủ khổ.
-    - Nếu chỉ có 1 trang A5 -> nhân đôi trang đó (2 bản giống nhau).
-    - Nếu số trang A5 lẻ -> nhân bản trang cuối để đủ cặp.
-    """
-    reader = PdfReader(io.BytesIO(a5_pdf_bytes))
-    src_pages = list(reader.pages)
+# def a5_two_up_to_a4(a5_pdf_bytes: bytes, margin_pt: int = 8, gap_pt: int = 8, duplicate_if_needed: bool = True) -> bytes:
+#     """
+#     Ghép các trang A5 (dọc/ ngang) thành A4 *dọc*, 2-up (một trên, một dưới).
+#     - Scale theo *chiều cao nửa A4* để bản in đủ khổ.
+#     - Nếu chỉ có 1 trang A5 -> nhân đôi trang đó (2 bản giống nhau).
+#     - Nếu số trang A5 lẻ -> nhân bản trang cuối để đủ cặp.
+#     """
+#     reader = PdfReader(io.BytesIO(a5_pdf_bytes))
+#     src_pages = list(reader.pages)
 
-    if duplicate_if_needed:
-        if len(src_pages) == 1:
-            src_pages = [src_pages[0], src_pages[0]]
-        elif len(src_pages) % 2 == 1:
-            src_pages.append(src_pages[-1])
+#     if duplicate_if_needed:
+#         if len(src_pages) == 1:
+#             src_pages = [src_pages[0], src_pages[0]]
+#         elif len(src_pages) % 2 == 1:
+#             src_pages.append(src_pages[-1])
 
-    out = PdfWriter()
-    a4w, a4h = A4
-    half_h = (a4h - 2*margin_pt - gap_pt) / 2.0  # vùng vẽ mỗi nửa A4
+#     out = PdfWriter()
+#     a4w, a4h = A4
+#     half_h = (a4h - 2*margin_pt - gap_pt) / 2.0  # vùng vẽ mỗi nửa A4
 
-    page = None
-    for i, src in enumerate(src_pages):
-        sw = float(src.mediabox.width)
-        sh = float(src.mediabox.height)
+#     page = None
+#     for i, src in enumerate(src_pages):
+#         sw = float(src.mediabox.width)
+#         sh = float(src.mediabox.height)
 
-        # scale theo chiều cao nửa A4
-        scale = half_h / sh
-        placed_w = sw * scale
-        placed_h = sh * scale
+#         # scale theo chiều cao nửa A4
+#         scale = half_h / sh
+#         placed_w = sw * scale
+#         placed_h = sh * scale
 
-        # canh giữa theo ngang
-        x = (a4w - placed_w) / 2.0
+#         # canh giữa theo ngang
+#         x = (a4w - placed_w) / 2.0
 
-        # mỗi 2 A5 -> 1 A4 dọc
-        if i % 2 == 0:
-            page = out.add_blank_page(width=a4w, height=a4h)
-            y = a4h - margin_pt - placed_h      # nửa trên
-        else:
-            y = margin_pt                        # nửa dưới
+#         # mỗi 2 A5 -> 1 A4 dọc
+#         if i % 2 == 0:
+#             page = out.add_blank_page(width=a4w, height=a4h)
+#             y = a4h - margin_pt - placed_h      # nửa trên
+#         else:
+#             y = margin_pt                        # nửa dưới
 
-        t = Transformation().scale(scale).translate(x/scale, y/scale)
-        page.merge_transformed_page(src, t)
+#         t = Transformation().scale(scale).translate(x/scale, y/scale)
+#         page.merge_transformed_page(src, t)
 
-    buf = io.BytesIO()
-    out.write(buf)
-    return buf.getvalue()
+#     buf = io.BytesIO()
+#     out.write(buf)
+#     return buf.getvalue()

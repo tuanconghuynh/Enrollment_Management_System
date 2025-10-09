@@ -17,7 +17,7 @@ from app.models.checklist import ChecklistItem
 from app.services.pdf_service import (
     render_single_pdf,
     render_single_pdf_a5,
-    a5_two_up_to_a4,
+    render_batch_pdf
 )
 
 # Tạo Excel trực tiếp
@@ -276,18 +276,13 @@ def print_a5(ma_so_hv: str, db: Session = Depends(get_db)):
         headers={"Content-Disposition": f'inline; filename=\"{app.ma_ho_so or ma_so_hv}_A5.pdf\"'}
     )
 
-@router.get("/print/a4-two-up/{ma_so_hv}", summary="In 01 hồ sơ A4 (2-up) theo MSSV")
-def print_a4_two_up(ma_so_hv: str, db: Session = Depends(get_db)):
-    app = _get_app_by_mssv(db, ma_so_hv)
-    items = _get_items_for_app(db, app)
-    docs  = _get_docs_for_mssv(db, ma_so_hv)
-    a5_pdf = render_single_pdf_a5(app, items, docs)
-    a4_pdf = a5_two_up_to_a4(a5_pdf)
-    return Response(
-        content=a4_pdf,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename=\"{app.ma_ho_so or ma_so_hv}_A4_2up.pdf\"'}
-    )
+@router.get("/a4/{mshv}")
+async def print_a4(mshv: str, db: AsyncSession = Depends(get_db)):
+    a, items, docs = await get_applicant_with_docs(db, mshv)
+    if not a:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ")
+    pdf_bytes = render_single_pdf(a, items, docs)
+    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf")
 
 @router.get("/print/a4/{ma_so_hv}", summary="In 01 hồ sơ A4 (dọc) theo MSSV")
 def print_a4(ma_so_hv: str, db: Session = Depends(get_db)):

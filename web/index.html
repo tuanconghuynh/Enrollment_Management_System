@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-    .card { background:#ffffff; border-radius:1rem; box-shadow:0 10px 20px rgba(2,6,23,.06); padding:1.25rem; }
+    .card { background:#ffffff; border-radius:1rem; box-shadow:0 10px 20px rgba(3, 4, 5, 0.06); padding:1.25rem; }
     .btn { padding:.5rem 1rem; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:600; transition: transform .05s ease; }
     .btn:hover { transform: translateY(-1px); }
     .btn-primary { background:#2563eb; color:#fff; }
@@ -177,9 +177,6 @@
         <div class="mt-6 flex gap-3 flex-wrap items-center">
           <button id="btnSave" class="btn btn-secondary">Lưu</button>
           <button id="btnUpdateApplicantMain" class="btn btn-secondary">Cập nhật</button>
-          <button id="btnSavePrint" class="btn btn-primary">Lưu & In A4</button>
-          <button id="btnSavePrintA5" class="btn btn-outline">Lưu & In A5</button>
-          <span class="text-sm text-gray-500">Mẹo: nhấn <span class="kbd">Alt</span>+<span class="kbd">P</span> để Lưu & In nhanh</span>
         </div>
         <div id="msg" class="mt-3 text-sm text-green-700"></div>
       </section>
@@ -215,9 +212,8 @@
           <!-- In hồ sơ đang mở -->
           <div class="flex gap-2 mt-2">
             <button id="btnPrintLoadedA5" class="btn btn-outline" disabled>In A5</button>
-            <button id="btnPrintLoadedA42up" class="btn btn-outline" disabled>In A4 (2-up)</button>
+            <button id="btnPrintLoadedA4" class="btn btn-outline" disabled>In A4</button>
           </div>
-
           <p id="lookupMsg" class="text-sm text-gray-600 mt-2"></p>
         </section>
 
@@ -320,6 +316,8 @@
 
   // ========= helpers chung =========
   const $ = (id) => document.getElementById(id);
+
+
 
   // Toast
   function showToast(msg, type='info', ms=2500){
@@ -577,7 +575,7 @@
 
   function setPrintButtonsEnabled(on) {
     $("btnPrintLoadedA5").disabled   = !on;
-    $("btnPrintLoadedA42up").disabled = !on;
+    $("btnPrintLoadedA4").disabled = !on;
   }
 
   function populateFormFromApplicant(a, docs){
@@ -665,48 +663,94 @@
   }
 
   // Tìm theo tên (trả list)
-  async function searchByName(name){
-    const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(name)}`);
-    if(!r || !r.ok){
-      const t = r ? await r.text() : "(không phản hồi)";
-      throw new Error(`Tìm theo tên lỗi (HTTP ${r ? r.status : '???'})\n${t}`);
+  // TÌM THEO TÊN: thử nhiều endpoint + format trả về
+  async function searchByName(name) {
+    const q = String(name || "").trim().replace(/\s+/g, " ");
+    if (q.length < 2) throw new Error("Nhập tối thiểu 2 ký tự để tìm theo tên.");
+
+    const urls = [
+      `/applicants/search?q=${encodeURIComponent(q)}`,        // chuẩn cũ
+      `/applicants/search?name=${encodeURIComponent(q)}`,     // một số BE dùng name=
+      `/applicants/search?full_name=${encodeURIComponent(q)}`,// hoặc full_name=
+      `/applicants/by-name?q=${encodeURIComponent(q)}`,       // phòng xa BE đặt route khác
+    ];
+
+    // helper đọc JSON an toàn
+    const readJson = async (r) => { try { return await r.json(); } catch { return null; } };
+
+    let lastErrText = "";
+    for (const u of urls) {
+      const r = await apiFetch(u);
+      if (!r) continue;
+
+      if (r.status === 401 || r.status === 403) { handleAuth(r); return []; }
+      if (!r.ok) { try { lastErrText = await r.text(); } catch {} ; continue; }
+
+      const j = await readJson(r);
+      if (!j) continue;
+
+      // Chuẩn hoá các dạng cấu trúc phổ biến
+      let list = [];
+      if (Array.isArray(j)) list = j;
+      else if (Array.isArray(j.items)) list = j.items;
+      else if (Array.isArray(j.data))  list = j.data;
+      else if (Array.isArray(j.results)) list = j.results;
+      else if (j.items && j.items.data && Array.isArray(j.items.data)) list = j.items.data;
+
+      // map tối thiểu các trường cần hiển thị
+      list = (list || []).map(it => ({
+        ho_ten: it.ho_ten || it.full_name || it.ten || "",
+        ma_ho_so: it.ma_ho_so || it.code || it.ma_hs || "",
+        ma_so_hv: it.ma_so_hv || it.mssv || it.mshv || "",
+        ngay_nhan_hs: it.ngay_nhan_hs || it.created_at || it.ngay || null,
+        dot: it.dot || it.dot_tuyen || "",
+      }));
+
+      if (list.length) return list;
     }
-    const j = await r.json();
-    return Array.isArray(j) ? j : (Array.isArray(j.items) ? j.items : (Array.isArray(j.data) ? j.data : []));
+
+    // Không endpoint nào trả danh sách dùng được
+    if (lastErrText) console.warn("Name search last error:", lastErrText);
+    return [];
   }
 
+  // ===== Render danh sách kết quả tìm theo tên (GLOBAL) =====
   function renderNameResults(list){
     list = Array.isArray(list) ? list : (Array.isArray(list?.items) ? list.items : []);
     const box = $("nameResults");
     const ul  = $("nameResultsList");
+    if (!box || !ul) return; // phòng ngừa thiếu DOM
+
     if(!list || list.length === 0){
       box.classList.remove("hidden");
       ul.innerHTML = '<li class="p-2 text-sm text-gray-500">Không tìm thấy.</li>';
       return;
     }
+
     ul.innerHTML = list.map(it => {
       const ngay = it.ngay_nhan_hs ? String(it.ngay_nhan_hs).slice(0,10) : '';
       return `
         <li class="p-2 hover:bg-gray-50 cursor-pointer" data-mshv="${it.ma_so_hv||''}">
           <div class="flex justify-between">
-            <div class="font-medium">${it.ho_ten}</div>
+            <div class="font-medium">${it.ho_ten||it.full_name||""}</div>
             <div class="text-xs text-gray-500">${ngay}</div>
           </div>
           <div class="text-xs text-gray-600">
-            Mã HS: <span class="font-semibold">${it.ma_ho_so}</span>
-            • MSHV: ${it.ma_so_hv||''}
-            • Đợt: ${it.dot||''}
+            Mã HS: <span class="font-semibold">${it.ma_ho_so||it.code||""}</span>
+            • MSHV: ${it.ma_so_hv||it.mssv||it.mshv||''}
+            • Đợt: ${it.dot||it.dot_tuyen||''}
           </div>
         </li>`;
     }).join("");
+
+    // bind chọn kết quả 1 lần
     if (!ul._boundClick) {
       ul.addEventListener('click', (e)=>{
         const li = e.target.closest('li[data-mshv]');
         if (!li) return;
-        const mshv = li.dataset.mshv;
-        $("q_ma_so_hv").value = mshv;
+        $("q_ma_so_hv").value = li.dataset.mshv || '';
         box.classList.add('hidden');
-        $("btnLoadApplicantMSHV").click();
+        $("btnLoadApplicantMSHV")?.click();
       });
       ul._boundClick = true;
     }
@@ -735,6 +779,40 @@
   function openPdf(url){
     const w = window.open(url, "_blank");
     if(!w){ window.location.href = url; }
+  }
+
+  // Bỏ dấu tiếng Việt & chuẩn hoá so sánh
+  function vnNorm(s){
+    return (s||"")
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // strip diacritics
+      .replace(/đ/g,'d').replace(/Đ/g,'D')
+      .trim().toLowerCase();
+  }
+
+  // Chấm điểm mức khớp: cao hơn = khớp hơn
+  function matchScore(name, query){
+    const a = vnNorm(name);
+    const b = vnNorm(query);
+    if (!a || !b) return 0;
+    if (a === b) return 100;                 // trùng tuyệt đối
+    if (a.startsWith(b)) return 90;          // bắt đầu bằng
+    if (a.includes(b)) return 70;            // có chứa
+    // tách từ: tất cả token đều xuất hiện
+    const tokens = b.split(/\s+/).filter(Boolean);
+    const ok = tokens.every(t => a.includes(t));
+    return ok ? 60 : 0;
+  }
+
+  // Lọc + sắp xếp theo tên, giới hạn top N
+  function filterAndSortByName(list, q, limit=20){
+    const scored = (list||[]).map(it => {
+      const name = it.ho_ten || it.full_name || it.ten || '';
+      const score = matchScore(name, q);
+      return {it, score};
+    }).filter(x => x.score > 0);
+
+    scored.sort((p,q) => q.score - p.score);
+    return scored.slice(0, limit).map(x => x.it);
   }
 
   $("btnBatchPDF").onclick = async () => {
@@ -824,32 +902,6 @@
     }
   };
 
-  $("btnSavePrint").onclick = async () => {
-    const res = await createApplicant();
-    if (res) {
-      // in bằng MSSV
-      const mshv = (res.ma_so_hv || $("ma_so_hv").value).trim();
-      if (mshv) openPdf(makeUrl(`/print/a4-two-up/${encodeURIComponent(mshv)}`));
-      $("msg").textContent = `Đã lưu & in A4 (2-up) hồ sơ ${res.ma_ho_so || $("ma_ho_so").value}.`;
-      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so || $("ma_ho_so").value}</b>.`, "success");
-    }
-  };
-
-  $("btnSavePrintA5").onclick = async () => {
-    const res = await createApplicant();
-    if (res) {
-      const mshv = (res.ma_so_hv || $("ma_so_hv").value).trim();
-      if (mshv) openPdf(makeUrl(`/print/a5/${encodeURIComponent(mshv)}`));
-      $("msg").textContent = `Đã lưu & in A5 hồ sơ ${res.ma_ho_so || $("ma_ho_so").value}.`;
-      showToast(`Đã lưu & gửi in <b>${res.ma_ho_so || $("ma_ho_so").value}</b>.`, "success");
-    }
-  };
-
-  // Alt+P -> Lưu & In
-  document.addEventListener('keydown', (e) => {
-    if (e.altKey && (e.key === 'p' || e.key === 'P')) $("btnSavePrint").click();
-  });
-
   // Bind tra cứu THEO MSHV
   $("btnLoadApplicantMSHV").onclick = async () => {
     try{
@@ -874,13 +926,20 @@
   $("btnSearchByName").onclick = async () => {
     try{
       const name = $("q_ho_ten").value.trim();
-      if(name.length < 2){ alert("Nhập tối thiểu 2 ký tự để tìm theo tên."); return; }
+      if(name.length < 2){ alert("Nhập tối thiểu 2 ký tự."); return; }
       $("lookupMsg").textContent = "Đang tìm theo tên...";
-      const list = await searchByName(name);
-      renderNameResults(list);
-      $("lookupMsg").textContent = `Tìm thấy ${list.length} kết quả.`;
-    }catch(e){ $("lookupMsg").textContent = e.message; }
+      let list = await searchByName(name);
+      // lọc theo tên (không dấu) để loại kết quả lan man
+      list = filterAndSortByName(list, name, 25);
+      renderNameResults(list);    // hàm này bạn đã có
+      renderNameResults(list);                    // <-- giờ chắc chắn tồn tại
+      $("lookupMsg").textContent = list.length ? `Tìm thấy ${list.length} kết quả.` : "Không tìm thấy.";
+    }catch(e){
+      $("lookupMsg").textContent = e.message || "Lỗi tìm kiếm.";
+      showToast(e.message || "Lỗi tìm kiếm.", "error");
+    }
   };
+
   $("q_ho_ten").addEventListener('keydown', (e)=>{ if(e.key==='Enter') $("btnSearchByName").click(); });
 
   // Update (cả 2 nút)
@@ -911,9 +970,10 @@
     if (!window.loadedApplicant?.ma_so_hv) return alert("Chưa tải hồ sơ nào.");
     openPdf(makeUrl(`/print/a5/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`));
   };
-  $("btnPrintLoadedA42up").onclick = () => {
+  $("btnPrintLoadedA4").onclick = () => {
     if (!window.loadedApplicant?.ma_so_hv) return alert("Chưa tải hồ sơ nào.");
-    openPdf(makeUrl(`/print/a4-two-up/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`));
+    // ĐỔI endpoint về A4 đơn
+    openPdf(makeUrl(`/print/a4/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`));
   };
 
   // Reload checklist

@@ -15,7 +15,7 @@
     .btn[disabled] { opacity:.6; cursor:not-allowed; transform:none; }
     .btn-primary { background:#1d4ed8; color:#fff; }
     .btn-outline { background:#fff; border:1px solid #d1d5db; }
-    .btn-soft { background:#eff6ff; color:#1e3a8a; }
+    .btn-soft { background:#09f5c2; color:#030a1f; }
     .btn-xs { padding:.25rem .5rem; border-radius:.5rem; font-size:.75rem; }
     .btn-pill { border-radius:999px; }
     .table { width:100%; border-collapse: separate; border-spacing:0; }
@@ -331,7 +331,7 @@
           <td class="border-b text-center whitespace-nowrap">
             <div class="inline-flex gap-2">
               <a class="btn btn-soft btn-xs btn-pill" href="${makeUrl(`/print/a5/${encodeURIComponent(mshv)}`)}" target="_blank" rel="noopener">A5</a>
-              <a class="btn btn-primary btn-xs btn-pill" href="${makeUrl(`/print/a4-two-up/${encodeURIComponent(mshv)}`)}" target="_blank" rel="noopener">A4</a>
+              <a class="btn btn-primary btn-xs btn-pill" href="${makeUrl(`/print/a4/${encodeURIComponent(mshv)}`)}" target="_blank" rel="noopener">A4</a>
             </div>
           </td>
           <td class="border-b text-center whitespace-nowrap">
@@ -412,12 +412,84 @@
       setState({loading:false, empty: (sorted.length===0)});
     }
 
-    // lấy 1 trang server
-    async function fetchPageServer(q, page, size){
-      const url = `/applicants/search?q=${encodeURIComponent(q)}&page=${page}&size=${size}`;
+    // --- Helpers chuẩn hoá và fallback ---
+    function normalizePaged(data) {
+      if (!data) return { items: [], total: 0, page: 1, size: 0 };
+      if (Array.isArray(data.items)) {
+        return {
+          items: data.items,
+          total: Number(data.total ?? data.items.length ?? 0),
+          page: Number(data.page ?? 1),
+          size: Number(data.size ?? data.items.length ?? 0),
+        };
+      }
+      if (Array.isArray(data.results)) {
+        return {
+          items: data.results,
+          total: Number(data.total ?? data.results.length ?? 0),
+          page: Number(data.page ?? 1),
+          size: Number(data.size ?? data.results.length ?? 0),
+        };
+      }
+      if (Array.isArray(data)) {
+        return { items: data, total: data.length, page: 1, size: data.length };
+      }
+      return { items: [], total: 0, page: 1, size: 0 };
+    }
+    async function tryJson(url) {
       const r = await apiFetch(url).catch(()=>null);
-      if (!r || !r.ok) throw new Error(`Lỗi tải dữ liệu (HTTP ${r ? r.status : "???"})`);
-      return r.json(); // {items, page, size, total}
+      if (!r || !r.ok) return null;
+      try { return await r.json(); } catch { return null; }
+    }
+
+    // --- Nhận diện truy vấn “tên” (có chữ, không phải toàn số)
+    function isLikelyNameQuery(q){
+      const s = (q||"").trim();
+      if (!s) return false;
+      const hasLetter = /[A-Za-zÀ-Ỵà-ỵ]/.test(s);
+      const manyDigits = /^\d{4,}$/.test(s);
+      return hasLetter && !manyDigits;
+    }
+
+    // --- Chuẩn hoá tiếng Việt không dấu + xếp hạng khớp
+    function vnNorm(s){
+      return (s||"")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+        .replace(/đ/g,"d").replace(/Đ/g,"D")
+        .trim().toLowerCase();
+    }
+    function matchScore(name, query){
+      const a = vnNorm(name), b = vnNorm(query);
+      if (!a || !b) return 0;
+      if (a === b) return 100;
+      if (a.startsWith(b)) return 90;
+      if (a.includes(b)) return 70;
+      const tokens = b.split(/\s+/).filter(Boolean);
+      return tokens.every(t => a.includes(t)) ? 60 : 0;
+    }
+    function filterAndSortByName(list, q, limit=1000){
+      const scored = (list||[]).map(it=>{
+        const name = it.ho_ten || it.full_name || it.ten || "";
+        return {it, score: matchScore(name, q)};
+      }).filter(x => x.score > 0);
+      scored.sort((p,q)=> q.score - p.score);
+      return scored.slice(0, limit).map(x=>x.it);
+    }
+    // lấy 1 trang server (linh hoạt tham số)
+    async function fetchPageServer(q, page, size){
+      // thử /applicants/search với các khoá phổ biến
+      for (const k of ["q","name","full_name"]) {
+        const j = await tryJson(`/applicants/search?${k}=${encodeURIComponent(q)}&page=${page}&size=${size}`);
+        if (j) return normalizePaged(j);
+      }
+      // nếu BE không hỗ trợ các key trên, thử search không q để lấy trang
+      let j = await tryJson(`/applicants/search?page=${page}&size=${size}`);
+      if (j) return normalizePaged(j);
+      // fallback nữa: /applicants
+      j = await tryJson(`/applicants?page=${page}&size=${size}`);
+      if (j) return normalizePaged(j);
+      // cuối cùng: rỗng để client tự xử lý
+      return { items: [], total: 0, page: 1, size: size };
     }
 
     // lấy nhiều (để lọc client theo đợt/khóa)
@@ -428,7 +500,8 @@
       for(;;){
         const data = await fetchPageServer(state.q, page, size);
         (data.items||[]).forEach(x=>out.push(x));
-        if (out.length >= (data.total||0) || out.length >= limit) break;
+        const total = data.total ?? out.length;
+        if (out.length >= total || out.length >= limit || (data.items||[]).length === 0) break;
         page += 1;
       }
       return out.slice(0, limit);
@@ -450,23 +523,35 @@
       setState({loading:true});
       const wantFilter = $("filterDot").value.trim() !== "" || $("filterKhoa").value.trim() !== "";
       try{
-        let items=[], total;
+        let total = 0;
+
         if (wantFilter){
-          // lấy nhiều rồi lọc client
           state.cachedAllForFilter = await fetchUpTo(1000);
           let filtered = applyClientFilters(state.cachedAllForFilter);
           filtered = applySort(filtered);
           total = filtered.length;
           renderRows(filtered);
           updatePagerUI(total, 1, total || 1);
-        }else{
-          // phân trang bình thường
-          const data = await fetchPageServer(state.q, state.page, state.size);
-          items = applySort(data.items || []);
-          total = data.total || 0;
-          renderRows(items);
-          updatePagerUI(total, state.page, state.size);
+        } else {
+          if (isLikelyNameQuery(state.q)) {
+            // TÊN: gom rộng rồi lọc/xếp hạng client
+            const all = await fetchUpTo(1000);
+            let filtered = filterAndSortByName(all, state.q, 1000);
+            filtered = applySort(filtered);
+            total = filtered.length;
+            const start = (state.page-1)*state.size;
+            renderRows(filtered.slice(start, start+state.size));
+            updatePagerUI(total, state.page, state.size);
+          } else {
+            // SỐ/MÃ: để BE phân trang
+            const data = await fetchPageServer(state.q, state.page, state.size);
+            const items = applySort(data.items || []);
+            total = data.total || 0;
+            renderRows(items);
+            updatePagerUI(total, state.page, state.size);
+          }
         }
+
         setState({loading:false, empty: total===0});
       }catch(e){
         setState({loading:false, empty:true});
