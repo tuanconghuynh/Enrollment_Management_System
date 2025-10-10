@@ -370,13 +370,15 @@
 
     function updatePagerUI(total, page, size){
       $("count").textContent = String(total);
-      $("pageInfo").textContent = `Trang ${page}/${Math.max(1, Math.ceil(total/size))} • ${total} mục`;
+      $("pageInfo").textContent  = `Trang ${page}/${Math.max(1, Math.ceil(total/size))} • ${total} mục`;
       $("pageInfo1").textContent = `Trang ${page}/${Math.max(1, Math.ceil(total/size))} • ${total} mục`;
-      $("btnFirst").disabled = page <= 1;
-      $("btnPrev").disabled  = page <= 1;
-      $("btnNext").disabled  = page >= Math.max(1, Math.ceil(total/size));
-      $("btnLast").disabled  = page >= Math.max(1, Math.ceil(total/size));
+      const totalPages = Math.max(1, Math.ceil(total/size));
+      document.querySelectorAll("#btnFirst").forEach(b => b.disabled = page <= 1);
+      document.querySelectorAll("#btnPrev").forEach(b  => b.disabled = page <= 1);
+      document.querySelectorAll("#btnNext").forEach(b  => b.disabled = page >= totalPages);
+      document.querySelectorAll("#btnLast").forEach(b  => b.disabled = page >= totalPages);
     }
+
 
     // sắp xếp client-side trên items đang hiển thị (hoặc cachedAll khi đang lọc)
     function applySort(list){
@@ -392,6 +394,7 @@
       const arr = list.slice().sort((a,b)=> collator.compare(getVal(a), getVal(b)));
       return dir === 'asc' ? arr : arr.reverse();
     }
+
     function toggleSort(key){
       const ths = document.querySelectorAll('.th-sortable');
       ths.forEach(th=> th.classList.remove('active'));
@@ -402,15 +405,32 @@
       }
       const th = document.querySelector(`.th-sortable[data-sort="${key}"]`);
       if (th) th.classList.add('active');
-      // re-render với sort
-      const source = ( $("filterDot").value.trim() || $("filterKhoa").value.trim() )
-        ? state.cachedAllForFilter
-        : state.lastRendered;
-      const sorted = applySort(source);
-      renderRows(sorted);
-      updatePagerUI(sorted.length || state.total, 1, (sorted.length||state.size));
-      setState({loading:false, empty: (sorted.length===0)});
+
+      // Xác định nguồn dữ liệu hiện tại
+      const hasFilter = $("filterDot").value.trim() || $("filterKhoa").value.trim();
+      let source;
+      if (hasFilter){
+        source = applyClientFilters(state.cachedAllForFilter);
+      } else {
+        // Nếu là tìm theo tên, tốt nhất lấy rộng để sort đúng
+        if (isLikelyNameQuery(state.q)){
+          source = state.cachedAllForFilter.length ? state.cachedAllForFilter : state.lastRendered;
+        } else {
+          source = state.lastRendered;
+        }
+      }
+      const sorted = applySort(source || []);
+      const total = sorted.length || state.total || 0;
+
+      // Cập nhật lại total để nút "Trang cuối" chạy đúng
+      state.total = total;
+
+      const start = (state.page - 1) * state.size;
+      renderRows(sorted.slice(start, start + state.size));
+      updatePagerUI(total, state.page, state.size);
+      setState({loading:false, empty: total===0});
     }
+
 
     // --- Helpers chuẩn hoá và fallback ---
     function normalizePaged(data) {
@@ -522,33 +542,59 @@
     async function runSearch(){
       setState({loading:true});
       const wantFilter = $("filterDot").value.trim() !== "" || $("filterKhoa").value.trim() !== "";
+
       try{
         let total = 0;
+        let listForPage = [];
 
         if (wantFilter){
+          // Lấy nhiều rồi lọc client
           state.cachedAllForFilter = await fetchUpTo(1000);
           let filtered = applyClientFilters(state.cachedAllForFilter);
           filtered = applySort(filtered);
           total = filtered.length;
-          renderRows(filtered);
-          updatePagerUI(total, 1, total || 1);
+
+          // PHÂN TRANG CLIENT-SIDE
+          const start = (state.page - 1) * state.size;
+          listForPage = filtered.slice(start, start + state.size);
+
+          renderRows(listForPage);
+          updatePagerUI(total, state.page, state.size);
         } else {
           if (isLikelyNameQuery(state.q)) {
-            // TÊN: gom rộng rồi lọc/xếp hạng client
+            // Tên: gom rộng rồi lọc client + PHÂN TRANG
             const all = await fetchUpTo(1000);
             let filtered = filterAndSortByName(all, state.q, 1000);
             filtered = applySort(filtered);
             total = filtered.length;
-            const start = (state.page-1)*state.size;
-            renderRows(filtered.slice(start, start+state.size));
+
+            const start = (state.page - 1) * state.size;
+            listForPage = filtered.slice(start, start + state.size);
+
+            renderRows(listForPage);
             updatePagerUI(total, state.page, state.size);
           } else {
-            // SỐ/MÃ: để BE phân trang
+            // Số/Mã: để BE phân trang (server-side)
             const data = await fetchPageServer(state.q, state.page, state.size);
             const items = applySort(data.items || []);
-            total = data.total || 0;
+            total = data.total || items.length || 0;
+
             renderRows(items);
             updatePagerUI(total, state.page, state.size);
+          }
+        }
+
+        // >>> CỰC KỲ QUAN TRỌNG: cập nhật state.total để pagesTotal() tính đúng
+        state.total = total;
+
+        // Chặn page vượt biên: nếu đổi filter mà page > totalPages thì kéo về cuối
+        const totalPages = Math.max(1, Math.ceil(total / state.size));
+        if (state.page > totalPages){
+          state.page = totalPages;
+          // render lại đúng trang cuối (chỉ cần cho client-side)
+          if (wantFilter || isLikelyNameQuery(state.q)){
+            await runSearch();
+            return;
           }
         }
 
@@ -558,6 +604,7 @@
         $("msg").textContent = e.message || "Lỗi không xác định";
       }
     }
+
 
     // helper: mở PDF nếu OK; nếu lỗi (400/404/...) thì hiện cảnh báo đẹp
     async function openPdfOrAlert(url){
@@ -680,10 +727,18 @@
       runSearch();
     });
 
-    $("btnFirst").onclick = ()=>{ state.page = 1; runSearch(); };
-    $("btnPrev").onclick  = ()=>{ if(state.page>1){ state.page--; runSearch(); } };
-    $("btnNext").onclick  = ()=>{ state.page++; runSearch(); };
-    $("btnLast").onclick  = ()=>{ state.page = pagesTotal(); runSearch(); };
+    document.querySelectorAll("#btnFirst").forEach(btn => {
+      btn.onclick = () => { state.page = 1; runSearch(); };
+    });
+    document.querySelectorAll("#btnPrev").forEach(btn => {
+      btn.onclick = () => { if (state.page > 1) { state.page--; runSearch(); } };
+    });
+    document.querySelectorAll("#btnNext").forEach(btn => {
+      btn.onclick = () => { state.page++; runSearch(); };
+    });
+    document.querySelectorAll("#btnLast").forEach(btn => {
+      btn.onclick = () => { state.page = pagesTotal(); runSearch(); };
+    });
 
     // lọc client theo đợt/khóa (gõ là lọc ngay nếu đã có cache)
     ["filterDot","filterKhoa"].forEach(id=>{
