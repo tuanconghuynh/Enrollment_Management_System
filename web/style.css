@@ -1,0 +1,196 @@
+/* ====== Base / Tokens ==================================================== */
+:root{
+  --c-primary:#2563eb;
+  --c-primary-600:#1d4ed8;
+  --c-outline:#dbdbd1;
+  --c-border:#e5e7eb;
+  --c-bg-soft:#f8fafc;
+  --c-shadow:0 15px 30px rgba(2,6,23,.06);
+}
+
+* { box-sizing:border-box; }
+body{
+  font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+}
+
+/* ====== Card ============================================================= */
+.card{
+  background:#fff;
+  border-radius:1rem;
+  box-shadow:var(--c-shadow);
+  padding:1.25rem;
+}
+
+/* ====== Inputs =========================================================== */
+.input{
+  width:100%;
+  border:1px solid var(--c-border);
+  border-radius:.75rem;
+  padding:.6rem .85rem;
+  outline:none;
+  background:#fff;
+}
+.input:focus{
+  box-shadow:0 0 0 3px rgba(59,130,246,.25);
+  border-color:#93c5fd;
+}
+.input[readonly]{
+  opacity:.6;
+  background-color:#f9fafb;
+  cursor:not-allowed;
+}
+
+/* ====== Buttons ========================================================== */
+.btn{
+  padding:.55rem 1rem;
+  border-radius:.75rem;
+  box-shadow:0 1px 2px rgba(0,0,0,.06);
+  font-weight:600;
+  transition:transform .05s ease,opacity .15s;
+  display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+}
+.btn:hover{ transform:translateY(-1px); }
+.btn[disabled]{ opacity:.6;cursor:not-allowed;transform:none; }
+
+.btn-primary{ background:var(--c-primary);color:#fff; }
+.btn-secondary{ background:#034dea;color:#fff; }
+.btn-outline{ background:#ffffff;border:1px solid var(--c-outline);color:#0f172a; }
+.btn-soft{ background:#f5d104;color:#020d2e; }
+.btn-xs{ padding:.25rem .5rem;border-radius:.5rem;font-size:.75rem; }
+.btn-pill{ border-radius:999px; }
+
+/* ====== Tables =========================================================== */
+.table{ width:100%;border-collapse:separate;border-spacing:0; }
+.table th,.table td{ border-bottom:1px solid var(--c-border);padding:.6rem .75rem; }
+.table thead th{
+  background:var(--c-bg-soft);
+  font-weight:700;
+  position:sticky;top:0;z-index:1;
+  user-select:none;
+}
+.row-alt:nth-child(odd) td{ background:#fafafa; }
+
+.th-sortable{ cursor:pointer; }
+.th-sortable .arrow{ opacity:.4;margin-left:.25rem; }
+.th-sortable[aria-sort] .arrow{ opacity:1; }
+
+/* ====== Badges / Chips / Text =========================================== */
+.chip{
+  display:inline-block;padding:.1rem .5rem;border-radius:999px;
+  background:#eff6ff;color:#1d4ed8;font-weight:700;font-size:.75rem;
+  border:1px solid #bfdbfe;
+}
+.badge{
+  display:inline-block;padding:.1rem .5rem;border-radius:.5rem;
+  background:#eef2ff;color:#3730a3;font-size:.75rem;
+}
+.text-muted{ color:#9ca3af; }
+.status-ok{ color:#059669;font-weight:700; }
+.status-fail{ color:#dc2626;font-weight:700; }
+
+/* ====== Dropzone (import) =============================================== */
+.drop{
+  border:2px dashed #cbd5e1;
+  border-radius:1rem;
+  background:#f8fafc;
+  transition:all .15s ease;
+}
+.drop.drag{ background:#eef2ff;border-color:#93c5fd; }
+
+/* ====== Modal / Overlay ================================================== */
+.modal-backdrop,
+.overlay{
+  position:fixed;inset:0;
+  background:rgba(15,23,42,.45);
+  display:none;align-items:center;justify-content:center;
+  z-index:50;
+}
+.overlay.show{ display:flex; }
+
+.modal{
+  background:#fff;
+  border-radius:1rem;
+  box-shadow:0 30px 60px rgba(0,0,0,.25);
+  max-width:720px;
+  width:calc(100% - 2rem);
+}
+.modal .hd{
+  padding:14px 16px;
+  border-bottom:1px solid #e5e7eb;
+  font-weight:700;
+}
+.modal .bd{ padding:16px; }
+.modal .ft{
+  padding:12px 16px;
+  border-top:1px solid #e5e7eb;
+  display:flex;gap:8px;justify-content:flex-end;
+}
+.modal textarea{
+  width:100%;min-height:90px;
+  border:1px solid #e5e7eb;border-radius:.75rem;
+  padding:.6rem .85rem;outline:none;
+}
+.modal textarea:focus{
+  box-shadow:0 0 0 3px rgba(59,130,246,.25);
+  border-color:#93c5fd;
+}
+
+/* ====== Toast ============================================================ */
+#toast-wrap{
+  position: fixed;
+  left: 50%;
+  top: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 9999;
+  pointer-events: none; /* để không cản click nền */
+}
+
+.toast{
+  pointer-events: auto;            /* cho phép bấm để tắt */
+  background: #1d4ed8;
+  color: #fff;
+  padding: .65rem 1rem;
+  border-radius: .75rem;
+  box-shadow: 0 8px 24px rgba(2,6,23,.25);
+  font-weight: 600;
+  max-width: 92vw;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.toast.show{ opacity: 1; transform: translateY(0); }
+.toast.success{ background:#059669; }
+.toast.error{   background:#dc2626; }
+.toast.warn{    background:#f59e0b; }
+
+@keyframes toast-in{
+  from{ opacity:0;transform:translateY(-6px); }
+  to{ opacity:1;transform:translateY(0); }
+}
+
+/* ====== Misc ============================================================= */
+.label{ font-size:.85rem;color:#6b7280; }
+.section-title{ font-size:1.05rem;font-weight:700;margin-bottom:.5rem; }
+.kbd{
+  padding:.15rem .35rem;border:1px solid var(--c-border);
+  border-radius:.375rem;background:#f8fafc;color:#334155;font-size:.75rem;
+}
+.label {
+  font-weight: 600 !important;  /* làm chữ đậm hơn */
+  color: #111827;               /* tối màu hơn một chút (giống Tailwind text-gray-900) */
+}
+/* Special delete message (students_list) */
+#delMsg{
+  font-weight:700;
+  color:#df2222;
+  font-size:15px;
+  margin-bottom:6px;
+}
+
+/* Variant: journal primary */
+.is-journal .btn-primary{ background:var(--c-primary-600); }

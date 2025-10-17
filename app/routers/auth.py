@@ -12,7 +12,7 @@ from app.core.security import verify_password, hash_password
 
 router = APIRouter()
 
-IDLE_TIMEOUT_SEC = 3 * 60 * 60   # 3 giờ
+IDLE_TIMEOUT_SEC = 2 * 60 * 60   # 2 giờ
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
     # IDLE TIMEOUT CHECK (3h không hoạt động)
@@ -38,11 +38,29 @@ def require_user(user: Optional[User] = Depends(get_current_user)) -> User:
     return user
 
 def require_roles(*roles: str):
-    def _dep(user: User = Depends(require_user)) -> User:
+    def _dep(
+        request: Request,
+        user: User = Depends(require_user)
+    ) -> User:
         if roles and user.role not in roles:
             raise HTTPException(HTTP_403_FORBIDDEN, "Forbidden")
+
+        # Bơm đầy đủ thông tin vào session cho chắc
+        s = request.session
+        s["uid"] = getattr(user, "id", s.get("uid"))
+        s["full_name"] = (
+            getattr(user, "full_name", None)
+            or getattr(user, "username", None)
+            or getattr(user, "email", None)
+            or s.get("full_name")
+        )
+        s["username"] = getattr(user, "username", s.get("username"))
+        s["email"]    = getattr(user, "email", s.get("email"))
+        s["role"]     = getattr(user, "role", s.get("role"))
+
         return user
     return _dep
+
 
 require_admin = require_roles("Admin")
 
@@ -52,7 +70,12 @@ def login_page():
 
 @router.post("/api/login")
 @router.post("/login")
-def login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
     user = (
         db.query(User)
         .filter((User.username == username) | (User.email == username))
@@ -63,13 +86,26 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
     if not user.is_active:
         raise HTTPException(HTTP_403_FORBIDDEN, "User disabled")
 
+    # Lưu phiên + thông tin để audit dùng ngay
     request.session.clear()
     request.session["uid"] = user.id
     request.session["_last_seen"] = int(time.time())
-    return {"ok": True, "user": {
-        "id": user.id, "username": user.username, "full_name": user.full_name,
-        "role": user.role, "is_active": user.is_active
-    }}
+    request.session["full_name"] = user.full_name or user.username or user.email
+    request.session["username"]  = user.username
+    request.session["email"]     = user.email
+    request.session["role"]      = user.role
+
+    return {
+        "ok": True,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "full_name": user.full_name,
+            "role": user.role,
+            "is_active": user.is_active,
+        },
+    }
+
 
 @router.post("/logout")
 @router.post("/api/logout")

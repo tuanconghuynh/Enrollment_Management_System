@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trang chủ | Admission Check</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="hutech.png" type="image/png" />
+  <style>
+    /* Hình nền và hiệu ứng mờ */
+    body {
+      background: url('hinhnen.png') center/cover fixed no-repeat;
+      font-family: system-ui, sans-serif;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(3px);
+      z-index: -1;
+    }
+    .card {
+      background: white;
+      border-radius: 1rem;
+      border: 1px solid rgba(59,130,246,0.1);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+      transition: all .2s ease;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+      border-color: rgba(59,130,246,0.3);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header trên cùng -->
+  <header class="w-full px-8 py-5 flex flex-col sm:flex-row items-center justify-between max-w-7xl mx-auto">
+    <div class="flex items-center gap-3">
+      <img src="hutech.png" class="h-10 w-10" alt="HUTECH" />
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-blue-700 leading-tight">
+          HỆ THỐNG QUẢN LÝ HỒ SƠ NHẬP HỌC
+        </h1>
+      </div>
+    </div>
+
+    <div class="mt-4 sm:mt-0 flex items-center gap-3">
+      <p id="hello" class="text-base text-gray-700"></p>
+      <button id="btnLogout"
+        class="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg text-sm shadow">
+        Đăng xuất
+      </button>
+    </div>
+  </header>
+
+  <!-- Phần chức năng ở giữa -->
+  <main class="flex-1 flex items-center justify-center">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-8 py-12 text-left">
+
+      <a id="cardNhap" href="/index.html" class="card p-6 hidden">
+        <div class="flex items-start gap-4">
+          <div class="text-4xl">📝</div>
+          <div>
+            <h2 class="text-xl font-bold text-blue-700">Nhập hồ sơ mới</h2>
+            <p class="text-gray-600 mt-1">Tạo mới và biên nhận hồ sơ nhập học.</p>
+          </div>
+        </div>
+      </a>
+
+      <a id="cardDSHS" href="/students_list.html" class="card p-6 hidden">
+        <div class="flex items-start gap-4">
+          <div class="text-4xl">📋</div>
+          <div>
+            <h2 class="text-xl font-bold text-blue-700">Danh sách hồ sơ</h2>
+            <p class="text-gray-600 mt-1">Xem, tra cứu và quản lý hồ sơ đã nhập.</p>
+          </div>
+        </div>
+      </a>
+
+      <a id="cardImport" href="/import_students.html" class="card p-6 hidden">
+        <div class="flex items-start gap-4">
+          <div class="text-4xl">⬇️</div>
+          <div>
+            <h2 class="text-xl font-bold text-blue-700">Import học viên</h2>
+            <p class="text-gray-600 mt-1">Tải danh sách học viên từ Excel.</p>
+          </div>
+        </div>
+      </a>
+
+      <a id="cardJournal" href="/journal.html" class="card p-6 hidden">
+        <div class="flex items-start gap-4">
+          <div class="text-4xl">🕓</div>
+          <div>
+            <h2 class="text-xl font-bold text-blue-700">Nhật ký hệ thống</h2>
+            <p class="text-gray-600 mt-1">Theo dõi hoạt động và khôi phục dữ liệu.</p>
+          </div>
+        </div>
+      </a>
+
+      <a id="cardAdmin" href="/admin" class="card p-6 hidden">
+        <div class="flex items-start gap-4">
+          <div class="text-4xl">⚙️</div>
+          <div>
+            <h2 class="text-xl font-bold text-blue-700">Quản lý tài khoản</h2>
+            <p class="text-gray-600 mt-1">Chỉnh quyền, thêm người dùng.</p>
+          </div>
+        </div>
+      </a>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+    <footer class="bg-[#1E50B4] text-white mt-auto">
+    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
+        
+        <!-- Bên trái -->
+        <div>
+        <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
+        <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
+        <p>
+            <b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP.HCM
+        </p>
+        <p>
+            <b>ĐT:</b> (028) 6686 6465 · 
+            <b>Email:</b> 
+            <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">
+            daotaotructuyen@hutech.edu.vn
+            </a>
+        </p>
+        </div>
+        <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
+        </div>
+    </div>
+    </footer>
+
+
+  <script>
+    async function api(path, opt={}) {
+      try { return await fetch('/api' + path, { credentials:'include', ...opt }); }
+      catch { return null; }
+    }
+    function show(id){ document.getElementById(id)?.classList.remove('hidden'); }
+
+    async function boot(){
+      const r = await api('/me');
+      if (!r || !r.ok) { location.href = '/auth_login.html'; return; }
+      const me = await r.json();
+      const role = me.role || '';
+      const name = me.full_name || me.username || 'Người dùng';
+      document.getElementById('hello').innerHTML = `Xin chào, <b>${name}</b> <span class="text-gray-500">(${role})</span>`;
+
+      // Phân quyền
+      if (role === 'Admin') {
+        ['cardNhap','cardDSHS','cardImport','cardJournal','cardAdmin'].forEach(show);
+      } else if (role === 'NhanVien') {
+        ['cardNhap','cardDSHS','cardImport','cardJournal'].forEach(show);
+      } else {
+        ['cardNhap','cardDSHS'].forEach(show);
+      }
+    }
+
+    document.getElementById('btnLogout').addEventListener('click', async ()=>{
+      await api('/logout', { method:'POST' });
+      location.href = '/auth_login.html';
+    });
+
+    boot();
+  </script>
+</body>
+</html>

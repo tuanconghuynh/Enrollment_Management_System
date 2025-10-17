@@ -276,13 +276,6 @@ def print_a5(ma_so_hv: str, db: Session = Depends(get_db)):
         headers={"Content-Disposition": f'inline; filename=\"{app.ma_ho_so or ma_so_hv}_A5.pdf\"'}
     )
 
-@router.get("/a4/{mshv}")
-async def print_a4(mshv: str, db: AsyncSession = Depends(get_db)):
-    a, items, docs = await get_applicant_with_docs(db, mshv)
-    if not a:
-        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ")
-    pdf_bytes = render_single_pdf(a, items, docs)
-    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf")
 
 @router.get("/print/a4/{ma_so_hv}", summary="In 01 hồ sơ A4 (dọc) theo MSSV")
 def print_a4(ma_so_hv: str, db: Session = Depends(get_db)):

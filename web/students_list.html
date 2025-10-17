@@ -5,59 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Danh sách hồ sơ | Admission Check</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-    .card { background:#fff; border-radius:1rem; box-shadow:0 15px 30px rgba(2,6,23,.06); padding:1.25rem; }
-    .input { width:100%; border:1px solid #e5e7eb; border-radius:.75rem; padding:.6rem .85rem; outline:none; background:#fff; }
-    .input:focus { box-shadow:0 0 0 3px rgba(59,130,246,.25); border-color:#93c5fd; }
-    .btn { padding:.55rem 1rem; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:600; transition: transform .05s ease; }
-    .btn:hover { transform: translateY(-1px); }
-    .btn[disabled] { opacity:.6; cursor:not-allowed; transform:none; }
-    .btn-primary { background:#1d4ed8; color:#fff; }
-    .btn-outline { background:#fff; border:1px solid #d1d5db; }
-    .btn-soft { background:#09f5c2; color:#030a1f; }
-    .btn-xs { padding:.25rem .5rem; border-radius:.5rem; font-size:.75rem; }
-    .btn-pill { border-radius:999px; }
-    .table { width:100%; border-collapse: separate; border-spacing:0; }
-    .table th, .table td { border-bottom:1px solid #e5e7eb; padding:.6rem .75rem; }
-    .table thead th { background:#f8fafc; font-weight:700; position:sticky; top:0; z-index:1; user-select:none; }
-    .row-alt:nth-child(odd) td { background:#fafafa; }
-    .badge { display:inline-block; padding:.1rem .5rem; border-radius:.5rem; background:#eef2ff; color:#3730a3; font-size:.75rem; }
-    .text-muted { color:#9ca3af; }
-    .th-sortable { cursor:pointer; }
-    .th-sortable .arrow { opacity:.4; margin-left:.25rem; }
-    .th-sortable.active .arrow { opacity:1; }
-    /* Modal */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50}
-    .modal{background:#fff;border-radius:1rem;box-shadow:0 30px 60px rgba(0,0,0,.3);max-width:720px;width:calc(100% - 2rem)}
-  </style>
   <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
   <link rel="apple-touch-icon" href="hutech.png">
   <meta name="theme-color" content="#2563eb">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-50">
   <div class="max-w-7xl mx-auto p-6 space-y-6">
     <!-- Header -->
     <header class="flex flex-wrap gap-3 items-center justify-between">
-      <div class="min-w-0">
-        <h1 class="text-2xl font-bold leading-tight">Danh sách hồ sơ</h1>
-        <p class="text-sm text-gray-500">Tra cứu nhanh & thao tác in/xuất.</p>
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="/index_home.html" title="Về trang chủ" class="flex items-center gap-3 hover:opacity-80 transition">
+          <img src="hutech.png" alt="HUTECH" class="h-8 w-8 object-contain select-none" />
+        </a>
+        <div>
+          <h1 class="text-2xl font-bold leading-none truncate">Danh sách hồ sơ</h1>
+          <p class="text-sm text-gray-500">Tra cứu nhanh & thao tác in/xuất.</p>
+        </div>
       </div>
+
       <div class="flex items-center gap-2">
-        <label class="text-sm text-gray-500">API Base</label>
-        <input id="apiBase" class="input w-52 md:w-72" placeholder="http://192.168.2.82:8000" />
+        <label for="apiBase" class="text-sm text-gray-500">API Base</label>
+        <input id="apiBase" class="input w-52 md:w-72" placeholder="" />
         <span class="hidden md:inline-block w-px h-6 bg-gray-200"></span>
 
         <!-- User status -->
         <div id="userBox" class="text-sm text-gray-600 flex items-center gap-2">
           <span id="meText" class="hidden">
-           ✌️ Xin chào: <b id="meName"></b> (<span id="meRole"></span>)
+            ✌️ Xin chào: <b id="meName"></b> (<span id="meRole"></span>)
           </span>
           <a id="loginLink" href="/login" class="btn btn-outline">Đăng nhập</a>
-          <button id="btnLogout" class="btn btn-outline hidden">Đăng xuất</button>
+          <button id="btnLogout" class="btn btn-outline hidden">LogOut</button>
         </div>
 
-        <a class="btn btn-outline" href="/" title="Trang chính">← Trang chính</a>
+        <a class="btn btn-outline" href="/" title="Biên soạn Hồ Sơ">Biên soạn Hồ Sơ</a>
+        <a id="journalLink" class="btn btn-outline" href="/journal.html" title="Nhật ký" hidden>🧾 Nhật ký hoạt động</a>
+        <a class="btn btn-outline" href="/index_home.html" title="Trang chủ">← Trang chủ</a>
       </div>
     </header>
 
@@ -69,14 +52,14 @@
         <div class="xl:col-span-2">
           <div class="flex items-center gap-2">
             <div class="relative flex-1 min-w-[240px]">
-              <input id="q" class="input w-full pl-10" placeholder="Nhập họ tên hoặc MSHV..." />
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
+              <input id="q" class="input w-full pl-10" placeholder="Nhập họ tên hoặc MSHV..." aria-label="Từ khóa" />
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true">🔎</span>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <input id="filterDot"  class="input" placeholder="Lọc theo Đợt"  title="VD: 1 hoặc 1/2025" />
               <input id="filterKhoa" class="input" placeholder="Lọc theo Khóa" title="VD: 27" />
             </div>
-            <button id="btnSearch" class="btn btn-outline shrink-0">🔎 Tìm</button>
+            <button id="btnSearch" class="btn btn-outline shrink-0" aria-label="Tìm">🔎 Tìm</button>
           </div>
         </div>
       </div>
@@ -97,7 +80,7 @@
           <input id="dotKhoa" class="input w-24 sm:w-28 md:w-32 flex-none" placeholder="Nhập Khóa" title="VD: 25" />
           <button id="btnExportDot" class="btn btn-outline shrink-0" title="Xuất Excel theo đợt + khóa">⬇️ Excel</button>
           <button id="btnPrintDot"  class="btn btn-primary shrink-0" title="In PDF gộp theo đợt + khóa">🖨️ PDF</button>
-          <p class="w-full text-xs text-gray-500">Gửi in/xuất theo <b>đợt</b>;hoặc nhập thêm <b>Khóa</b> nếu cần.</p>
+          <p class="w-full text-xs text-gray-500">Gửi in/xuất theo <b>đợt</b>; hoặc nhập thêm <b>Khóa</b> nếu cần.</p>
         </div>
       </div>
     </section>
@@ -106,24 +89,24 @@
     <section class="card space-y-3">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <div class="text-sm text-gray-600">Kết quả: <span id="count" class="badge">0</span></div>
-        <div id="msg" class="text-sm text-gray-600"></div>
+        <div id="msg" class="text-sm text-gray-600" role="status" aria-live="polite"></div>
       </div>
 
-      <!-- Pagination toolbar -->
+      <!-- Pagination toolbar (top) -->
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-2 text-sm">
           <span>Hiển thị</span>
           <select id="pageSize" class="input w-24">
-            <option>10</option><option selected>20</option><option>50</option><option>100</option>
+            <option selected>10</option><option>20</option><option>50</option><option>100</option>
           </select>
           <span>dòng/trang</span>
         </div>
-        <div class="flex items-center gap-1 text-sm">
-          <button id="btnFirst" class="btn btn-outline btn-xs" title="Trang đầu">⏮️</button>
-          <button id="btnPrev"  class="btn btn-outline btn-xs" title="Trang trước">⏪</button>
-          <span id="pageInfo" class="mx-2 min-w-[160px] text-center">Trang 1/1 • 0 mục</span>
-          <button id="btnNext"  class="btn btn-outline btn-xs" title="Trang sau">⏩</button>
-          <button id="btnLast"  class="btn btn-outline btn-xs" title="Trang cuối">⏭️</button>
+        <div class="flex items-center gap-1 text-sm pager" data-position="top">
+          <button class="btn btn-outline btn-xs pager-first"  title="Trang đầu">⏮️</button>
+          <button class="btn btn-outline btn-xs pager-prev"   title="Trang trước">⏪</button>
+          <span class="mx-2 min-w-[160px] text-center pager-info">Trang 1/1 • 0 mục</span>
+          <button class="btn btn-outline btn-xs pager-next"   title="Trang sau">⏩</button>
+          <button class="btn btn-outline btn-xs pager-last"   title="Trang cuối">⏭️</button>
         </div>
       </div>
 
@@ -140,13 +123,12 @@
               <tr>
                 <th class="text-left">Mã HS</th>
                 <th class="text-left">Họ tên</th>
-                <th class="text-left th-sortable" data-sort="ma_so_hv">MSHV <span class="arrow"></span></th>
-                <!-- <th>Email</th> -->
-                <th class="th-sortable" data-sort="ngay_nhan_hs">Ngày nhận <span class="arrow"></span></th>
-                <th class="th-sortable" data-sort="nganh">Ngành <span class="arrow"></span></th>
-                <th class="th-sortable" data-sort="dot">Đợt <span class="arrow"></span></th>
-                <th class="th-sortable" data-sort="khoa">Khóa <span class="arrow"></span></th>
-                <th class="th-sortable" data-sort="nguoi_nhan">Người nhận <span class="arrow"></span></th>
+                <th class="text-left th-sortable" data-sort="ma_so_hv" role="button" tabindex="0" aria-label="Sắp xếp theo MSHV">MSHV <span class="arrow">▲▼</span></th>
+                <th class="th-sortable" data-sort="ngay_nhan_hs" role="button" tabindex="0" aria-label="Sắp xếp theo Ngày nhận">Ngày nhận <span class="arrow">▲▼</span></th>
+                <th class="th-sortable" data-sort="nganh" role="button" tabindex="0" aria-label="Sắp xếp theo Ngành">Ngành <span class="arrow">▲▼</span></th>
+                <th class="th-sortable" data-sort="dot" role="button" tabindex="0" aria-label="Sắp xếp theo Đợt">Đợt <span class="arrow">▲▼</span></th>
+                <th class="th-sortable" data-sort="khoa" role="button" tabindex="0" aria-label="Sắp xếp theo Khóa">Khóa <span class="arrow">▲▼</span></th>
+                <th class="th-sortable" data-sort="nguoi_nhan" role="button" tabindex="0" aria-label="Sắp xếp theo Người nhận">Người nhận <span class="arrow">▲▼</span></th>
                 <th class="text-center">In</th>
                 <th class="text-center">Sửa/Xóa</th>
               </tr>
@@ -156,26 +138,28 @@
         </div>
 
         <div id="loading" class="p-8 text-center text-gray-500 hidden">
-          <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin align-[-2px]"></span>
+          <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin align-[-2px]" aria-hidden="true"></span>
           <span class="ml-2">Đang tải…</span>
         </div>
       </div>
-        <div class="flex items-center gap-1 text-sm">
-          <button id="btnFirst" class="btn btn-outline btn-xs" title="Trang đầu">⏮️</button>
-          <button id="btnPrev"  class="btn btn-outline btn-xs" title="Trang trước">⏪</button>
-          <span id="pageInfo1" class="mx-2 min-w-[160px] text-center">Trang 1/1 • 0 mục</span>
-          <button id="btnNext"  class="btn btn-outline btn-xs" title="Trang sau">⏩</button>
-          <button id="btnLast"  class="btn btn-outline btn-xs" title="Trang cuối">⏭️</button>
-        </div>
+
+      <!-- Pagination toolbar (bottom) -->
+      <div class="flex items-center gap-1 text-sm pager" data-position="bottom">
+        <button class="btn btn-outline btn-xs pager-first" title="Trang đầu">⏮️</button>
+        <button class="btn btn-outline btn-xs pager-prev"  title="Trang trước">⏪</button>
+        <span class="mx-2 min-w-[160px] text-center pager-info">Trang 1/1 • 0 mục</span>
+        <button class="btn btn-outline btn-xs pager-next"  title="Trang sau">⏩</button>
+        <button class="btn btn-outline btn-xs pager-last"  title="Trang cuối">⏭️</button>
+      </div>
     </section>
   </div>
 
   <!-- Modal Edit -->
-  <div id="editModal" class="modal-backdrop">
-    <div class="modal p-6">
+  <div id="editModal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal p-6" role="dialog" aria-modal="true" aria-labelledby="editTitle">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-semibold">Chỉnh sửa hồ sơ</h3>
-        <button id="btnCloseModal" class="btn btn-outline btn-xs">✕</button>
+        <h3 id="editTitle" class="text-lg font-semibold">Chỉnh sửa hồ sơ</h3>
+        <button id="btnCloseModal" class="btn btn-outline btn-xs" aria-label="Đóng">✕</button>
       </div>
       <form id="editForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div><label class="text-sm text-gray-600">MSHV (khóa)</label><input id="e_mshv" class="input bg-gray-100" readonly></div>
@@ -197,17 +181,30 @@
     </div>
   </div>
 
+  <!-- Modal nhập lý do xoá -->
+  <div id="delModal" class="overlay" aria-modal="true" role="dialog">
+    <div class="modal">
+      <div class="hd">Xóa hồ sơ</div>
+      <div class="bd">
+        <p id="delMsg" class="mb-2 text-sm text-gray-700"></p>
+        <label class="text-sm text-gray-800 font-semibold block mb-1">Lý do xoá (bắt buộc)</label>
+        <textarea id="delReason" placeholder="Nhập lý do…"></textarea>
+        <p id="delErr" class="mt-1 text-xs text-rose-600 hidden">Vui lòng nhập lý do!</p>
+      </div>
+      <div class="ft">
+        <button id="delCancel" class="btn btn-outline">Hủy</button>
+        <button id="delOk" class="btn btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+
   <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
     © <span class="font-semibold">
-      <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">
-        V-HT.PTĐT HUTECH
-      </a>
+      <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">V-HT.PTĐT HUTECH</a>
     </span>
     ➖ Code by:
     <span class="font-semibold">
-      <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">
-        HC- Tuan
-      </a>
+      <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">HC- Tuan</a>
     </span>
   </footer>
 
@@ -220,6 +217,8 @@
     const STORAGE_KEY = "apiBase";
     const PREFIX_CANDIDATES = ["", "/api"];
     let API_PREFIX = "";
+
+    const debounce = (fn, ms=300) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
 
     (function initApiBase(){
       const saved = localStorage.getItem(STORAGE_KEY) || window.location.origin;
@@ -248,20 +247,22 @@
       return r;
     }
 
-    function fmtDMY(s){
-      if(!s) return "";
+    function fmtDMY(s) {
+      if (!s) return "";
       const t = String(s).trim();
       if (/^\d{2}\/\d{2}\/\d{4}$/.test(t)) return t;
       const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (m) return `${m[3]}/${m[2]}/${m[1]}`;
-      const d = new Date(t); if (!isNaN(d)) {
-        const dd = String(d.getDate()).padStart(2,"0");
-        const mm = String(d.getMonth()+1).padStart(2,"0");
+      const d = new Date(t);
+      if (!isNaN(d)) {
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
         const yy = d.getFullYear();
         return `${dd}/${mm}/${yy}`;
       }
       return t;
     }
+
     const dash = (x)=> (x && String(x).trim()!=="") ? x : '<span class="text-muted">—</span>';
 
     function setState({loading=false, empty=false}){
@@ -297,24 +298,37 @@
     const state = {
       q: "",
       page: 1,
-      size: Number(localStorage.getItem("students.pageSize") || 20),
+      size: 10,
       total: 0,
       cachedAllForFilter: [],
-      sort: { key: null, dir: 'asc' }, // key: 'ma_so_hv' | 'dot' | 'khoa'
-      lastRendered: [] // giữ items đang render để sắp xếp lại
+      sort: { key: null, dir: 'asc' }, // 'ma_so_hv' | 'dot' | 'khoa' | 'nganh' | 'ngay_nhan_hs' | 'nguoi_nhan'
+      cacheAll: [] // cache toàn bộ dataset cho truy vấn hiện tại (để sort trên toàn tập)
     };
     function pagesTotal(){ return Math.max(1, Math.ceil(state.total / state.size)); }
 
+    // ===== Xoá mềm (client blacklist theo session) =====
+    function isDeletedFlag(it){
+      // Server có cờ nào thì liệt kê ở đây
+      return !!(it?.deleted || it?.is_deleted || it?.deleted_at || it?.status === 'deleted');
+    }
+    const deletedMshv = new Set(JSON.parse(sessionStorage.getItem('deletedMshv') || '[]'));
+    function persistDeletedMshv(){
+      try { sessionStorage.setItem('deletedMshv', JSON.stringify([...deletedMshv])); } catch(_){}
+    }
+
+    function notDeleted(it){
+      const id = String(it?.ma_so_hv || '');
+      // ẩn nếu: (1) bị chặn bởi blacklist client trong phiên, hoặc (2) server báo đã xoá
+      return id && !deletedMshv.has(id) && !isDeletedFlag(it);
+    }
+
     function renderRows(items){
-      state.lastRendered = items.slice();
       const tbody = $("tbody"); tbody.innerHTML = "";
       (items||[]).forEach((it) => {
         const nganh = it.nganh_nhap_hoc ?? it.nganh ?? "";
         const khoa  = it.khoa ?? it.khoa_hoc ?? it.khoahoc ?? "";
         const dot   = it.dot ?? it.dot_tuyen ?? "";
         const nguoi = it.nguoi_nhan_ky_ten ?? it.nguoi_nhan ?? it.nguoi_ky ?? "";
-        // const mail  = it.email_hoc_vien ?? "";
-
         const mshv = it.ma_so_hv;
         const tr = document.createElement("tr");
         tr.className = "row-alt";
@@ -322,7 +336,6 @@
           <td class="border-b whitespace-nowrap font-medium">${dash(it.ma_ho_so)}</td>
           <td class="border-b">${dash(it.ho_ten)}</td>
           <td class="border-b">${dash(mshv)}</td>
-        
           <td class="border-b text-center whitespace-nowrap">${dash(fmtDMY(it.ngay_nhan_hs))}</td>
           <td class="border-b">${dash(nganh)}</td>
           <td class="border-b text-center">${dash(dot)}</td>
@@ -342,52 +355,202 @@
           </td>`;
         tbody.appendChild(tr);
       });
+    }
 
-      // bind delete
-      document.querySelectorAll(".btn-del").forEach(btn=>{
-        btn.addEventListener("click", async ()=>{
-          const mshv = decodeURIComponent(btn.getAttribute("data-mshv")||"");
-          if (!mshv) return;
-          if (!confirm(`Xóa hồ sơ MSHV ${mshv}?`)) return;
-          const r = await apiFetch(`/applicants/${encodeURIComponent(mshv)}`, {method:"DELETE"});
-          if (!r || (r.status!==204 && !r.ok)) {
-            alert(`Xóa thất bại (HTTP ${r ? r.status : '???'})`);
-            return;
-          }
-          await runSearch();
-        });
+    // ===== Toast helper (tương thích cả 2 kiểu gọi & tự tạo DOM nếu thiếu) =====
+    function showToast(msg, maybeOpts){
+      // Chuẩn hóa tham số
+      let type = 'danger', timeout = 2200;
+      if (typeof maybeOpts === 'object' && maybeOpts !== null) {
+        type = maybeOpts.type || 'danger';
+        timeout = Number(maybeOpts.timeout || 2200);
+      } else if (typeof maybeOpts === 'string') {
+        type = maybeOpts;
+        // nếu còn đối số thứ 3 (kiểu cũ), đọc từ arguments[2]
+        if (typeof arguments[2] !== 'undefined') {
+          const t = Number(arguments[2]);
+          if (!Number.isNaN(t)) timeout = t;
+        }
+      }
+
+      let toast = document.getElementById('toast');
+      let inner = document.getElementById('toastInner');
+
+      // Tự tạo nếu thiếu
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = 'fixed top-8 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none hidden';
+        document.body.appendChild(toast);
+      }
+      if (!inner) {
+        inner = document.createElement('div');
+        inner.id = 'toastInner';
+        inner.className = 'px-5 py-3 rounded-xl shadow-xl text-white font-semibold backdrop-blur transition-all duration-300 scale-95 opacity-0 max-w-[90vw] sm:max-w-md text-center';
+        toast.appendChild(inner);
+      }
+
+      const colors = {
+        info: 'bg-blue-600/95',
+        success: 'bg-green-600/95',
+        warn: 'bg-amber-600/95',
+        warning: 'bg-amber-600/95',
+        error: 'bg-rose-600/95',
+        danger: 'bg-rose-600/95'
+      };
+
+      inner.className = `px-5 py-3 rounded-xl shadow-xl text-white font-semibold backdrop-blur transition-all duration-300 scale-95 opacity-0 max-w-[90vw] sm:max-w-md text-center ${colors[type] || colors.danger}`;
+      inner.textContent = String(msg || '');
+
+      toast.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        inner.classList.replace('scale-95', 'scale-100');
+        inner.classList.replace('opacity-0', 'opacity-100');
       });
 
-      // bind edit (open modal)
-      document.querySelectorAll(".btn-edit").forEach(btn=>{
-        btn.addEventListener("click", async ()=>{
-          const mshv = decodeURIComponent(btn.getAttribute("data-mshv")||"");
-          if (!mshv) return;
-          await openEditModal(mshv);
-        });
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => {
+        inner.classList.replace('scale-100', 'scale-95');
+        inner.classList.replace('opacity-100', 'opacity-0');
+        setTimeout(() => toast.classList.add('hidden'), 300);
+      }, timeout);
+    }
+
+    // ===== Modal nhập lý do (Promise) =====
+    function askDeleteReason(message, placeholder=''){
+      const overlay = document.getElementById('delModal');
+      const msg = document.getElementById('delMsg');
+      const txt = document.getElementById('delReason');
+      const err = document.getElementById('delErr');
+      const ok = document.getElementById('delOk');
+      const cancel = document.getElementById('delCancel');
+
+      msg.textContent = message || 'Xóa bản ghi này?';
+      txt.value = placeholder || '';
+      err.classList.add('hidden');
+      overlay.classList.add('show');
+      txt.focus();
+
+      return new Promise(resolve=>{
+        const done = (val)=>{ 
+          overlay.classList.remove('show');
+          ok.removeEventListener('click', onOk);
+          cancel.removeEventListener('click', onCancel);
+          overlay.removeEventListener('click', onBackdrop);
+          document.removeEventListener('keydown', onEsc);
+          resolve(val);
+        };
+        const onOk = ()=>{ 
+          const v = (txt.value||'').trim();
+          if(!v){ err.classList.remove('hidden'); txt.focus(); return; }
+          done(v);
+        };
+        const onCancel = ()=> done(null);
+        const onBackdrop = (e)=>{ if(e.target===overlay) done(null); };
+        const onEsc = (e)=>{ if(e.key==='Escape') done(null); };
+
+        ok.addEventListener('click', onOk);
+        cancel.addEventListener('click', onCancel);
+        overlay.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onEsc);
       });
     }
+
+    // bind delete (xóa tạm + ẩn dòng ngay)
+    document.addEventListener('DOMContentLoaded', () => {
+      const tbody = document.getElementById('tbody');
+      if (!tbody) return;
+
+      tbody.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.btn-del');
+        if (!btn) return;
+
+        if (btn.disabled) { showToast('Bạn không có quyền xoá.', {type:'warn'}, 2000); return; }
+
+        const mshv = decodeURIComponent(btn.dataset.mshv || '');
+        if (!mshv) return;
+
+        const reason = await askDeleteReason(`Xóa hồ sơ MSHV ${mshv} ?`, '');
+        if (reason === null) return;
+
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Đang xoá…';
+
+        let resp = null;
+        try {
+          resp = await apiFetch(`/applicants/${encodeURIComponent(mshv)}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason })
+          });
+        } catch (_) {}
+
+        if (!resp) {
+          showToast('Không kết nối được máy chủ.', {type:'error', timeout:2200});
+        } else if (resp.status === 204 || resp.status === 410) {
+          // Đánh dấu đã xoá để không hiện lại ở mọi lần tìm tiếp theo (trong phiên)
+          deletedMshv.add(String(mshv));
+          persistDeletedMshv();
+
+          // Ẩn dòng ngay cho mượt
+          const tr = btn.closest('tr'); if (tr) tr.remove();
+          showToast(`Đã xóa MSHV ${mshv}`, {type:'danger'});
+
+          // Render lại dựa trên cache hiện tại để đồng bộ tổng/trang
+          await runSearch();
+        } else {
+          let msg = `Xóa thất bại (HTTP ${resp.status})`;
+          try { const t = await resp.text(); const j = JSON.parse(t); if (j?.detail) msg = j.detail; } catch {}
+          showToast(msg, {type:'error', timeout:2600});
+        }
+
+        btn.textContent = original;
+        btn.disabled = false;
+      });
+    });
+
+    (function colorDeleteButtons(){
+      const btns = Array.from(document.querySelectorAll('button, a'));
+      btns.forEach(b => {
+        const t = b.textContent?.trim();
+        if (t === 'Xóa' || t === 'Xoá') {
+          b.classList.add(
+            'border', 'border-rose-600', 'text-rose-600',
+            'hover:bg-rose-600', 'hover:text-white',
+            'focus:ring-2','focus:ring-rose-400','focus:outline-none'
+          );
+          // nếu đang có màu xanh/gray thì bỏ
+          b.classList.remove('btn-primary','text-gray-700','border-gray-300');
+          // bo góc mềm tí
+          b.classList.add('rounded-lg');
+        }
+      });
+    })();
 
     function updatePagerUI(total, page, size){
       $("count").textContent = String(total);
-      $("pageInfo").textContent  = `Trang ${page}/${Math.max(1, Math.ceil(total/size))} • ${total} mục`;
-      $("pageInfo1").textContent = `Trang ${page}/${Math.max(1, Math.ceil(total/size))} • ${total} mục`;
-      const totalPages = Math.max(1, Math.ceil(total/size));
-      document.querySelectorAll("#btnFirst").forEach(b => b.disabled = page <= 1);
-      document.querySelectorAll("#btnPrev").forEach(b  => b.disabled = page <= 1);
-      document.querySelectorAll("#btnNext").forEach(b  => b.disabled = page >= totalPages);
-      document.querySelectorAll("#btnLast").forEach(b  => b.disabled = page >= totalPages);
+      document.querySelectorAll('.pager').forEach(p => {
+        p.querySelector('.pager-info').textContent = `Trang ${page}/${Math.max(1, Math.ceil(total/size))} • ${total} mục`;
+        const totalPages = Math.max(1, Math.ceil(total/size));
+        p.querySelector('.pager-first').disabled = page <= 1;
+        p.querySelector('.pager-prev').disabled  = page <= 1;
+        p.querySelector('.pager-next').disabled  = page >= totalPages;
+        p.querySelector('.pager-last').disabled  = page >= totalPages;
+      });
     }
 
-
-    // sắp xếp client-side trên items đang hiển thị (hoặc cachedAll khi đang lọc)
+    // sắp xếp client-side (trên toàn tập)
     function applySort(list){
       const {key, dir} = state.sort;
       if (!key) return list;
       const getVal = (it)=>{
-        if (key === 'ma_so_hv') return (it.ma_so_hv || "").toString();
-        if (key === 'dot')     return (it.dot || it.dot_tuyen || "").toString();
-        if (key === 'khoa')    return (it.khoa || it.khoa_hoc || it.khoahoc || "").toString();
+        if (key === 'ma_so_hv')   return (it.ma_so_hv || "").toString();
+        if (key === 'dot')        return (it.dot || it.dot_tuyen || "").toString();
+        if (key === 'khoa')       return (it.khoa || it.khoa_hoc || it.khoahoc || "").toString();
+        if (key === 'nganh')      return (it.nganh_nhap_hoc || it.nganh || "").toString();
+        if (key === 'nguoi_nhan') return (it.nguoi_nhan_ky_ten || it.nguoi_nhan || it.nguoi_ky || "").toString();
+        if (key === 'ngay_nhan_hs') return (it.ngay_nhan_hs || "");
         return "";
       };
       const collator = new Intl.Collator('vi', {numeric:true, sensitivity:'base'});
@@ -395,65 +558,35 @@
       return dir === 'asc' ? arr : arr.reverse();
     }
 
-    function toggleSort(key){
-      const ths = document.querySelectorAll('.th-sortable');
-      ths.forEach(th=> th.classList.remove('active'));
+    function setAriaSort(){
+      document.querySelectorAll('.th-sortable').forEach(th=> th.removeAttribute('aria-sort'));
+      if (state.sort.key){
+        const th = document.querySelector(`.th-sortable[data-sort="${state.sort.key}"]`);
+        if (th) th.setAttribute('aria-sort', state.sort.dir === 'asc' ? 'ascending' : 'descending');
+      }
+    }
+
+    async function toggleSort(key){
       if (state.sort.key === key){
         state.sort.dir = (state.sort.dir === 'asc' ? 'desc' : 'asc');
       } else {
         state.sort.key = key; state.sort.dir = 'asc';
       }
-      const th = document.querySelector(`.th-sortable[data-sort="${key}"]`);
-      if (th) th.classList.add('active');
-
-      // Xác định nguồn dữ liệu hiện tại
-      const hasFilter = $("filterDot").value.trim() || $("filterKhoa").value.trim();
-      let source;
-      if (hasFilter){
-        source = applyClientFilters(state.cachedAllForFilter);
-      } else {
-        // Nếu là tìm theo tên, tốt nhất lấy rộng để sort đúng
-        if (isLikelyNameQuery(state.q)){
-          source = state.cachedAllForFilter.length ? state.cachedAllForFilter : state.lastRendered;
-        } else {
-          source = state.lastRendered;
-        }
-      }
-      const sorted = applySort(source || []);
-      const total = sorted.length || state.total || 0;
-
-      // Cập nhật lại total để nút "Trang cuối" chạy đúng
-      state.total = total;
-
-      const start = (state.page - 1) * state.size;
-      renderRows(sorted.slice(start, start + state.size));
-      updatePagerUI(total, state.page, state.size);
-      setState({loading:false, empty: total===0});
+      setAriaSort();
+      // Luôn sort trên toàn tập hiện tại (cacheAll) rồi mới phân trang
+      await runSearch();
     }
 
-
-    // --- Helpers chuẩn hoá và fallback ---
+    // --- Helpers chuẩn hoá và fetch ---
     function normalizePaged(data) {
       if (!data) return { items: [], total: 0, page: 1, size: 0 };
       if (Array.isArray(data.items)) {
-        return {
-          items: data.items,
-          total: Number(data.total ?? data.items.length ?? 0),
-          page: Number(data.page ?? 1),
-          size: Number(data.size ?? data.items.length ?? 0),
-        };
+        return { items: data.items, total: Number(data.total ?? data.items.length ?? 0), page: Number(data.page ?? 1), size: Number(data.size ?? data.items.length ?? 0) };
       }
       if (Array.isArray(data.results)) {
-        return {
-          items: data.results,
-          total: Number(data.total ?? data.results.length ?? 0),
-          page: Number(data.page ?? 1),
-          size: Number(data.size ?? data.results.length ?? 0),
-        };
+        return { items: data.results, total: Number(data.total ?? data.results.length ?? 0), page: Number(data.page ?? 1), size: Number(data.size ?? data.results.length ?? 0) };
       }
-      if (Array.isArray(data)) {
-        return { items: data, total: data.length, page: 1, size: data.length };
-      }
+      if (Array.isArray(data)) { return { items: data, total: data.length, page: 1, size: data.length }; }
       return { items: [], total: 0, page: 1, size: 0 };
     }
     async function tryJson(url) {
@@ -462,7 +595,6 @@
       try { return await r.json(); } catch { return null; }
     }
 
-    // --- Nhận diện truy vấn “tên” (có chữ, không phải toàn số)
     function isLikelyNameQuery(q){
       const s = (q||"").trim();
       if (!s) return false;
@@ -471,7 +603,6 @@
       return hasLetter && !manyDigits;
     }
 
-    // --- Chuẩn hoá tiếng Việt không dấu + xếp hạng khớp
     function vnNorm(s){
       return (s||"")
         .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
@@ -487,7 +618,7 @@
       const tokens = b.split(/\s+/).filter(Boolean);
       return tokens.every(t => a.includes(t)) ? 60 : 0;
     }
-    function filterAndSortByName(list, q, limit=1000){
+    function filterAndSortByName(list, q, limit=5000){
       const scored = (list||[]).map(it=>{
         const name = it.ho_ten || it.full_name || it.ten || "";
         return {it, score: matchScore(name, q)};
@@ -495,33 +626,34 @@
       scored.sort((p,q)=> q.score - p.score);
       return scored.slice(0, limit).map(x=>x.it);
     }
-    // lấy 1 trang server (linh hoạt tham số)
+
+    // lấy 1 trang server
     async function fetchPageServer(q, page, size){
-      // thử /applicants/search với các khoá phổ biến
       for (const k of ["q","name","full_name"]) {
         const j = await tryJson(`/applicants/search?${k}=${encodeURIComponent(q)}&page=${page}&size=${size}`);
-        if (j) return normalizePaged(j);
+        if (j) {
+          const norm = normalizePaged(j);
+          norm.items = (norm.items || []).filter(notDeleted); // lọc xoá mềm
+          return norm;
+        }
       }
-      // nếu BE không hỗ trợ các key trên, thử search không q để lấy trang
       let j = await tryJson(`/applicants/search?page=${page}&size=${size}`);
-      if (j) return normalizePaged(j);
-      // fallback nữa: /applicants
+      if (j) { const norm = normalizePaged(j); norm.items = (norm.items || []).filter(notDeleted); return norm; }
       j = await tryJson(`/applicants?page=${page}&size=${size}`);
-      if (j) return normalizePaged(j);
-      // cuối cùng: rỗng để client tự xử lý
+      if (j) { const norm = normalizePaged(j); norm.items = (norm.items || []).filter(notDeleted); return norm; }
       return { items: [], total: 0, page: 1, size: size };
     }
 
-    // lấy nhiều (để lọc client theo đợt/khóa)
-    async function fetchUpTo(limit=1000){
+    // lấy nhiều trang (để sort/loc client)
+    async function fetchUpTo(limit=5000){
       const out = [];
       let page = 1;
       const size = 200;
       for(;;){
         const data = await fetchPageServer(state.q, page, size);
-        (data.items||[]).forEach(x=>out.push(x));
+        (data.items||[]).forEach(x => { if (notDeleted(x)) out.push(x); });
         const total = data.total ?? out.length;
-        if (out.length >= total || out.length >= limit || (data.items||[]).length === 0) break;
+        if (out.length >= total || out.length >= limit || (data.items||[]).length === 0 || (data.items||[]).length < size) break;
         page += 1;
       }
       return out.slice(0, limit);
@@ -539,104 +671,44 @@
       });
     }
 
+    async function buildSourceFull(){
+      // Lấy toàn bộ theo truy vấn hiện tại, lọc xoá mềm, SORT TRƯỚC, rồi paginate
+      state.cacheAll = (await fetchUpTo(5000)).filter(notDeleted);
+      // Lọc theo đợt/khóa nếu có
+      const wantFilter = $("filterDot").value.trim() !== "" || $("filterKhoa").value.trim() !== "";
+      let list = wantFilter ? applyClientFilters(state.cacheAll) : state.cacheAll.slice();
+      list = applySort(list); // luôn sort trên toàn tập
+      return list;
+    }
+
     async function runSearch(){
       setState({loading:true});
-      const wantFilter = $("filterDot").value.trim() !== "" || $("filterKhoa").value.trim() !== "";
-
       try{
-        let total = 0;
-        let listForPage = [];
+        // Luôn dựa vào toàn bộ dataset hiện tại để đảm bảo sort trên full set
+        const full = await buildSourceFull();
+        state.total = full.length;
 
-        if (wantFilter){
-          // Lấy nhiều rồi lọc client
-          state.cachedAllForFilter = await fetchUpTo(1000);
-          let filtered = applyClientFilters(state.cachedAllForFilter);
-          filtered = applySort(filtered);
-          total = filtered.length;
+        // Tính trang hợp lệ
+        const totalPages = Math.max(1, Math.ceil(state.total / state.size));
+        if (state.page > totalPages) state.page = totalPages;
 
-          // PHÂN TRANG CLIENT-SIDE
-          const start = (state.page - 1) * state.size;
-          listForPage = filtered.slice(start, start + state.size);
-
-          renderRows(listForPage);
-          updatePagerUI(total, state.page, state.size);
-        } else {
-          if (isLikelyNameQuery(state.q)) {
-            // Tên: gom rộng rồi lọc client + PHÂN TRANG
-            const all = await fetchUpTo(1000);
-            let filtered = filterAndSortByName(all, state.q, 1000);
-            filtered = applySort(filtered);
-            total = filtered.length;
-
-            const start = (state.page - 1) * state.size;
-            listForPage = filtered.slice(start, start + state.size);
-
-            renderRows(listForPage);
-            updatePagerUI(total, state.page, state.size);
-          } else {
-            // Số/Mã: để BE phân trang (server-side)
-            const data = await fetchPageServer(state.q, state.page, state.size);
-            const items = applySort(data.items || []);
-            total = data.total || items.length || 0;
-
-            renderRows(items);
-            updatePagerUI(total, state.page, state.size);
-          }
-        }
-
-        // >>> CỰC KỲ QUAN TRỌNG: cập nhật state.total để pagesTotal() tính đúng
-        state.total = total;
-
-        // Chặn page vượt biên: nếu đổi filter mà page > totalPages thì kéo về cuối
-        const totalPages = Math.max(1, Math.ceil(total / state.size));
-        if (state.page > totalPages){
-          state.page = totalPages;
-          // render lại đúng trang cuối (chỉ cần cho client-side)
-          if (wantFilter || isLikelyNameQuery(state.q)){
-            await runSearch();
-            return;
-          }
-        }
-
-        setState({loading:false, empty: total===0});
+        // Cắt trang và render
+        const start = (state.page - 1) * state.size;
+        renderRows(full.slice(start, start + state.size));
+        updatePagerUI(state.total, state.page, state.size);
+        setState({loading:false, empty: state.total === 0});
       }catch(e){
         setState({loading:false, empty:true});
         $("msg").textContent = e.message || "Lỗi không xác định";
       }
     }
 
-
-    // helper: mở PDF nếu OK; nếu lỗi (400/404/...) thì hiện cảnh báo đẹp
-    async function openPdfOrAlert(url){
-      const resp = await fetch(makeUrl(url), { credentials: "include" });
-      if (!resp.ok) {
-        let msg = `Không thể thực hiện (HTTP ${resp.status})`;
-        try {
-          const txt = await resp.text();
-          const j = JSON.parse(txt);
-          if (j && j.detail) msg = j.detail; // dùng message từ backend
-        } catch (_) {}
-        alert(msg);
-        return;
-      }
-      const blob = await resp.blob();
-      const u = URL.createObjectURL(blob);
-      window.open(u, "_blank");
-      setTimeout(()=>URL.revokeObjectURL(u), 60000);
-    }
-  // ===== Export/In ấn theo ngày/đợt =====
-    $("day").value = new Date().toISOString().slice(0,10);
-
-    // helper dùng chung
+    // ===== File helpers =====
     async function fetchFileOrAlert(url, filename, type = "excel"){
       const resp = await fetch(makeUrl(url), { credentials: "include" });
       if (!resp.ok){
         let msg = `Không thể ${type === "pdf" ? "in" : "xuất"} (HTTP ${resp.status})`;
-        try {
-          const t = await resp.text();
-          const j = JSON.parse(t);
-          if (j?.detail) msg = j.detail;
-        } catch(_){}
+        try { const t = await resp.text(); const j = JSON.parse(t); if (j?.detail) msg = j.detail; } catch(_){}
         alert(msg);
         return;
       }
@@ -648,16 +720,11 @@
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
     }
 
-    // helper mở PDF nếu ok, nếu lỗi thì alert (dùng chung với in)
     async function openPdfOrAlert(url){
       const resp = await fetch(makeUrl(url), { credentials: "include" });
       if (!resp.ok){
         let msg = `Không thể in (HTTP ${resp.status})`;
-        try {
-          const t = await resp.text();
-          const j = JSON.parse(t);
-          if (j?.detail) msg = j.detail;
-        } catch(_){}
+        try { const t = await resp.text(); const j = JSON.parse(t); if (j?.detail) msg = j.detail; } catch(_){}
         alert(msg);
         return;
       }
@@ -667,21 +734,19 @@
       setTimeout(()=>URL.revokeObjectURL(u), 60000);
     }
 
-    // --- Xuất Excel theo NGÀY ---
+    // ===== Export/In ấn theo ngày/đợt =====
+    $("day").value = new Date().toISOString().slice(0,10);
+
     $("btnExportDay").onclick = async ()=>{
       const d = $("day").value;
       if (!d){ alert("Chọn ngày trước đã"); return; }
       await fetchFileOrAlert(`/export/excel?day=${encodeURIComponent(d)}`, `tong_ngay_${d}.xlsx`, "excel");
     };
-
-    // --- In PDF theo NGÀY ---
     $("btnPrintDay").onclick = async ()=>{
       const d = $("day").value;
       if (!d){ alert("Chọn ngày trước đã"); return; }
       await openPdfOrAlert(`/batch/print?day=${encodeURIComponent(d)}`);
     };
-
-    // --- Xuất Excel theo ĐỢT ---
     $("btnExportDot").onclick = async ()=>{
       const dot  = $("dot").value.trim();
       const khoa = $("dotKhoa").value.trim();
@@ -691,8 +756,6 @@
       const fname = `tong_dot_${dot}${khoa ? `_khoa_${khoa}` : ""}.xlsx`;
       await fetchFileOrAlert(url, fname, "excel");
     };
-
-    // --- In PDF theo ĐỢT ---
     $("btnPrintDot").onclick = async ()=>{
       const dot  = $("dot").value.trim();
       const khoa = $("dotKhoa").value.trim();
@@ -703,73 +766,57 @@
     };
 
     // ===== Sort header bindings =====
-    document.addEventListener('click', (e)=>{
-      const th = e.target.closest('.th-sortable');
-      if (!th) return;
-      const key = th.getAttribute('data-sort');
-      if (!key) return;
-      toggleSort(key);
-    });
+    function bindSortHandlers(){
+      document.querySelectorAll('.th-sortable').forEach(th=>{
+        const key = th.getAttribute('data-sort');
+        const handler = ()=> toggleSort(key);
+        th.addEventListener('click', handler);
+        th.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
+      });
+    }
 
     // ===== Bind search/paging =====
-    $("btnSearch").onclick = ()=>{
-      state.q = $("q").value.trim();
-      state.page = 1;
-      runSearch();
-    };
+    $("btnSearch").onclick = ()=>{ state.q = $("q").value.trim(); state.page = 1; runSearch(); };
     $("q").addEventListener("keydown", e=>{ if(e.key==="Enter") $("btnSearch").click(); });
 
-    $("pageSize").value = String(state.size);
     $("pageSize").addEventListener("change", ()=>{
-      state.size = Number($("pageSize").value) || 20;
+      state.size = Number($("pageSize").value) || 10;
       localStorage.setItem("students.pageSize", String(state.size));
-      state.page = 1;
-      runSearch();
+      state.page = 1; runSearch();
     });
 
-    document.querySelectorAll("#btnFirst").forEach(btn => {
-      btn.onclick = () => { state.page = 1; runSearch(); };
-    });
-    document.querySelectorAll("#btnPrev").forEach(btn => {
-      btn.onclick = () => { if (state.page > 1) { state.page--; runSearch(); } };
-    });
-    document.querySelectorAll("#btnNext").forEach(btn => {
-      btn.onclick = () => { state.page++; runSearch(); };
-    });
-    document.querySelectorAll("#btnLast").forEach(btn => {
-      btn.onclick = () => { state.page = pagesTotal(); runSearch(); };
-    });
+    function bindPager(container){
+      container.querySelector('.pager-first').onclick = ()=> { state.page = 1; runSearch(); };
+      container.querySelector('.pager-prev').onclick  = ()=> { if (state.page > 1) { state.page--; runSearch(); } };
+      container.querySelector('.pager-next').onclick  = ()=> { state.page++; runSearch(); };
+      container.querySelector('.pager-last').onclick  = ()=> { state.page = pagesTotal(); runSearch(); };
+    }
+    document.querySelectorAll('.pager').forEach(bindPager);
 
-    // lọc client theo đợt/khóa (gõ là lọc ngay nếu đã có cache)
+    // Lọc client theo đợt/khóa (debounce): render lại dựa trên cacheAll đã build
     ["filterDot","filterKhoa"].forEach(id=>{
-      $(id).addEventListener("input", ()=>{
-        const has = $("filterDot").value.trim()!=="" || $("filterKhoa").value.trim()!=="";
-        if (has && state.cachedAllForFilter.length>0){
-          let filtered = applyClientFilters(state.cachedAllForFilter);
-          filtered = applySort(filtered);
-          renderRows(filtered);
-          updatePagerUI(filtered.length, 1, filtered.length||1);
-          setState({loading:false, empty: filtered.length===0});
-        }
-      });
+      $(id).addEventListener("input", debounce(async ()=>{
+        state.page = 1;
+        await runSearch();
+      }, 250));
     });
-    
 
     // ===== Modal Edit logic =====
     const modal = $("editModal");
-    const openModal = ()=>{ modal.style.display='flex'; };
-    const closeModal = ()=>{ modal.style.display='none'; };
+    const openModal = ()=>{ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); };
+    const closeModal = ()=>{ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); };
     $("btnCloseModal").onclick = closeModal;
     $("btnCancelEdit").onclick = closeModal;
 
     async function openEditModal(mshv){
-      // tải chi tiết
       const r = await apiFetch(`/applicants/by-mshv/${encodeURIComponent(mshv)}`).catch(()=>null);
       if (!r || !r.ok){ alert(`Không tải được hồ sơ (HTTP ${r ? r.status : '???'})`); return; }
       const data = await r.json();
       const a = data.applicant || data;
 
-      // đổ form
+      // nếu đã nằm trong danh sách xoá thì chặn sửa
+      if (!notDeleted(a)) { alert('Hồ sơ này đã bị xoá.'); return; }
+
       $("e_mshv").value    = a.ma_so_hv || mshv;
       $("e_ma_ho_so").value= a.ma_ho_so || "";
       $("e_ho_ten").value  = a.ho_ten || "";
@@ -781,7 +828,6 @@
       $("e_ngay_nhan").value = (a.ngay_nhan_hs_iso || a.ngay_nhan_hs || "").slice(0,10);
       $("e_ngay_sinh").value  = (a.ngay_sinh_iso || a.ngay_sinh || "").slice(0,10);
       $("e_ghi_chu").value    = a.ghi_chu || "";
-
       openModal();
     }
 
@@ -796,36 +842,34 @@
         nganh_nhap_hoc: $("e_nganh").value.trim() || null,
         dot: $("e_dot").value.trim() || null,
         khoa: $("e_khoa").value.trim() || null,
-        ngay_nhan_hs: $("e_ngay_nhan").value || null, // YYYY-MM-DD
-        ngay_sinh: $("e_ngay_sinh").value || null,    // YYYY-MM-DD
+        ngay_nhan_hs: $("e_ngay_nhan").value || null,
+        ngay_sinh: $("e_ngay_sinh").value || null,
         ghi_chu: $("e_ghi_chu").value.trim() || null
       };
-      if (!body.ma_ho_so || !body.ho_ten){
-        alert("Thiếu Mã hồ sơ / Họ tên.");
-        return;
-      }
-      const btn = $("btnSaveEdit");
-      btn.disabled = true; btn.textContent = "Đang lưu...";
-      const r = await apiFetch(`/applicants/${encodeURIComponent(mshv)}`, {
-        method:"PUT",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(body)
-      }).catch(()=>null);
-      btn.disabled = false; btn.textContent = "Lưu thay đổi";
-      if (!r || !r.ok){
-        const t = r ? await r.text() : "(không phản hồi)";
-        alert(`Cập nhật thất bại (HTTP ${r ? r.status : '???'})\n${t}`);
-        return;
-      }
-      closeModal();
-      await runSearch();
+      if (!body.ma_ho_so || !body.ho_ten){ alert("Thiếu Mã hồ sơ / Họ tên."); return; }
+      const btn = $("btnSaveEdit"); btn.disabled = true; const old = btn.textContent; btn.textContent = "Đang lưu...";
+      const r = await apiFetch(`/applicants/${encodeURIComponent(mshv)}`, { method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) }).catch(()=>null);
+      btn.disabled = false; btn.textContent = old;
+      if (!r || !r.ok){ const t = r ? await r.text() : "(không phản hồi)"; alert(`Cập nhật thất bại (HTTP ${r ? r.status : '???'})\n${t}`); return; }
+      closeModal(); await runSearch();
     });
 
     // ===== init =====
-    window.addEventListener('load', async ()=>{
+    window.addEventListener('load', async () => {
       await ensureLoggedIn();
       $("q").focus();
-      runSearch(); // lần đầu: lấy rỗng
+
+      // Luôn mặc định 10 dòng/trang, không đọc localStorage nữa
+      const defaultSize = 10;
+      $("pageSize").value = String(defaultSize);
+      state.size = defaultSize;
+
+      bindSortHandlers();
+      // Render lại dựa trên cache hiện tại để đồng bộ tổng/trang
+      if (state.page > 1 && (state.total - 1) % state.size === 0) {
+        state.page--; // tự lùi 1 trang nếu xóa hết dòng cuối
+      }
+      await runSearch();
     });
 
     // lưu base khi sửa
@@ -833,37 +877,77 @@
       localStorage.setItem(STORAGE_KEY, $("apiBase").value.trim());
     });
 
-    // --- ENTER to search for Đợt / Khóa ---
-  (function bindEnterForFilters(){
-    // chọn input theo id hoặc theo placeholder (để khỏi lệ thuộc tên cụ thể)
-    const dotInput  = document.querySelector('#filterDot, #qDot, input[placeholder="Lọc theo Đợt"]');
-    const khoaInput = document.querySelector('#filterKhoa, #qKhoa, input[placeholder="Lọc theo Khóa"]');
+    // ENTER to search for Đợt / Khóa
+    (function bindEnterForFilters(){
+      const dotInput  = document.querySelector('#filterDot, #qDot, input[placeholder="Lọc theo Đợt"]');
+      const khoaInput = document.querySelector('#filterKhoa, #qKhoa, input[placeholder="Lọc theo Khóa"]');
+      function triggerSearch(){ runSearch(); }
+      function bindEnter(el){ if (!el) return; el.addEventListener('keydown', (e)=>{ if (e.key === 'Enter'){ e.preventDefault(); triggerSearch(); } }); }
+      bindEnter(dotInput); bindEnter(khoaInput);
+    })();
 
-    // Hàm kích hoạt tìm kiếm hiện có của trang
-    function triggerSearch(){
-      // ưu tiên gọi hàm có sẵn
-      if (typeof loadList === 'function')         return loadList();       // nếu trang dùng loadList()
-      if (typeof applyFilters === 'function')     return applyFilters();   // nếu trang dùng applyFilters()
-      // nếu không có, giả lập bấm nút "Tìm"
-      const btn = document.getElementById('btnSearch')
-              || document.querySelector('button[data-action="search"]')
-              || document.querySelector('button:contains("Tìm")'); // optional
-      btn && btn.click();
+    // Notification Toast (dành cho vài nơi cần popup ngắn)
+    function showNoti(msg, type="info", timeout=2500){
+      let box = document.getElementById("notiBox");
+      let inner = document.getElementById("notiInner");
+      if (!box){
+        box = document.createElement('div'); box.id = 'notiBox'; box.className = 'fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none hidden';
+        inner = document.createElement('div'); inner.id = 'notiInner'; box.appendChild(inner); document.body.appendChild(box);
+      }
+      const colors = { info: "bg-blue-500", success: "bg-green-500", warning: "bg-amber-500", error: "bg-rose-500" };
+      inner.className = `px-6 py-3 rounded-xl shadow-xl text-white font-semibold text-center transition-all duration-300 scale-95 opacity-0 ${colors[type]||colors.info}`;
+      inner.textContent = msg; box.classList.remove("hidden");
+      requestAnimationFrame(()=>{ inner.classList.replace("scale-95","scale-100"); inner.classList.replace("opacity-0","opacity-100"); });
+      setTimeout(()=>{ inner.classList.replace("scale-100","scale-95"); inner.classList.replace("opacity-100","opacity-0"); setTimeout(()=> box.classList.add("hidden"), 300); }, timeout);
     }
 
-    function bindEnter(el){
-      if (!el) return;
-      el.addEventListener('keydown', (e)=>{
-        if (e.key === 'Enter'){
-          e.preventDefault();
-          triggerSearch();
+    (async function controlJournalButton(){
+      await detectPrefix();
+      const link = document.getElementById('journalLink');
+      if (!link) return;
+
+      let role = null;
+      try {
+        const r = await apiFetch('/me');
+        if (r && r.ok) {
+          const me = await r.json();
+          role = me?.role || null;
         }
-      });
-    }
+      } catch (_) {}
 
-    bindEnter(dotInput);
-    bindEnter(khoaInput);
-  })();
+      if (role === 'Admin' || role === 'NhanVien') {
+        link.hidden = false;
+        link.onclick = null;
+      } else {
+        link.hidden = true;
+        link.addEventListener('click', (e)=>{
+          e.preventDefault();
+          alert('Quyền tài khoản không được phép truy cập Nhật ký.');
+        });
+      }
+    })();
+    // Bắt buộc vào /journal.html (không kèm query)
+    (function forceCleanJournalLink(){
+      const link = document.getElementById('journalLink');
+      if (!link) return;
+      link.href = '/journal.html';                 // href sạch
+      link.addEventListener('click', (e)=>{        // ép điều hướng sạch
+        // nếu đã check quyền ở chỗ khác thì không cần preventDefault
+        e.preventDefault();
+        window.location.assign('/journal.html');
+      });
+    })();
   </script>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed top-8 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none hidden">
+    <div id="toastInner"
+      class="px-5 py-3 rounded-xl shadow-xl text-white font-semibold
+            bg-rose-600/95 backdrop-blur
+            transition-all duration-300 scale-95 opacity-0
+            max-w-[90vw] sm:max-w-md text-center">
+    </div>
+  </div>
+
 </body>
 </html>

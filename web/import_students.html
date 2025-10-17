@@ -6,28 +6,7 @@
   <title>Import học viên | Admission Check</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-    .card { background:#fff; border-radius:1rem; box-shadow:0 15px 30px rgba(2,6,23,.06); padding:1.25rem; }
-    .input { width:100%; border:1px solid #e5e7eb; border-radius:.75rem; padding:.625rem .875rem; outline:none; background:#fff; }
-    .input:focus { box-shadow:0 0 0 3px rgba(59,130,246,.25); border-color:#93c5fd; }
-    .btn { padding:.55rem 1rem; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:600; transition: transform .05s ease; }
-    .btn:hover { transform: translateY(-1px); }
-    .btn-primary { background:#2563eb; color:#fff; }
-    .btn-soft { background:#eff6ff; color:#1e3a8a; }
-    .btn-outline { background:#fff; border:1px solid #d1d5db; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; }
-    .table { width:100%; border-collapse: separate; border-spacing:0; }
-    .table th, .table td { border-bottom:1px solid #e5e7eb; padding:.55rem .75rem; }
-    .table thead th { background:#f8fafc; font-weight:700; position:sticky; top:0; z-index:1; }
-    .drop { border:2px dashed #cbd5e1; border-radius:1rem; background:#f8fafc; }
-    .drop.drag { background:#eef2ff; border-color:#93c5fd; }
-    .input[readonly] {
-      opacity: 0.6;
-      background-color: #f9fafb; /* xám nhẹ */
-      cursor: not-allowed;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
   <link rel="apple-touch-icon" href="hutech.png">
   <meta name="theme-color" content="#2563eb">
@@ -37,17 +16,27 @@
 
     <!-- Header -->
     <header class="flex flex-wrap gap-3 items-center justify-between">
-      <div class="min-w-0">
-        <h1 class="text-2xl font-bold leading-tight">Import danh sách học viên</h1>
-        <p class="text-sm text-gray-500">Nạp .xlsx/.csv → map cột → gửi tạo hồ sơ (docs để trống).</p>
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="/index_home.html" title="Về trang chủ" class="flex items-center gap-2 hover:opacity-80 transition">
+          <img src="hutech.png" alt="HUTECH" class="h-8 w-8 object-contain select-none" />
+        </a>
+        <div>
+          <h1 class="text-2xl font-bold leading-tight">Import danh sách học viên</h1>
+          <p class="text-sm text-gray-500">Nạp .xlsx/.csv → map cột → gửi tạo hồ sơ (docs để trống).</p>
+        </div>
       </div>
+
       <div class="flex items-center gap-2">
         <button id="btnTplXlsx" class="btn btn-soft" title="Tải file mẫu Excel">⬇️ Template XLSX</button>
-        <button id="btnTplCsv"  class="btn btn-outline" title="Tải file mẫu CSV">⬇️ Template CSV</button>
+        <button id="btnTplCsv" class="btn btn-outline" title="Tải file mẫu CSV">⬇️ Template CSV</button>
         <span class="hidden md:inline-block w-px h-6 bg-gray-200"></span>
+
         <label class="text-sm text-gray-500">API Base</label>
-        <input id="apiBase" class="input w-72 md:w-80" placeholder="http://192.168.2.82:8000" />
-        <a href="/" class="btn btn-outline">← Trang chính</a>
+        <input id="apiBase" class="input w-72 md:w-80" placeholder="" />
+
+        <span class="hidden md:inline-block w-px h-6 bg-gray-200"></span>
+        <a href="/students_list.html" class="btn btn-outline" title="Danh sách hồ sơ">📋 Danh sách</a>
+        <a href="/index_home.html" class="btn btn-outline" title="Trang chủ">← Trang chủ</a>
       </div>
     </header>
 
@@ -68,6 +57,7 @@
         <section class="grid grid-cols-1 gap-3">
           <div>
             <div class="font-semibold mb-1">Ngày nhận HS (mặc định)</div>
+            <small class="text-xs text-gray-500">Áp dụng cho tất cả bản ghi khi import.</small>
             <input id="defaultNgayNhan" type="date" class="input" />
           </div>
         </section>
@@ -92,14 +82,15 @@
           </div>
           <div id="mappings" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
           <p class="text-xs text-gray-500">
-            Bắt buộc phải map: <b>ma_ho_so</b>, <b>ho_ten</b>, <b>ma_so_hv</b>, <b>ngay_nhan_hs</b>.
+            Bắt buộc phải map: <b>ma_ho_so</b>, <b>ho_ten</b>, <b>ma_so_hv</b>.
+            <br>Ngày nhận HS lấy từ ô bên trái, không cần có trong file.
           </p>
         </section>
 
         <!-- Actions -->
         <section class="space-y-3">
           <div class="flex gap-2 flex-wrap">
-            <button id="btnPreview" class="btn btn-outline" disabled>Xem trước (10 dòng)</button>
+            <button id="btnPreview" class="btn btn-outline" disabled>Xem trước</button>
             <button id="btnUpload"  class="btn btn-primary" disabled>Bắt đầu import</button>
             <button id="btnStop"    class="btn btn-outline hidden">Dừng</button>
           </div>
@@ -119,12 +110,13 @@
         <div class="flex flex-wrap items-end justify-between gap-2">
           <div>
             <div class="font-semibold">Xem trước dữ liệu</div>
-            <div class="text-xs text-gray-500">Hiển thị tối đa 10 dòng đầu.</div>
+            <div class="text-xs text-gray-500">Hiển thị tối đa <b>5</b> dòng đầu (cuộn để xem).</div>
           </div>
         </div>
 
         <div class="overflow-hidden border rounded-xl">
-          <div class="overflow-auto">
+          <!-- Giới hạn chiều cao, cho cuộn -->
+          <div id="previewBox" class="overflow-x-auto overflow-y-auto">
             <table class="table min-w-full">
               <thead id="thead"></thead>
               <tbody id="tbody"></tbody>
@@ -140,7 +132,12 @@
               <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">DONE: <span id="okCount">0</span></span>
               <span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">ERROR: <span id="errCount">0</span></span>
               <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">SKIP: <span id="skipCount">0</span></span>
-              <button id="btnCopyLog" class="btn btn-outline btn-xs" title="Copy log thuần chữ">Copy log</button>
+
+              <!-- Export buttons -->
+              <button id="btnExportErr" class="btn btn-outline btn-xs" disabled>📤 Xuất lỗi (XLSX)</button>
+              <button id="btnExportAll" class="btn btn-outline btn-xs" disabled>📦 Xuất tất cả (XLSX)</button>
+
+              <span class="hidden md:inline-block w-px h-4 bg-gray-200"></span>
               <button id="btnClearLog" class="btn btn-outline btn-xs">Clear</button>
             </div>
           </div>
@@ -151,9 +148,9 @@
                 <thead>
                   <tr>
                     <th class="text-center w-16">STT</th>
-                    <th class="text-left w-36">Mã HS</th>
-                    <th class="text-left w-40">Trạng thái</th>
-                    <th class="text-left">Thông điệp</th>
+                    <th class="text-center w-36">Mã HS</th>
+                    <th class="text-center w-40">Trạng thái</th>
+                    <th class="text-center">Thông điệp</th>
                   </tr>
                 </thead>
                 <tbody id="resBody"></tbody>
@@ -161,9 +158,6 @@
             </div>
           </div>
         </div>
-
-        <!-- log text ẩn để copy nếu cần -->
-        <div id="log" class="hidden"></div>
       </main>
     </div>
   </div>
@@ -214,8 +208,9 @@
     let parsedRows = [];
     let stopFlag = false;
 
-    // Kết quả
-    const results = []; // {type:'OK'|'ERR'|'SKIP', idx:number, hs:string, msg:string}
+    // Kết quả: lưu cả data gốc đã gửi (payload)
+    // {type:'OK'|'ERR'|'SKIP', idx:number, msg:string, data:{...payload}}
+    const results = [];
 
     //--- Xử lý lỗi thường gặp ---
     function translateMessage(msg){
@@ -226,48 +221,53 @@
       return msg.replace(/\(id=(\d+)\)/, "(MSSV: $1)");
     }
 
+    function badge(type){
+      if (type==='OK')   return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">THÀNH CÔNG</span>';
+      if (type==='SKIP') return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700" title="Thiếu dữ liệu bắt buộc">BỎ QUA</span>';
+      return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">LỖI</span>';
+    }
+
+    function rowClass(type){
+      return type==='OK' ? 'bg-green-50/50' : (type==='SKIP' ? 'bg-amber-50/50' : 'bg-red-50/50');
+    }
+
+    function refreshExportButtons(){
+      const any = results.length > 0;
+      const hasErr = results.some(r => r.type !== 'OK');
+      $("btnExportAll").disabled = !any;
+      $("btnExportErr").disabled = !hasErr;
+    }
+
     function renderResults(){
       const tbody = $('resBody');
-      const ok = results.filter(r=>r.type==='OK').length;
-      const err = results.filter(r=>r.type==='ERR').length;
+      const ok   = results.filter(r=>r.type==='OK').length;
+      const err  = results.filter(r=>r.type==='ERR').length;
       const skip = results.filter(r=>r.type==='SKIP').length;
       $('okCount').textContent = ok;
       $('errCount').textContent = err;
       $('skipCount').textContent = skip;
 
-      const badge = (type)=> {
-        if (type==='OK')   return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">THÀNH CÔNG</span>';
-        if (type==='SKIP') return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700" title="Thiếu dữ liệu bắt buộc">BỎ QUA</span>';
-        return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">LỖI</span>';
-      };
-      const rowClass = (type)=> type==='OK' ? 'bg-green-50/50' : (type==='SKIP' ? 'bg-amber-50/50' : 'bg-red-50/50');
-
       tbody.innerHTML = results.map(r => `
         <tr class="${rowClass(r.type)}">
           <td class="text-center border-b">${r.idx}</td>
-          <td class="border-b whitespace-nowrap font-medium">${r.hs || '—'}</td>
+          <td class="border-b whitespace-nowrap font-medium">${r.data?.ma_ho_so || '—'}</td>
           <td class="border-b">${badge(r.type)}</td>
           <td class="border-b">${translateMessage(r.msg || '')}</td>
         </tr>
       `).join('');
+
+      refreshExportButtons();
     }
 
-    function addResult(type, idx, hs, msg){
-      results.push({type, idx, hs, msg});
+    function addResult(type, idx, data, msg){
+      results.push({type, idx, data, msg});
       renderResults();
     }
 
     // Ẩn log text, giữ API tương thích
-    function log(){ /* no-op: không hiển thị log text nữa */ }
+    function log(){ /* no-op */ }
 
     // Copy / Clear
-    $('btnCopyLog')?.addEventListener('click', ()=>{
-      const text = results.map(r => `#${r.idx} [${r.type}] ${r.hs||''} - ${translateMessage(r.msg||'')}`).join('\n');
-      navigator.clipboard.writeText(text).then(()=>{
-        const s = $('stats'); const old = s.textContent; s.textContent = 'Đã copy log!';
-        setTimeout(()=> s.textContent = old, 1200);
-      });
-    });
     $('btnClearLog')?.addEventListener('click', ()=>{
       results.splice(0, results.length); renderResults();
     });
@@ -279,7 +279,7 @@
       $('stats').textContent = total ? `Đã gửi ${done}/${total}` : "Chưa chạy.";
     }
 
-    // ===== Field defs =====
+    // ===== Field defs (để hiển thị tiếng Việt phần xem trước) =====
     const FIELD_DEFS = [
       {key:"ma_ho_so",       label:"Mã HS",           aliases:["ma ho so","ma_hs","mhs"]},
       {key:"ho_ten",         label:"Họ tên",          aliases:["ho va ten","hovaten","hoten","ten_hv","tenhv","ten"]},
@@ -292,7 +292,6 @@
       {key:"khoa",           label:"Khóa",            aliases:["nien khoa","khoa hoc","nk"]},
       {key:"da_tn_truoc_do", label:"Đã TN trước đó",  aliases:["doi tuong","da tn","trinh do"]},
       {key:"ghi_chu",        label:"Ghi chú",         aliases:["note","ghi chu"]},
-      {key:"ngay_nhan_hs",   label:"Ngày nhận HS",    aliases:["ngay nhan","ngay tiep nhan"]}
     ];
     const LABEL_BY_KEY = Object.fromEntries(FIELD_DEFS.map(f=>[f.key,f.label]));
     const norm = s => String(s||"").toLowerCase().trim().replace(/\s+/g,' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -348,8 +347,8 @@
       const headers = lines[0].split(",").map(s=>s.trim());
       const rows = lines.slice(1).map(ln=>{
         const cols = ln.split(",");
-        const obj = {}; headers.forEach((h,i)=> obj[h]= (cols[i] ?? "").trim());
-        return obj;
+        theObj = {}; headers.forEach((h,i)=> theObj[h]= (cols[i] ?? "").trim());
+        return theObj;
       });
       return {headers, rows};
     }
@@ -364,7 +363,7 @@
 
     fileInput.addEventListener("change", async (e)=>{
       const f = e.target.files[0]; if(!f) return;
-      parsedRows = []; $('thead').innerHTML=""; $('tbody').innerHTML=""; $('log').textContent="";
+      parsedRows = []; $('thead').innerHTML=""; $('tbody').innerHTML="";
       try{
         if (f.name.toLowerCase().endsWith(".csv")) {
           const text = await f.text();
@@ -384,9 +383,16 @@
       }catch(err){ alert("Không đọc được file: "+err.message); }
     });
 
+    // Tiêu đề xem trước: chuyển sang TV nếu khớp key chuẩn
+    function labelForPreview(h){
+      const k = String(h||"").trim();
+      return LABEL_BY_KEY[k] || k;
+    }
+
+    // === CHỈ 5 DÒNG & KHUNG CUỘN (max-h-40 ở outer) ===
     function preview(headers, rows){
-      $('thead').innerHTML = `<tr>${headers.map(h=>`<th class="text-left">${h}</th>`).join("")}</tr>`;
-      $('tbody').innerHTML = rows.slice(0,10).map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
+      $('thead').innerHTML = `<tr>${headers.map(h=>`<th class="text-left">${labelForPreview(h)}</th>`).join("")}</tr>`;
+      $('tbody').innerHTML = rows.slice(0,5).map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
     }
 
     // ===== Date helpers =====
@@ -413,12 +419,16 @@
       const pick = (key, d="") => (map[key] ? (src[map[key]] ?? "").trim() : d);
 
       const ma_ho_so = pick("ma_ho_so","");
-      const ngay_nhan_hs = parseDateFlexible(pick("ngay_nhan_hs", $('defaultNgayNhan').value)) || $('defaultNgayNhan').value;
+
+      // ✅ luôn dùng ngày ở ô mặc định
+      const ngay_nhan_form = $('defaultNgayNhan').value; // YYYY-MM-DD từ input[type=date]
+      const ngay_nhan_iso = parseDateFlexible(ngay_nhan_form) || ngay_nhan_form;
+
       const ngay_sinh_iso = parseDateFlexible(pick("ngay_sinh")) || null;
 
       return {
         ma_ho_so,
-        ngay_nhan_hs,
+        ngay_nhan_hs: ngay_nhan_iso,         // ✅ chỉ dùng từ form
         ho_ten: pick("ho_ten"),
         ma_so_hv: pick("ma_so_hv"),
         ngay_sinh: ngay_sinh_iso,
@@ -436,7 +446,7 @@
     }
 
     function requireMappings(m){
-      const need = ["ma_ho_so","ho_ten","ma_so_hv","ngay_nhan_hs"];
+      const need = ["ma_ho_so","ho_ten","ma_so_hv"];
       const miss = need.filter(k=>!m[k]);
       if (miss.length){ alert("Thiếu map cột: " + miss.join(", ")); return false; }
       return true;
@@ -446,11 +456,14 @@
       const m = getMappingFromUI();
       if (!requireMappings(m)) return;
       const test = parsedRows.slice(0,5).map(row=> makeApplicantPayload(row, m));
-      $('log').textContent = JSON.stringify(test, null, 2);
     };
 
     $('btnUpload').onclick = async ()=>{
       if (parsedRows.length === 0) { alert("Chưa chọn tệp hoặc tệp rỗng"); return; }
+      if (!$('defaultNgayNhan').value) {
+        alert("Vui lòng chọn 'Ngày nhận HS (mặc định)' trước khi import.");
+        return;
+      }
       await detectPrefix();
       stopFlag = false; $('btnStop').classList.remove('hidden');
       $('btnUpload').disabled = true;
@@ -459,15 +472,15 @@
       if (!requireMappings(m)) { $('btnUpload').disabled=false; return; }
 
       const total = parsedRows.length; let done=0, ok=0, fail=0;
-      setBar(0,total); $('log').textContent=""; log("== BẮT ĐẦU IMPORT ==");
+      setBar(0,total); $('log').textContent="";
 
       for (let i=0;i<parsedRows.length;i++){
         if (stopFlag) { log("== ĐÃ DỪNG =="); break; }
         const body = makeApplicantPayload(parsedRows[i], m);
 
-        if (!body.ma_ho_so || !body.ho_ten || !body.ma_so_hv || !body.ngay_nhan_hs){
+        if (!body.ma_ho_so || !body.ho_ten || !body.ma_so_hv){
           fail++; done++; setBar(done,total);
-          addResult('SKIP', i+1, body.ma_ho_so, 'Thiếu bắt buộc (ma_ho_so/ho_ten/ma_so_hv/ngay_nhan_hs)');
+          addResult('SKIP', i+1, body, 'Thiếu bắt buộc (ma_ho_so/ho_ten/ma_so_hv)');
           continue;
         }
         try{
@@ -477,13 +490,14 @@
           });
           if(!r.ok){
             const t = await r.text();
-            fail++; addResult('ERR', i+1, body.ma_ho_so, `HTTP ${r.status} ${t}`);
+            fail++; addResult('ERR', i+1, body, `HTTP ${r.status} ${t}`);
           } else {
             const j = await r.json();
-            ok++; addResult('OK', i+1, body.ma_ho_so, `Tạo thành công (MSSV: ${j.ma_so_hv || j.id || body.ma_so_hv})`);
+            if (j?.ma_so_hv) body.ma_so_hv = j.ma_so_hv;
+            ok++; addResult('OK', i+1, body, `Tạo thành công (MSSV: ${j.ma_so_hv || j.id || body.ma_so_hv})`);
           }
         }catch(e){
-          fail++; addResult('ERR', i+1, body.ma_ho_so, e.message);
+          fail++; addResult('ERR', i+1, body, e.message);
         }finally{
           done++; setBar(done,total);
           await new Promise(res=>setTimeout(res, 25));
@@ -491,7 +505,6 @@
       }
       $('btnStop').classList.add('hidden');
       $('btnUpload').disabled = false;
-      log(`== XONG: OK=${ok}, FAIL=${fail}, TOTAL=${total} ==`);
     };
     $('btnStop').onclick = ()=>{ stopFlag = true; };
 
@@ -527,20 +540,20 @@
     // ===== Template
     function buildTemplateHeaders(){
       return ["ma_ho_so","ho_ten","ma_so_hv","ngay_sinh","so_dt","email_hoc_vien",
-              "nganh_nhap_hoc","dot","khoa","da_tn_truoc_do","ghi_chu","ngay_nhan_hs"];
+              "nganh_nhap_hoc","dot","khoa","da_tn_truoc_do","ghi_chu"]; // ❌ không có 'ngay_nhan_hs'
     }
+
     function sampleRows(){
-      const today = new Date();
-      const dmy = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
       return [
         { ma_ho_so:"HS-0001", ho_ten:"Nguyễn Văn A", ma_so_hv:"1234567890", ngay_sinh:"15/01/2005",
-          so_dt:"0901234567", email_hoc_vien:"vana@example.com", nganh_nhap_hoc:"Công nghệ thông tin", dot:"1/2025", khoa:"25",
-          da_tn_truoc_do:"THPT", ghi_chu:"", ngay_nhan_hs: dmy },
+          so_dt:"0901234567", email_hoc_vien:"vana@example.com", nganh_nhap_hoc:"Công nghệ thông tin",
+          dot:"1/2025", khoa:"25", da_tn_truoc_do:"THPT", ghi_chu:"" },
         { ma_ho_so:"HS-0002", ho_ten:"Trần Thị B",   ma_so_hv:"0987654321", ngay_sinh:"20/12/2004",
-          so_dt:"0912345678", email_hoc_vien:"tran@example.com", nganh_nhap_hoc:"Quản trị kinh doanh", dot:"1/2025", khoa:"25",
-          da_tn_truoc_do:"Cao đẳng", ghi_chu:"", ngay_nhan_hs: dmy }
+          so_dt:"0912345678", email_hoc_vien:"tran@example.com", nganh_nhap_hoc:"Quản trị kinh doanh",
+          dot:"1/2025", khoa:"25", da_tn_truoc_do:"Cao đẳng", ghi_chu:"" }
       ];
     }
+
     $('btnTplXlsx').onclick = ()=>{
       const wb = XLSX.utils.book_new();
       const headers = buildTemplateHeaders();
@@ -549,17 +562,20 @@
       XLSX.utils.book_append_sheet(wb, ws, "HocVien");
       const guide = [
         ["Hướng dẫn"],
-        ["- Cột bắt buộc: ma_ho_so | ho_ten | ma_so_hv | ngay_nhan_hs"],
-        ["- Định dạng ngày: DD/MM/YYYY (ví dụ: 01/10/2025)."],
-        ["- Các cột khác có thể để trống; 'docs' sẽ để trống khi import."]
+        ["- Cột bắt buộc: ma_ho_so | ho_ten | ma_so_hv"],
+        ["- Ngày nhận HS được chọn ở giao diện, KHÔNG cần có trong file."],
+        ["- Định dạng ngày sinh gợi ý: DD/MM/YYYY (ví dụ: 01/10/2005)."]
       ];
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(guide), "HuongDan");
       XLSX.writeFile(wb, "template_hoc_vien.xlsx");
     };
+
     $('btnTplCsv').onclick = ()=>{
       const headers = buildTemplateHeaders();
       const rows = sampleRows();
-      const csv = [headers.join(",")].concat(rows.map(r=>headers.map(h=>String(r[h]??"").replace(/,/g," ")).join(","))).join("\n");
+      const csv = [headers.join(",")]
+        .concat(rows.map(r=>headers.map(h=>String(r[h]??"").replace(/,/g," ")).join(",")))
+        .join("\n");
       const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -567,6 +583,96 @@
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
     };
+
+    // ===== Export XLSX từ kết quả (đầy đủ trường) =====
+    function toAoAFull(list){
+      const header = [
+        "MaHO","Họ tên","MSSV","Ngày sinh","Số ĐT","Email",
+        "Ngành nhập học","Đợt","Khóa","Đã TN trước đó","Ngày nhận",
+        "Kết quả","Ghi chú kết quả"
+      ];
+      const aoa = [header];
+      list.forEach(r=>{
+        const d = r.data || {};
+        const label = r.type==='OK' ? 'THÀNH CÔNG' : (r.type==='SKIP' ? 'BỎ QUA' : 'LỖI');
+        aoa.push([
+          d.ma_ho_so || "",
+          d.ho_ten || "",
+          d.ma_so_hv || "",
+          d.ngay_sinh || "",
+          d.so_dt || "",
+          d.email_hoc_vien || "",
+          d.nganh_nhap_hoc || "",
+          d.dot || "",
+          d.khoa || "",
+          d.da_tn_truoc_do || "",
+          d.ngay_nhan_hs || "",
+          label,
+          (r.msg ? translateMessage(r.msg) : "")
+        ]);
+      });
+      return aoa;
+    }
+    function nowTag(){
+      const d = new Date();
+      const pad = n => String(n).padStart(2,"0");
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
+    function exportResults(onlyErrors=false){
+      const data = onlyErrors ? results.filter(r=>r.type!=='OK') : results.slice();
+      if (!data.length) return;
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(toAoAFull(data));
+      ws['!cols'] = [
+        {wch:12},{wch:22},{wch:14},{wch:12},{wch:12},{wch:26},
+        {wch:22},{wch:10},{wch:8},{wch:16},{wch:12},{wch:12},{wch:60}
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, "KetQuaImport");
+      const fname = onlyErrors ? `import_errors_${nowTag()}.xlsx` : `import_result_${nowTag()}.xlsx`;
+      XLSX.writeFile(wb, fname);
+    }
+    $("btnExportAll").addEventListener("click", ()=> exportResults(false));
+    $("btnExportErr").addEventListener("click", ()=> exportResults(true));
+
+    function adjustPreviewHeight() {
+      const box = document.getElementById('previewBox');
+      if (!box) return;
+
+      box.style.maxHeight = 'none'; // bỏ limit tạm để đo
+      const thead = document.querySelector('#thead');
+      const tbody = document.querySelector('#tbody');
+
+      const headerH = thead ? thead.getBoundingClientRect().height : 36;
+      let rowH = 40;
+      const firstRow = tbody?.querySelector('tr');
+      if (firstRow) rowH = firstRow.getBoundingClientRect().height || rowH;
+
+      const desired = headerH + rowH * 5 + 8;        // ~5 dòng
+      const maxByViewport = Math.floor(window.innerHeight * 0.7);
+
+      box.style.maxHeight = Math.min(desired, maxByViewport) + 'px';
+      box.style.overflowY = 'auto';   // đảm bảo có cuộn dọc
+      box.style.overflowX = 'auto';   // cuộn ngang nếu cần
+    }
+
+    // ⬇️ Render TẤT CẢ các dòng, KHÔNG slice
+    function preview(headers, rows) {
+      const labelForPreview = (h) => {
+        const k = String(h || '').trim();
+        return (LABEL_BY_KEY && LABEL_BY_KEY[k]) ? LABEL_BY_KEY[k] : k;
+      };
+
+      document.getElementById('thead').innerHTML =
+        `<tr>${headers.map(h => `<th class="text-left">${labelForPreview(h)}</th>`).join('')}</tr>`;
+
+      document.getElementById('tbody').innerHTML =
+        rows.map(r => `<tr>${headers.map(h => `<td>${(r[h] ?? '')}</td>`).join('')}</tr>`).join('');
+
+      requestAnimationFrame(adjustPreviewHeight);
+    }
+
+    window.addEventListener('resize', adjustPreviewHeight);
+
   </script>
 </body>
 </html>
