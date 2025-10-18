@@ -236,21 +236,19 @@
   </div>
 
 <script>
-  // ====== “Khoá” URL sạch trong phiên làm việc (không cho code khác gắn query) ======
+  /* ====== Khoá URL sạch ====== */
   (function lockCleanJournalURL(){
     const clean = () => { if (location.pathname !== '/journal.html' || location.search || location.hash) history.replaceState(null, '', '/journal.html'); };
     clean();
     const _replace = history.replaceState.bind(history);
     const _push    = history.pushState.bind(history);
-    function toClean(url){
-      if (typeof url === 'string' && url.includes('/journal.html') && url.includes('?')) return '/journal.html';
-      return url;
-    }
+    const toClean = (url)=> (typeof url==='string' && url.includes('/journal.html') && url.includes('?')) ? '/journal.html' : url;
     history.replaceState = (s,t,u)=> _replace(s,t,toClean(u));
     history.pushState    = (s,t,u)=> _push(s,t,toClean(u));
     window.addEventListener('popstate', clean);
   })();
 
+  /* ====== Basics ====== */
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>document.querySelectorAll(s);
   const STORAGE_KEY = 'apiBase';
@@ -279,47 +277,40 @@
     return r;
   }
 
-  // ==== Map hành động tiếng Việt
+  /* ====== Labels ====== */
   const ACTION_LABELS = {
-    CREATE: "Tạo mới",
-    UPDATE: "Cập nhật",
-    DELETE_SOFT: "Xóa tạm",
-    DELETE_HARD: "Xóa vĩnh viễn",
-    DELETE: "Xóa vĩnh viễn",
-    DELETE_REQUEST: "Yêu cầu xóa",
-    RESTORE: "Khôi phục",
-    PRINT: "In / Xuất",
-    READ: "Tra cứu",
-    EXCEPTION: "Lỗi hệ thống"
+    CREATE:"Tạo mới", UPDATE:"Cập nhật", DELETE_SOFT:"Xóa tạm",
+    DELETE_HARD:"Xóa vĩnh viễn", DELETE:"Xóa vĩnh viễn",
+    DELETE_REQUEST:"Yêu cầu xóa", RESTORE:"Khôi phục",
+    PRINT:"In / Xuất", READ:"Tra cứu", EXCEPTION:"Lỗi hệ thống"
   };
   const actionVi = c => ACTION_LABELS[(c||'').toUpperCase()] || (c||'—');
 
-  // ==== Map tên cột → nhãn tiếng Việt (dùng cho Snapshot & Diff)
   const FIELD_LABELS = {
-    checklist_version_id: "Phiên bản checklist",
-    da_tn_truoc_do: "Đã TN trước đó",
-    deleted_at: "Thời điểm xóa (UTC)",
-    deleted_by: "Người xóa",
-    deleted_reason: "Lý do xóa",
-    dot: "Đợt",
-    email_hoc_vien: "Email học viên",
-    ghi_chu: "Ghi chú",
-    ho_ten: "Họ tên",
-    khoa: "Khóa",
-    ma_ho_so: "Mã hồ sơ",
-    ma_so_hv: "Mã số học viên",
-    nganh_nhap_hoc: "Ngành nhập học",
-    ngay_nhan_hs: "Ngày nhận hồ sơ",
-    ngay_sinh: "Ngày sinh",
-    nguoi_nhan_ky_ten: "Người nhận",
-    printed: "Trạng thái in",
-    status: "Trạng thái",
-    so_dt: "Số điện thoại"
+    checklist_version_id:"Phiên bản checklist",
+    da_tn_truoc_do:"Đã TN trước đó",
+    deleted_at:"Thời điểm xóa (UTC)",
+    deleted_by:"Người xóa",
+    deleted_reason:"Lý do xóa",
+    dot:"Đợt",
+    email_hoc_vien:"Email học viên",
+    ghi_chu:"Ghi chú",
+    ho_ten:"Họ tên",
+    khoa:"Khóa",
+    ma_ho_so:"Mã hồ sơ",
+    ma_so_hv:"Mã số học viên",
+    nganh_nhap_hoc:"Ngành nhập học",
+    ngay_nhan_hs:"Ngày nhận hồ sơ",
+    ngay_sinh:"Ngày sinh",
+    nguoi_nhan_ky_ten:"Người nhận",
+    printed:"Trạng thái in",
+    status:"Trạng thái",
+    so_dt:"Số điện thoại"
   };
   const getFieldLabel = (k) => FIELD_LABELS[k] || k;
 
-  // ==== State
-  const state = { page:1, size: Number(localStorage.getItem('journal.pageSize')||20), total:0, sort:{key:'occurred_at', dir:'desc'}, filters:{}, currentLog:null };
+  /* ====== State ====== */
+  const state = { page:1, size:Number(localStorage.getItem('journal.pageSize')||20), total:0, sort:{key:'occurred_at', dir:'desc'}, filters:{}, currentLog:null };
   const pagesTotal = ()=> Math.max(1, Math.ceil(state.total / state.size));
 
   function setState({loading=false, empty=false}){
@@ -344,16 +335,14 @@
     const p = new URLSearchParams();
     p.set('page', state.page);
     p.set('page_size', state.size);
-
     const f = state.filters;
-    if (f.q)       p.set('q', f.q);
-    if (f.action)  p.set('action', f.action);
-    if (f.type)    p.set('target_type', f.type);
-    if (f.id)      p.set('target_id', f.id);
-    if (f.actor)   p.set('actor', f.actor);
-    if (f.from)    p.set('from', f.from);
-    if (f.to)      p.set('to', f.to);
-
+    if (f.q) p.set('q', f.q);
+    if (f.action) p.set('action', f.action);
+    if (f.type) p.set('target_type', f.type);
+    if (f.id) p.set('target_id', f.id);
+    if (f.actor) p.set('actor', f.actor);
+    if (f.from) p.set('from', f.from);
+    if (f.to) p.set('to', f.to);
     if (state.sort.key) {
       const keyMap = { target: 'target_id' };
       const field = keyMap[state.sort.key] || state.sort.key;
@@ -362,7 +351,6 @@
     return p.toString();
   }
 
-  // Giữ URL LUÔN SẠCH — không gắn query nữa
   function syncUrl(){
     if (location.pathname !== '/journal.html' || location.search || location.hash) {
       history.replaceState(null, '', '/journal.html');
@@ -380,7 +368,7 @@
       renderTable(data.items||[]);
       renderPager();
       $('#count').textContent = String(state.total);
-      setState({loading:false, empty: (data.items||[]).length===0});
+      setState({loading:false, empty:(data.items||[]).length===0});
       syncUrl();
     }catch(e){
       tb.innerHTML = `<tr><td colspan="7" class="text-center text-rose-600 py-10">Lỗi: ${e.message}</td></tr>`;
@@ -390,36 +378,29 @@
 
   function displayActor(row){
     const name = (row.actor_name ?? "").toString().trim();
-    if (name) return name;
-    return row.actor_id != null ? `#${row.actor_id}` : "—";
+    return name || (row.actor_id != null ? `#${row.actor_id}` : "—");
   }
 
-  // ==== Date helpers (VN, UTC+7) ====
+  /* ====== Date helpers (VN) ====== */
   function formatVNDateTime(input) {
     if (!input) return '';
     const d = input instanceof Date ? input : new Date(String(input));
     if (isNaN(d)) return '';
     const parts = new Intl.DateTimeFormat('vi-VN', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hour12: false
+      timeZone:'Asia/Ho_Chi_Minh', year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
     }).formatToParts(d);
     const get = t => parts.find(p => p.type === t)?.value || '00';
     return `${get('hour')}:${get('minute')}:${get('second')} ${get('day')}/${get('month')}/${get('year')}`;
   }
-
   function maybeFormatDateLike(v) {
     if (!v) return null;
     if (v instanceof Date) return formatVNDateTime(v);
-    if (typeof v === 'string') {
-      if (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(v) || /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)) {
-        return formatVNDateTime(v);
-      }
-    }
+    if (typeof v === 'string' && (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(v) || /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v))) return formatVNDateTime(v);
     return null;
   }
 
+  /* ====== Table list ====== */
   function renderTable(items){
     const tb = $('#tbody');
     if (!items.length){
@@ -430,13 +411,7 @@
 
     const collator = new Intl.Collator('vi', {numeric:true, sensitivity:'base'});
     const key = state.sort.key, dir = state.sort.dir;
-
-    const actionMap = {
-      CREATE:'Tạo mới', UPDATE:'Cập nhật', DELETE_SOFT:'Xóa tạm',
-      DELETE_HARD:'Xóa vĩnh viễn', DELETE:'Xóa vĩnh viễn',
-      DELETE_REQUEST:'Yêu cầu xóa', RESTORE:'Khôi phục',
-      READ:'Tra cứu', PRINT:'In / Xuất', EXCEPTION:'Lỗi hệ thống'
-    };
+    const actionMap = ACTION_LABELS;
 
     const getVal = (r)=>{
       if (key==='id') return r.id;
@@ -454,8 +429,7 @@
     sorted.forEach(row=>{
       const tr = document.createElement('tr');
       const when = row.occurred_at ? new Date(row.occurred_at) : null;
-      const actionLabel = actionMap[row.action] || row.action;
-
+      const actionLabel = actionVi(row.action);
       tr.innerHTML = `
         <td class="text-left whitespace-nowrap">${row.id}</td>
         <td class="text-center whitespace-nowrap">${when ? formatVNDateTime(when) : ''}</td>
@@ -463,9 +437,7 @@
         <td class="text-center"><span class="chip">${escapeHtml(actionLabel)}</span></td>
         <td class="text-center whitespace-nowrap">${escapeHtml(row.target_id ?? '—')}</td>
         <td class="text-center">
-          ${row.status === 'SUCCESS'
-            ? '<span class="status-ok">OK</span>'
-            : '<span class="status-fail">FAIL</span>'}
+          ${row.status === 'SUCCESS' ? '<span class="status-ok">OK</span>' : '<span class="status-fail">FAIL</span>'}
         </td>
         <td class="text-center">
           <button class="btn btn-outline btn-xs" data-id="${row.id}">Xem</button>
@@ -487,60 +459,126 @@
     });
   }
 
+  /* ====== Common helpers for detail ====== */
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c])); }
-
-  function val(x){
-    if (x === null || x === undefined || x === '') {
-      return '<span class="text-gray-400">—</span>';
-    }
+  function cellVal(x){
+    if (x === null || x === undefined || x === '') return '<span class="text-gray-400">—</span>';
     const maybe = maybeFormatDateLike(x);
     if (maybe) return escapeHtml(maybe);
-    if (typeof x === 'object') {
-      return `<pre class="bg-white border border-dashed border-gray-200 rounded-lg p-2 overflow-auto text-xs">${escapeHtml(JSON.stringify(x,null,2))}</pre>`;
-    }
+    if (typeof x === 'object') return `<pre class="bg-white border border-dashed border-gray-200 rounded-lg p-2 overflow-auto text-xs">${escapeHtml(JSON.stringify(x,null,2))}</pre>`;
     return escapeHtml(String(x));
   }
-
-  function diffKeys(prev={}, next={}){
+  function diffKeysFiltered(prev={}, next={}){
+    const ignore = new Set(['docs_before','docs_after','docs_diff']);
     const set = new Set([...Object.keys(prev||{}), ...Object.keys(next||{})]);
-    const changes = [];
-    set.forEach(k=>{ const a=(prev||{})[k]; const b=(next||{})[k]; if (JSON.stringify(a)!==JSON.stringify(b)) changes.push({field:k, from:a, to:b}); });
+    const changes=[];
+    set.forEach(k=>{
+      if (ignore.has(k)) return;
+      const a=(prev||{})[k]; const b=(next||{})[k];
+      if (JSON.stringify(a)!==JSON.stringify(b)) changes.push({field:k, from:a, to:b});
+    });
     return changes;
   }
-  function sectionTitle(t){ return `<h4 class="mt-2 mb-1 font-bold text-blue-800">${escapeHtml(t)}</h4>`; }
+  function snapshotGrid(obj, picks){
+    const rows = (picks||[]).map(([label, key])=>{
+      const v = obj ? obj[key] : null;
+      return `
+        <div class="bg-slate-50 font-semibold p-2">${escapeHtml(label)}</div>
+        <div class="p-2">${cellVal(v)}</div>`;
+    }).join('');
+    return `
+      <div class="grid grid-cols-[220px_1fr] border border-gray-200 rounded-xl overflow-hidden">
+        ${rows || '<div class="p-3 text-gray-500 col-span-2">Không có dữ liệu.</div>'}
+      </div>`;
+  }
 
-  function kvGrid(obj, picks){
-    if (!obj) return '<div class="text-gray-500">Không có dữ liệu.</div>';
-    let rows='';
-    if (Array.isArray(picks) && picks.length){
-      picks.forEach(([label,key])=>{ rows += `<div class="bg-slate-50 font-semibold p-2">${escapeHtml(label)}</div><div class="p-2">${val(obj[key])}</div>`; });
-    } else {
-      Object.keys(obj).sort().forEach(k=>{
-        const label = getFieldLabel(k);
-        rows += `<div class="bg-slate-50 font-semibold p-2">${escapeHtml(label)}</div><div class="p-2">${val(obj[k])}</div>`;
-      });
+  /* ====== Lấy map code -> tên danh mục checklist (cache) ====== */
+  let __NAME_MAP_CACHE = null;
+  async function getChecklistNameMap(){
+    if (__NAME_MAP_CACHE) return __NAME_MAP_CACHE;
+    try{
+      // ưu tiên endpoint active
+      const r = await apiFetch('/checklist/active');
+      if (r && r.ok){
+        const j = await r.json();
+        const map = {};
+        (j.items||[]).forEach(it=> map[it.code] = it.display_name || it.name || it.code);
+        __NAME_MAP_CACHE = map;
+        return map;
+      }
+    }catch(_){}
+    // fallback rỗng
+    __NAME_MAP_CACHE = {};
+    return {};
+  }
+
+  /* ====== Render bảng danh mục hiện tại ====== */
+  function renderDocsCurrentTable(docsObj={}, nameMap={}){
+    const entries = Object.entries(docsObj || {}).map(([code, n])=>({
+      code, name: nameMap[code] || code, qty: Number(n)||0
+    })).filter(x=>x.qty>0);
+
+    if (!entries.length) return `<div class="text-gray-500">Không có danh mục hồ sơ.</div>`;
+
+    entries.sort((a,b)=> a.name.localeCompare(b.name,'vi',{sensitivity:'base'}));
+
+    return `
+      <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="p-2 text-left font-semibold text-gray-800">Tên danh mục</th>
+            <th class="p-2 text-center font-semibold text-gray-800">Số lượng</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries.map(x=>`
+            <tr class="border-t">
+              <td class="p-2 font-semibold text-gray-800">${escapeHtml(x.name)}</td>
+              <td class="p-2 text-center">${escapeHtml(String(x.qty))}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  /* ====== Render bảng danh mục thay đổi (chỉ tên + trước/sau/±) ====== */
+  function renderDocsDiffTable(diffs=[], nameMap={}){
+    if (!diffs || !diffs.length) {
+      return `<div class="text-gray-500">Không có thay đổi về danh mục hồ sơ.</div>`;
     }
-    return `<div class="grid grid-cols-[220px_1fr] border border-gray-200 rounded-xl overflow-hidden">${rows}</div>`;
-  }
 
-  // Fallback nho nhỏ nếu trang chưa có actionVi()
-  if (typeof actionVi !== "function") {
-    window.actionVi = function (code) {
-      const map = {
-        CREATE: "Tạo mới",
-        UPDATE: "Cập nhật",
-        DELETE_SOFT: "Xóa tạm",
-        DELETE_HARD: "Xóa vĩnh viễn",
-        DELETE: "Xóa vĩnh viễn",
-        RESTORE: "Khôi phục",
-        PRINT: "In / Xuất",
-        READ: "Tra cứu",
-        EXCEPTION: "Lỗi hệ thống",
+    const rows = diffs.map(x=>{
+      const delta = Number(x.to) - Number(x.from);
+      const sign  = delta>0 ? '↑' : (delta<0 ? '↓' : '—');
+      return {
+        name: nameMap[x.code] || x.code,
+        from: Number(x.from)||0,
+        to:   Number(x.to)||0,
+        delta, sign
       };
-      return map[code] || code || "";
-    };
-  }
+    }).sort((a,b)=> a.name.localeCompare(b.name,'vi',{sensitivity:'base'}));
 
+    return `
+      <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="p-2 text-left font-semibold text-gray-800">Tên danh mục</th>
+            <th class="p-2 text-center font-semibold text-gray-800">Trước</th>
+            <th class="p-2 text-center font-semibold text-gray-800">Sau</th>
+            <th class="p-2 text-center font-semibold text-gray-800">±</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r=>`
+            <tr class="border-t">
+              <td class="p-2 font-semibold text-gray-800">${escapeHtml(r.name)}</td>
+              <td class="p-2 text-center">${escapeHtml(String(r.from))}</td>
+              <td class="p-2 text-center">${escapeHtml(String(r.to))}</td>
+              <td class="p-2 text-center">${r.sign} ${r.delta}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  /* ====== OPEN DETAIL ====== */
   async function openDetail(id){
     try{
       const r = await apiFetch('/journal/detail/'+id);
@@ -549,162 +587,146 @@
       state.currentLog = d;
       $('#d_id').textContent = id;
 
-      const prev = d.prev_values || d.prev || null;
-      const next = d.new_values || d.new || null;
-      const diffs = diffKeys(prev, next);
+      const nameMap = await getChecklistNameMap();
 
-      const actor_display = d.actor_name || (d.actor_id != null ? `#${d.actor_id}` : null);
+      const prev = d.prev_values || {};
+      const next = d.new_values  || {};
+      const current = Object.keys(next).length ? next : prev;
 
-      const generalData = {
-        occurred_at: d.occurred_at,
-        actor_name: actor_display,
-        action_label: actionVi(d.action),
-        status: d.status,
-        target_id: d.target_id,
-        path: d.path,
-        ip_address: d.ip_address,
-        correlation_id: d.correlation_id
-      };
+      // Tính diff thường (bỏ qua docs*)
+      const diffs = diffKeysFiltered(prev, next);
 
-      const general = kvGrid(generalData, [
-        ["Thời gian","occurred_at"],
-        ["Người thao tác","actor_name"],
-        ["Thao tác","action_label"],
-        ["Trạng thái","status"],
-        ["Đối tượng (MSSV)","target_id"],
-        ["Đường dẫn","path"],
-        ["IP","ip_address"],
-        ["Correlation ID","correlation_id"],
-      ]);
-
-      const html = `
-        ${sectionTitle('Thông tin chung')}
-        ${general}
-        ${sectionTitle('Snapshot trước')}
-        ${kvGrid(prev)}
-        ${sectionTitle('Snapshot sau')}
-        ${kvGrid(next)}
-        ${sectionTitle('Trường thay đổi')}
-        ${
-          diffs?.length
-            ? `<div class="inline-flex items-center gap-2 mb-2">
-                 <span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold">${diffs.length} thay đổi</span>
-                 <span class="text-gray-500 text-xs">So sánh giữa snapshot trước/sau</span>
-               </div>
-               <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
-                 <thead class="bg-slate-50">
-                   <tr><th class="text-left p-2">Trường</th><th class="text-left p-2">Giá trị cũ</th><th class="text-left p-2">Giá trị mới</th></tr>
-                 </thead>
-                 <tbody>
-                   ${diffs.map(c=>`<tr class="border-t">
-                     <td class="align-top p-2 font-semibold">${escapeHtml(getFieldLabel(c.field))}</td>
-                     <td class="align-top p-2">${val(c.from)}</td>
-                     <td class="align-top p-2">${val(c.to)}</td>
-                   </tr>`).join('')}
-                 </tbody>
-               </table>`
-            : '<div class="text-gray-500">Không có trường thay đổi.</div>'
-        }
-      `;
-      $('#d_view').innerHTML = html;
-
-      const isDel = (d.action==='DELETE' || d.action==='DELETE_SOFT');
-      // 🔒 Chỉ Admin mới thấy nút Xóa vĩnh viễn
-      $('#btnHardDelete').style.display = (isDel && IS_ADMIN) ? '' : 'none';
-
-      const box = $('#hardDelConfirm');
-      if (box) {
-        box.classList.add('hidden');
-        const sel = $('#hardDelSelect');
-        if (sel) sel.value = '';
-        const reason = $('#hardDelReason');
-        if (reason) reason.value = '';
+      // Docs
+      const docsBefore = prev.docs_before || prev.docs || {};
+      const docsAfter  = next.docs_after  || next.docs || {};
+      let docsDiff = next.docs_diff || [];
+      if (!docsDiff.length) {
+        const all = new Set([...Object.keys(docsBefore||{}), ...Object.keys(docsAfter||{})]);
+        docsDiff = [...all].map(code => ({ code, from:Number(docsBefore[code]||0), to:Number(docsAfter[code]||0) }))
+                           .filter(x => x.from !== x.to);
       }
 
+      /* Thông tin chung */
+      const infoHtml = `
+        <h4 class="mt-1 mb-2 font-bold text-blue-800">Thông tin chung</h4>
+        <div class="grid grid-cols-[220px_1fr] border border-gray-200 rounded-xl overflow-hidden">
+          <div class="bg-slate-50 font-semibold p-2">Thời gian</div>     <div class="p-2">${cellVal(d.occurred_at)}</div>
+          <div class="bg-slate-50 font-semibold p-2">Người thao tác</div><div class="p-2">${escapeHtml(d.actor_name || d.actor_id || '—')}</div>
+          <div class="bg-slate-50 font-semibold p-2">Hành động</div>     <div class="p-2">${escapeHtml(actionVi(d.action))}</div>
+          <div class="bg-slate-50 font-semibold p-2">Trạng thái</div>    <div class="p-2">${escapeHtml(d.status || '')}</div>
+          <div class="bg-slate-50 font-semibold p-2">Đối tượng (MSSV)</div><div class="p-2">${escapeHtml(d.target_id || '—')}</div>
+          <div class="bg-slate-50 font-semibold p-2">Đường dẫn</div>     <div class="p-2">${escapeHtml(d.path || '')}</div>
+          <div class="bg-slate-50 font-semibold p-2">IP</div>             <div class="p-2">${escapeHtml(d.ip_address || '')}</div>
+          <div class="bg-slate-50 font-semibold p-2">Correlation ID</div><div class="p-2">${escapeHtml(d.correlation_id || '')}</div>
+        </div>`;
+
+      /* Dữ liệu hiện tại (snapshot) */
+      const currentPicks = [
+        ["Mã số học viên","ma_so_hv"],
+        ["Mã hồ sơ","ma_ho_so"],
+        ["Họ tên","ho_ten"],
+        ["Ngày nhận hồ sơ","ngay_nhan_hs"],
+        ["Ngày sinh","ngay_sinh"],
+        ["Số điện thoại","so_dt"],
+        ["Email học viên","email_hoc_vien"],
+        ["Ngành nhập học","nganh_nhap_hoc"],
+        ["Đợt","dot"],
+        ["Khóa","khoa"],
+        ["Đã TN trước đó","da_tn_truoc_do"],
+        ["Ghi chú","ghi_chu"],
+        ["Người nhận","nguoi_nhan_ky_ten"],
+        ["Trạng thái","status"]
+      ];
+      const currentHtml = `
+        <h4 class="mt-6 mb-2 font-bold text-blue-800">Dữ liệu hiện tại</h4>
+        ${snapshotGrid(current, currentPicks)}
+
+        <h4 class="mt-6 mb-2 font-bold text-blue-800">Danh mục hồ sơ (hiện tại)</h4>
+        ${renderDocsCurrentTable(
+          Object.keys(docsAfter).length ? docsAfter : docsBefore,
+          nameMap
+        )}
+      `;
+
+      /* Trường thay đổi */
+      const diffHtml = diffs.length
+        ? `<h4 class="mt-6 mb-2 font-bold text-blue-800">Trường thay đổi</h4>
+           <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+             <thead class="bg-slate-50">
+               <tr><th class="p-2 text-left">Trường</th><th class="p-2 text-left">Giá trị cũ</th><th class="p-2 text-left">Giá trị mới</th></tr>
+             </thead>
+             <tbody>
+               ${diffs.map(x=>`
+                 <tr class="border-t">
+                   <td class="p-2 font-semibold">${escapeHtml(getFieldLabel(x.field))}</td>
+                   <td class="p-2">${cellVal(x.from)}</td>
+                   <td class="p-2">${cellVal(x.to)}</td>
+                 </tr>`).join('')}
+             </tbody>
+           </table>`
+        : `<div class="text-gray-500 mt-4">Không có trường thay đổi.</div>`;
+
+      /* Danh mục hồ sơ thay đổi (không hiện mã) */
+      const docsHtml = `
+        <h4 class="mt-6 mb-2 font-bold text-blue-800">Danh mục hồ sơ thay đổi</h4>
+        ${renderDocsDiffTable(docsDiff, nameMap)}
+      `;
+
+      // Render
+      $('#d_view').innerHTML = infoHtml + currentHtml + diffHtml + docsHtml;
+
+      // Admin-only hard delete button
+      const isDel = (d.action==='DELETE' || d.action==='DELETE_SOFT');
+      $('#btnHardDelete').style.display = (isDel && IS_ADMIN) ? '' : 'none';
       $('#detail').style.display = 'flex';
     }catch(e){
-      showNoti('Không tải được chi tiết: '+e.message, 'error');
+      showNoti('Không tải được chi tiết: ' + (e.message||'unknown'), 'error');
     }
   }
 
+  /* ====== Restore ====== */
   async function restore(){
     const id = state.currentLog?.id; 
     if (!id) return;
-
     if (!confirm('Khôi phục dữ liệu từ snapshot của log #' + id + ' ?')) return;
-
     try{
-      const r = await apiFetch('/journal/restore/' + id, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: '{}'
-      });
-
+      const r = await apiFetch('/journal/restore/' + id, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
       if (!r) throw new Error('Không kết nối được máy chủ.');
-
-      if (!r.ok) {
-        let msg = 'Khôi phục thất bại.';
-        let reason = '';
-
-        try {
+      if (!r.ok){
+        let msg = 'Khôi phục thất bại.', reason='';
+        try{
           const ct = r.headers?.get?.('content-type') || '';
-          if (ct.includes('application/json')) {
+          if (ct.includes('application/json')){
             const data = await r.json().catch(()=>null);
-            if (data) {
-              reason = data.reason || data.code || '';
-              if (data.message) msg = data.message;
-            }
-          } else {
-            const t = await r.text().catch(()=> '');
-            if (t) { reason = /hard[_\s-]?deleted/i.test(t) ? 'hard_deleted' : reason; }
+            if (data){ reason=data.reason||data.code||''; if (data.message) msg=data.message; }
+          }else{
+            const t = await r.text().catch(()=> ''); if (/hard[_\s-]?deleted/i.test(t)) reason='hard_deleted';
           }
-        } catch(_) {}
-
-        if (r.status === 410 || reason === 'hard_deleted' || reason === 'HARD_DELETED') {
-          msg = 'Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục!';
-        } else if (r.status === 404) {
-          msg = 'Không tìm thấy dữ liệu để khôi phục.';
-        }
-
+        }catch(_){}
+        if (r.status===410 || reason==='hard_deleted' || reason==='HARD_DELETED') msg='Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục!';
+        else if (r.status===404) msg='Không tìm thấy dữ liệu để khôi phục.';
         throw new Error(msg);
       }
-
       showNoti('Đã khôi phục snapshot!','success');
-
-      try {
-        const mshv = String(state.currentLog?.target_id || '').trim();
-        if (mshv) {
-          const arr = JSON.parse(sessionStorage.getItem('deletedMshv') || '[]');
-          const next = arr.filter(x => String(x) !== mshv);
-          sessionStorage.setItem('deletedMshv', JSON.stringify(next));
-        }
-      } catch(_) {}
-
       $('#detail').style.display='none';
       load();
-    } catch(e){
-      showNoti('Lỗi khôi phục: ' + (e.message || 'unknown'), 'error');
-    }
+    }catch(e){ showNoti('Lỗi khôi phục: ' + (e.message || 'unknown'), 'error'); }
   }
 
+  /* ====== Filters / UI ====== */
   function grabFilters(){
     state.filters = {
-      q:     $('#q').value.trim(),
-      action:$('#qActionSel').value,
-      id:    $('#qId').value.trim(),
-      actor: $('#qActor').value.trim(),
-      from:  $('#qFrom').value,
-      to:    $('#qTo').value
+      q:$('#q').value.trim(), action:$('#qActionSel').value, id:$('#qId').value.trim(),
+      actor:$('#qActor').value.trim(), from:$('#qFrom').value, to:$('#qTo').value
     };
     state.size = Number($('#pageSize').value)||20;
     localStorage.setItem('journal.pageSize', String(state.size));
   }
 
-  // Noti
   function showNoti(msg, type="info", timeout=2500){
     let box = document.getElementById("notiBox");
     let inner = document.getElementById("notiInner");
-    const colors = { info: "bg-blue-600", success: "bg-green-600", warning: "bg-amber-600", error: "bg-rose-600" };
+    const colors={info:"bg-blue-600",success:"bg-green-600",warning:"bg-amber-600",error:"bg-rose-600"};
     inner.className = `px-6 py-3 rounded-xl shadow-xl text-white font-semibold text-center transition-all duration-300 scale-95 opacity-0 ${colors[type]||colors.info}`;
     inner.textContent = msg; box.classList.remove("hidden");
     requestAnimationFrame(()=>{ inner.classList.replace("scale-95","scale-100"); inner.classList.replace("opacity-0","opacity-100"); });
@@ -712,10 +734,8 @@
   }
 
   const triggerSearch = debounce(()=>{ state.page=1; grabFilters(); load(); }, 300);
-
   $('#btnSearch').onclick = ()=>{ state.page=1; grabFilters(); load(); };
   $('#btnClear').onclick  = ()=>{ ['#q','#qType','#qId','#qActor','#qFrom','#qTo'].forEach(s=>$(s).value=''); $('#qActionSel').value=''; state.page=1; grabFilters(); load(); };
-
   ;['#q','#qType','#qId','#qActor','#qFrom','#qTo'].forEach(sel=>{
     $(sel).addEventListener('input', triggerSearch);
     $(sel).addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); state.page=1; grabFilters(); load(); } });
@@ -745,38 +765,20 @@
   $('#btnCopy').onclick  = ()=>{ if(!state.currentLog) return; const text = JSON.stringify(state.currentLog, null, 2); navigator.clipboard.writeText(text).then(()=> showNoti('Đã sao chép JSON chi tiết','success')); };
   $('#btnRestore').onclick = restore;
 
-  // ==== ROLE & ADMIN FLAG ====
+  /* ====== ROLE ====== */
   let CURRENT_ROLE = null;
   let IS_ADMIN = false;
 
   window.addEventListener('load', async ()=>{
-    // Kiểm tra quyền truy cập & lấy role
     try {
       const meRes = await apiFetch('/me');
       if (meRes?.ok) {
         const me = await meRes.json();
-
-        if (!['Admin','NhanVien'].includes(me.role)) {
-          alert('Quyền tài khoản không được phép truy cập trang Nhật ký.');
-          location.href = '/students_list.html';
-          return;
-        }
-
-        // ✅ Lưu role và set cờ Admin
-        CURRENT_ROLE = me.role || null;
-        IS_ADMIN = CURRENT_ROLE === 'Admin';
-        // set vào <html> để CSS có thể ẩn theo role
+        if (!['Admin','NhanVien'].includes(me.role)) { alert('Quyền tài khoản không được phép truy cập trang Nhật ký.'); location.href = '/students_list.html'; return; }
+        CURRENT_ROLE = me.role || null; IS_ADMIN = CURRENT_ROLE === 'Admin';
         document.documentElement.dataset.role = CURRENT_ROLE;
-
-      } else {
-        location.href = '/login';
-        return;
-      }
-    } catch (_) {
-      alert('Không kiểm tra được quyền truy cập.');
-      location.href = '/students_list.html';
-      return;
-    }
+      } else { location.href = '/login'; return; }
+    } catch (_) { alert('Không kiểm tra được quyền truy cập.'); location.href = '/students_list.html'; return; }
 
     await detectPrefix();
     $('#pageSize').value = String(state.size);
@@ -787,7 +789,7 @@
 
   $('#apiBase').addEventListener('change', ()=>{ localStorage.setItem(STORAGE_KEY, $('#apiBase').value.trim()); });
 
-  // === Hard delete controls (locked to Admin) ===
+  /* ====== Hard delete (Admin only) ====== */
   const btnHardDelete = document.getElementById('btnHardDelete');
   const btnHardDeleteGo = document.getElementById('btnHardDeleteGo');
   const btnHardDeleteCancel = document.getElementById('btnHardDeleteCancel');
@@ -802,11 +804,7 @@
     btnHardDeleteCancel.classList.remove('hidden');
     btnHardDeleteGo.disabled = (hardDelSel.value !== 'CONFIRM_DELETE');
   };
-
-  hardDelSel?.addEventListener('change', () => {
-    btnHardDeleteGo.disabled = (hardDelSel.value !== 'CONFIRM_DELETE');
-  });
-
+  hardDelSel?.addEventListener('change', () => { btnHardDeleteGo.disabled = (hardDelSel.value !== 'CONFIRM_DELETE'); });
   btnHardDeleteCancel.onclick = () => {
     hardDelBox.classList.add('hidden');
     btnHardDeleteGo.classList.add('hidden');
@@ -814,62 +812,37 @@
     if (hardDelSel) hardDelSel.value = '';
     if (hardDelReason) hardDelReason.value = '';
   };
-
   btnHardDeleteGo.onclick = async () => {
     if (!IS_ADMIN) { showNoti('Chỉ Admin mới được xóa vĩnh viễn.', 'error'); return; }
-
     const log = state.currentLog; if (!log) return;
-    const { target_type, target_id } = log;
-
-    if (hardDelSel.value !== 'CONFIRM_DELETE') {
-      showNoti('Bạn chưa xác nhận xóa vĩnh viễn.', 'warning');
-      return;
-    }
+    if (hardDelSel.value !== 'CONFIRM_DELETE'){ showNoti('Bạn chưa xác nhận xóa vĩnh viễn.', 'warning'); return; }
 
     const confirmBox = document.getElementById('confirmHardDel');
     const yesBtn = document.getElementById('btnConfirmHardDelYes');
     const noBtn  = document.getElementById('btnConfirmHardDelNo');
-
     confirmBox.classList.remove('hidden');
-
     const onNo = () => { confirmBox.classList.add('hidden'); };
     const onYes = async () => {
-      confirmBox.classList.add('hidden');
-      btnHardDeleteGo.disabled = true;
-
+      confirmBox.classList.add('hidden'); btnHardDeleteGo.disabled = true;
       try{
         const r = await apiFetch('/journal/hard-delete', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
+          method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
-            log_id: log.id,
-            target_type,
-            target_id,
-            confirm: 'CONFIRM_DELETE',
-            reason: (hardDelReason?.value || '').trim()
+            log_id: log.id, target_type: log.target_type, target_id: log.target_id,
+            confirm: 'CONFIRM_DELETE', reason: (hardDelReason?.value || '').trim()
           })
         });
         if (!r || !r.ok) throw new Error('API hard-delete không khả dụng');
-
         showNoti('Đã xóa vĩnh viễn.','success');
-
-        btnHardDeleteCancel.click();
-        document.getElementById('detail').style.display = 'none';
-        load();
-      }catch(e){
-        showNoti('Hard-delete lỗi: '+(e.message||'unknown'),'error');
-      } finally {
-        btnHardDeleteGo.disabled = false;
-      }
-
-      yesBtn.removeEventListener('click', onYes);
-      noBtn.removeEventListener('click', onNo);
+        btnHardDeleteCancel.click(); document.getElementById('detail').style.display = 'none'; load();
+      }catch(e){ showNoti('Hard-delete lỗi: '+(e.message||'unknown'),'error'); }
+      finally{ btnHardDeleteGo.disabled = false; }
+      yesBtn.removeEventListener('click', onYes); noBtn.removeEventListener('click', onNo);
     };
-
-    noBtn.addEventListener('click', onNo, { once: true });
-    yesBtn.addEventListener('click', onYes, { once: true });
+    noBtn.addEventListener('click', onNo, { once:true });
+    yesBtn.addEventListener('click', onYes, { once:true });
   };
-
 </script>
+
 </body>
 </html>

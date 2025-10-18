@@ -194,3 +194,38 @@ body{
 
 /* Variant: journal primary */
 .is-journal .btn-primary{ background:var(--c-primary-600); }
+
+  /* Bảng chi tiết trong Journal – đồng bộ màu & spacing */
+  .table-journal {
+    width: 100%;
+    border: 1px solid #e5e7eb;           /* border-gray-200 */
+    border-radius: 0.75rem;               /* rounded-xl */
+    overflow: hidden;
+    font-size: .875rem;                   /* text-sm */
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .table-journal thead th{
+    background:#f8fafc;                   /* bg-slate-50 */
+    font-weight:600;
+  }
+  .table-journal th,
+  .table-journal td{
+    padding: .5rem .625rem;               /* p-2 ~ 8px, x ~ 10px */
+    border-top: 1px solid #e5e7eb;        /* border-gray-200 */
+    vertical-align: top;
+  }
+  .table-journal thead th { border-top: 0; }
+.section-h4{
+    margin-top: 1.5rem;   /* mt-6 */
+    margin-bottom: .5rem; /* mb-2 */
+    font-weight: 700;
+    color: #1e40af;       /* text-blue-800 */
+  }
+
+  /* Chỉ áp cho modal lý do */
+#reasonModal .modal { border-radius: 16px; }
+#reasonModal .hd { font-weight: 700; margin-bottom: 8px; }
+#reasonModal .bd { padding-top: 6px; }
+#reasonModal select, 
+#reasonModal input { font-size: 16px; } /* tăng size => dropdown to hơn */

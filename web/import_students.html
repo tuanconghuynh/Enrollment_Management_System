@@ -566,8 +566,9 @@
         ["- Ngày nhận HS được chọn ở giao diện, KHÔNG cần có trong file."],
         ["- Định dạng ngày sinh gợi ý: DD/MM/YYYY (ví dụ: 01/10/2005)."]
       ];
+      const rand = Math.floor(10000 + Math.random() * 90000);
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(guide), "HuongDan");
-      XLSX.writeFile(wb, "template_hoc_vien.xlsx");
+      XLSX.writeFile(wb, `template_hoc_vien_${rand}.xlsx`);
     };
 
     $('btnTplCsv').onclick = ()=>{

@@ -831,29 +831,6 @@
       openModal();
     }
 
-    $("editForm").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      const mshv = $("e_mshv").value.trim();
-      const body = {
-        ma_ho_so: $("e_ma_ho_so").value.trim(),
-        ho_ten: $("e_ho_ten").value.trim(),
-        email_hoc_vien: $("e_email").value.trim() || null,
-        so_dt: $("e_so_dt").value.trim() || null,
-        nganh_nhap_hoc: $("e_nganh").value.trim() || null,
-        dot: $("e_dot").value.trim() || null,
-        khoa: $("e_khoa").value.trim() || null,
-        ngay_nhan_hs: $("e_ngay_nhan").value || null,
-        ngay_sinh: $("e_ngay_sinh").value || null,
-        ghi_chu: $("e_ghi_chu").value.trim() || null
-      };
-      if (!body.ma_ho_so || !body.ho_ten){ alert("Thiếu Mã hồ sơ / Họ tên."); return; }
-      const btn = $("btnSaveEdit"); btn.disabled = true; const old = btn.textContent; btn.textContent = "Đang lưu...";
-      const r = await apiFetch(`/applicants/${encodeURIComponent(mshv)}`, { method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) }).catch(()=>null);
-      btn.disabled = false; btn.textContent = old;
-      if (!r || !r.ok){ const t = r ? await r.text() : "(không phản hồi)"; alert(`Cập nhật thất bại (HTTP ${r ? r.status : '???'})\n${t}`); return; }
-      closeModal(); await runSearch();
-    });
-
     // ===== init =====
     window.addEventListener('load', async () => {
       await ensureLoggedIn();
@@ -948,6 +925,33 @@
             max-w-[90vw] sm:max-w-md text-center">
     </div>
   </div>
+
+<!-- Modal chọn lý do cập nhật -->
+<div id="reasonModal" class="overlay" aria-modal="true" role="dialog">
+  <div class="modal max-w-lg">
+    <div class="hd">Thông tin cập nhật</div>
+    <div class="bd space-y-2">
+      <label class="text-sm font-medium text-gray-700 block">Vui lòng chọn lý do:</label>
+      <select id="reasonSelect" class="input w-full">
+        <option value="">-- Chọn lệnh bổ sung --</option>
+        <option value="capnhat_thongtin">Cập nhật thông tin học viên</option>
+        <option value="capnhat_hoso_moi">Cập nhật hồ sơ mới</option>
+        <option value="bosung_hoso">Bổ sung hồ sơ</option>
+        <option value="capnhat_chungchi">Cập nhật chứng chỉ</option>
+        <option value="chinhsua_hoso">Chỉnh sửa hồ sơ</option>
+        <option value="khac">Lý do khác (nhập thêm)</option>
+      </select>
+      <div id="reasonOtherWrap" class="hidden">
+        <label class="text-sm font-medium text-gray-700 block mt-2">Nhập lý do khác:</label>
+        <input id="reasonOther" class="input w-full" placeholder="Nhập lý do cụ thể..." />
+      </div>
+    </div>
+    <div class="ft">
+      <button id="reasonCancel" class="btn btn-outline">Hủy</button>
+      <button id="reasonOK" class="btn btn-primary">Xác nhận</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

@@ -168,7 +168,7 @@
         </div>
         <!-- 🆕 Ghi chú đặt dưới bảng -->
         <div class="mt-4">
-          <label class="label">Ghi chú</label>
+          <label class="label">Ghi chú (Các chứng chỉ khác sẽ điền ở đây)</label>
           <input class="input" id="ghi_chu" />
         </div>
 
@@ -204,7 +204,61 @@
 
           <div class="grid grid-cols-2 gap-2 mt-3">
             <button id="btnUpdateApplicant" class="btn btn-secondary">Cập nhật</button>
-            <button id="btnDeleteApplicant" class="btn btn-outline">Xoá</button>
+            <button id="btnDeleteApplicant" class="btn btn-outline">Xóa</button>
+            <!-- Modal cập nhật lý do -->
+            <div id="modalUpdateReason"
+                class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 backdrop-blur-sm">
+              <div class="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-2xl transform transition-all scale-100">
+                <!-- Header -->
+                <div class="px-6 py-4 border-b flex items-center justify-between bg-blue-50 rounded-t-2xl">
+                  <div class="text-lg font-bold text-blue-800">📝 YÊU CẦU CẬP NHẬT HỒ SƠ</div>
+                  <button id="urClose"
+                          class="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-300">
+                    ❌
+                  </button>
+                </div>
+
+                <!-- Body -->
+                <div class="p-6 space-y-4 text-base">
+                  <div>
+                    <label for="updateReasonSelect" class="block font-semibold text-gray-800 mb-2">
+                      Yêu cầu cập nhật
+                    </label>
+                    <select id="updateReasonSelect"
+                            class="input w-full h-12 text-base border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                      <option value="">-- Chọn lệnh bổ sung --</option>
+                      <option value="capnhat_hoso_moi">Cập nhật hồ sơ mới</option>
+                      <option value="bosung_hoso">Bổ sung hồ sơ</option>
+                      <option value="capnhat_thongtin">Cập nhật thông tin học viên</option>
+                      <option value="capnhat_chungchi">Cập nhật chứng chỉ</option>
+                      <option value="chinhsua_hoso">Chỉnh sửa hồ sơ</option>
+                      <option value="khac">Lý do khác...</option>
+                    </select>
+                  </div>
+
+                  <div id="reasonOtherWrap" class="hidden">
+                    <label for="updateReasonText" class="block font-semibold text-gray-800 mb-2">
+                      Nhập lý do khác
+                    </label>
+                    <textarea id="updateReasonText" rows="3"
+                              class="input w-full text-base border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Nhập lý do khác..."></textarea>
+                  </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-6 py-4 border-t flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
+                  <button id="urCancel"
+                          class="px-5 py-2 text-sm border border-gray-400 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-300">
+                    Hủy
+                  </button>
+                  <button id="urOK"
+                          class="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-400">
+                    Xác nhận
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -351,22 +405,31 @@
         ["navHello"].forEach(id=>$(id)?.classList.add("hidden"));
         $("navLogin")?.classList.remove("hidden");
         $("navLogout")?.classList.add("hidden");
+        // clear người nhận khi chưa đăng nhập
+        const rec = $("nguoi_nhan_ky_ten"); if (rec) rec.value = "";
         return;
       }
       const me = await r.json();
       const role = me.role || "";
+      const displayName = me.full_name || me.username || "";
 
-      $("navHello").textContent = `Xin chào, ${me.full_name || me.username} (${role})`;
+      $("navHello").textContent = `Xin chào, ${displayName} (${role})`;
       $("navHello").classList.remove("hidden");
       $("navLogin")?.classList.add("hidden");
       $("navLogout")?.classList.remove("hidden");
+
+      // ✅ Điền vào ô Người nhận (nếu đang trống)
+      const rec = $("nguoi_nhan_ky_ten");
+      if (rec && !rec.value) {
+        rec.value = displayName;
+        rec.title = `Tự động theo tài khoản: ${displayName}`;
+      }
     }catch(_){
       ["navHello"].forEach(id=>$(id)?.classList.add("hidden"));
       $("navLogin")?.classList.remove("hidden");
       $("navLogout")?.classList.add("hidden");
     }
   }
-
   $("navLogout")?.addEventListener("click", async ()=>{ try{ await apiFetch('/logout', { method:'POST', credentials:'include' }); }catch(_){ } location.href='/login'; });
 
   // ===== Checklist =====
@@ -508,18 +571,69 @@
   }
 
   async function updateLoadedApplicant(){
-    if(!window.loadedApplicant?.ma_so_hv) throw new Error("Chưa tải hồ sơ nào để cập nhật.");
-    const body = payloadForUpdate();
-    if(!body.ma_ho_so || !body.ho_ten) throw new Error("Thiếu Mã hồ sơ / Họ tên.");
-    const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {
-      method: "PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body)
-    });
-    if (handleAuth(r)) return;
-    if(!r || !r.ok){ const t = r ? await r.text() : "(không phản hồi)"; throw new Error(`Cập nhật thất bại (HTTP ${r ? r.status : '???'})\n${t}`); }
-    const res = await r.json();
-    window.loadedApplicant.ma_ho_so = res.ma_ho_so || body.ma_ho_so;
-    return res;
+  if(!window.loadedApplicant?.ma_so_hv) throw new Error("Chưa tải hồ sơ nào để cập nhật.");
+
+  const body = payloadForUpdate();
+  if(!body.ho_ten) throw new Error("Thiếu Họ tên.");
+
+  const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {
+    method: "PUT",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(body)
+  });
+  if (handleAuth(r)) return;
+  if(!r || !r.ok){
+    const t = r ? await r.text() : "(không phản hồi)";
+    throw new Error(`Cập nhật thất bại (HTTP ${r ? r.status : '???'})\n${t}`);
   }
+
+  const res = await r.json();
+
+  // ✅ Chỉ cập nhật MSHV nếu còn giữ loadedApplicant
+  if (window.loadedApplicant) {
+    window.loadedApplicant.ma_so_hv = res.ma_so_hv || body.ma_so_hv || window.loadedApplicant.ma_so_hv;
+  }
+
+  return res;
+}
+
+function askUpdateReason() {
+  return new Promise((resolve) => {
+    const wrap = $("modalUpdateReason");
+    const select = $("updateReasonSelect");
+    const txt = $("updateReasonText");
+    const ok = $("urOK");
+    const cancel = $("urCancel");
+    const close = $("urClose");
+
+    select.value = "";
+    txt.value = "";
+    txt.classList.add("hidden");
+    wrap.classList.remove("hidden");
+    wrap.classList.add("flex");
+
+    select.onchange = () => {
+      if (select.value === "khac") txt.classList.remove("hidden");
+      else txt.classList.add("hidden");
+    };
+
+    const done = (v) => {
+      wrap.classList.add("hidden");
+      wrap.classList.remove("flex");
+      ok.onclick = cancel.onclick = close.onclick = null;
+      resolve(v);
+    };
+
+    ok.onclick = () => {
+      const key = select.value;
+      const text = txt.value.trim();
+      if (!key) { showToast("Vui lòng chọn lý do cập nhật.", "warn"); return; }
+      if (key === "khac" && !text) { showToast("Nhập lý do khác.", "warn"); return; }
+      done({ key, text });
+    };
+    cancel.onclick = close.onclick = () => done(null);
+  });
+}
 
   // ===== Modal hỏi lý do xoá =====
   function askDeleteReason(title, defText=""){
@@ -572,29 +686,48 @@
       const res = await createApplicant();
       if (res) {
         showToast(`Đã lưu hồ sơ <b>${res.ma_so_hv || $("ma_so_hv").value}</b>.`, "success");
-        $("msg").textContent = `Đã lưu hồ sơ ${res.ma_ho_so || $("ma_so_hv").value}.`;
-        resetToNewForm(); // 🆕 trả form về trắng
+        $("msg").textContent = `Đã lưu MSHV ${res.ma_so_hv || $("ma_so_hv").value}.`;
+        resetToNewForm();
       }
     } finally{ btn.disabled = false; btn.textContent = old; }
   };
 
   // --- Sửa handler CẬP NHẬT (cả 2 nút Update):
-  ["btnUpdateApplicant", "btnUpdateApplicantMain"].forEach(id=>{
-    $(id)?.addEventListener("click", async () => {
-      try{
-        $("lookupMsg").textContent = "Đang cập nhật...";
-        const res = await updateLoadedApplicant();
-        if (res?.nguoi_nhan_ky_ten) $("nguoi_nhan_ky_ten").value = res.nguoi_nhan_ky_ten;
-        showToast(`Đã cập nhật hồ sơ <b>${res.ma_ho_so}</b>`, "success");
-        $("lookupMsg").textContent = `Cập nhật xong hồ sơ ${res.ma_ho_so}.`;
-        resetToNewForm(); // 🆕 trả form về trắng
-      } catch(e){
-        $("lookupMsg").textContent = e.message;
-        showToast(e.message || "Cập nhật thất bại!", "error");
-      }
-    });
-  });
+["btnUpdateApplicant", "btnUpdateApplicantMain"].forEach(id => {
+  $(id)?.addEventListener("click", async () => {
+    try {
+      if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào để cập nhật.", "warn"); return; }
 
+      const reason = await askUpdateReason();
+      if (!reason) return;
+
+      const body = payloadForUpdate();
+      body.update_reason_key = reason.key;
+      body.update_reason_text = reason.text;
+
+      $("lookupMsg").textContent = "Đang cập nhật...";
+      const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (handleAuth(r)) return;
+
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(`Cập nhật thất bại (${r.status}): ${t}`);
+      }
+
+      const res = await r.json();
+      showToast(`Đã cập nhật hồ sơ MSHV <b>${res.ma_so_hv}</b>`, "success");
+      $("lookupMsg").textContent = `Cập nhật xong MSHV ${res.ma_so_hv}.`;
+      resetToNewForm();
+    } catch (e) {
+      $("lookupMsg").textContent = e.message;
+      showToast(e.message || "Cập nhật thất bại!", "error");
+    }
+  });
+});
 
   async function createApplicant(){
     const body = payloadForCreate();
@@ -729,7 +862,7 @@
   };
 
   $("btnPrintLoadedA4").onclick = () => {
-    if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào.", "warn"); return; }
+    if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào!", "warn"); return; }
     showToast("Đang mở PDF A4…", "info", 1800);
     openPdf(makeUrl(`/print/a4/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`));
   };
@@ -740,13 +873,13 @@
     btn.disabled = true; const old = btn.textContent; btn.textContent = "Đang lưu...";
     try{
       const res = await createApplicant();
-      if (res) { $("msg").textContent = `Đã lưu hồ sơ ${res.ma_ho_so || $("ma_so_hv").value}.`; showToast(`Đã lưu hồ sơ <b>${res.ma_so_hv || $("ma_so_hv").value}</b>.`, "success"); }
+      if (res) { $("msg").textContent = `Đã lưu hồ sơ ${res.ma_so_hv || $("ma_so_hv").value}.`; showToast(`Đã lưu hồ sơ <b>${res.ma_so_hv || $("ma_so_hv").value}</b>`, "success"); }
     } finally{ btn.disabled = false; btn.textContent = old; }
   };
 
   $("btnLoadApplicantMSHV").onclick = async () => {
     try{
-      const mshv = $("q_ma_so_hv").value.trim(); if(!mshv){ alert("Nhập MSHV (MSSV) để tải."); return; }
+      const mshv = $("q_ma_so_hv").value.trim(); if(!mshv){ alert("Nhập MSHV (MSSV) để tải!"); return; }
       $("lookupMsg").textContent = "Đang tải theo MSHV...";
       const a = await loadApplicantByMSHV(mshv);
       window.loadedApplicant = { ma_so_hv: a.ma_so_hv, ma_ho_so: a.ma_ho_so };
@@ -768,18 +901,6 @@
     }catch(e){ $("lookupMsg").textContent = e.message || "Lỗi tìm kiếm."; showToast(e.message || "Lỗi tìm kiếm.", "error"); }
   };
   $("q_ho_ten").addEventListener('keydown', (e)=>{ if(e.key==='Enter') $("btnSearchByName").click(); });
-
-  ["btnUpdateApplicant", "btnUpdateApplicantMain"].forEach(id=>{
-    $(id)?.addEventListener("click", async () => {
-      try{
-        $("lookupMsg").textContent = "Đang cập nhật...";
-        const res = await updateLoadedApplicant();
-        if (res?.nguoi_nhan_ky_ten) $("nguoi_nhan_ky_ten").value = res.nguoi_nhan_ky_ten;
-        $("lookupMsg").textContent = `Cập nhật xong hồ sơ ${res.ma_ho_so}.`;
-        showToast(`Đã cập nhật hồ sơ <b>${res.ma_ho_so}</b>`, "success");
-      } catch(e){ $("lookupMsg").textContent = e.message; showToast(e.message || "Cập nhật thất bại!", "error"); }
-    });
-  });
 
   // Xoá (mở modal nhập lý do)
   $("btnDeleteApplicant").onclick = async () => {
@@ -805,6 +926,7 @@
 
   // ===== init =====
   window.addEventListener('load', async () => {
+    
     const today = new Date().toISOString().slice(0,10);
     $("ngay_nhan_hs").value = today;
     $("q_ma_so_hv")?.focus();
