@@ -7,7 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, status, Request, Response
 from fastapi.responses import StreamingResponse
-from sqlalchemy import or_, func
+from sqlalchemy import or_, and_, func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -16,6 +16,8 @@ from app.models.applicant import Applicant, ApplicantDoc
 from app.models.checklist import ChecklistItem, ChecklistVersion
 from app.routers.auth import require_roles
 from app.services.audit import write_audit
+
+from app.utils.soft_delete import exclude_deleted
 
 try:
     from app.schemas.applicant import ApplicantIn, ApplicantOut
@@ -36,6 +38,7 @@ UPDATE_REASON_CHOICES = {
     "khac": "Lý do khác",
 }
 
+
 def _validate_update_reason(data) -> str:
     """
     Hỗ trợ 2 kiểu truyền từ FE:
@@ -48,18 +51,14 @@ def _validate_update_reason(data) -> str:
     key = None
     text = None
 
-    # data có thể là dict hoặc str
     if isinstance(data, dict):
         key = (data.get("key") or "").strip()
         text = (data.get("text") or "").strip()
     elif isinstance(data, str):
         key = data.strip()
     elif data is None:
-        # sẽ để caller truyền thêm alt nếu cần
         pass
 
-    # Nếu caller muốn truyền kiểu alt (key/text nằm ngoài)
-    # thì cho phép gọi _validate_update_reason({"key": ..., "text": ...})
     if not key:
         raise HTTPException(400, "Thiếu lý do cập nhật (update_reason.key).")
 
@@ -74,6 +73,7 @@ def _validate_update_reason(data) -> str:
 
     return label
 
+
 # ================= Helpers =================
 DATE_DMY = re.compile(r"^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$")
 DATE_YMD = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
@@ -81,18 +81,19 @@ MSSV_REGEX = re.compile(r"^\d{10}$")
 
 DELETE_KEY_SECRET = os.getenv("DELETE_KEY_SECRET", "delete-dev")
 
+
 def verify_delete_key(key: str) -> bool:
     """
     Xác thực key xóa: HMAC-SHA256("ALLOW_DELETE", DELETE_KEY_SECRET).
-    Sinh key hợp lệ để test:
-      python -c "import os,hmac,hashlib;print(hmac.new(os.getenv('DELETE_KEY_SECRET','delete-dev').encode(), b'ALLOW_DELETE', hashlib.sha256).hexdigest())"
     """
     digest = hmac.new(DELETE_KEY_SECRET.encode(), b"ALLOW_DELETE", hashlib.sha256).hexdigest()
     return hmac.compare_digest(key or "", digest)
 
+
 def ensure_mssv(v: str):
     if not MSSV_REGEX.fullmatch(v or ""):
         raise HTTPException(status_code=422, detail="MSSV phải gồm đúng 10 chữ số.")
+
 
 def _parse_date_flexible(v: Optional[object]) -> Optional[date]:
     if v in (None, ""):
@@ -117,9 +118,11 @@ def _parse_date_flexible(v: Optional[object]) -> Optional[date]:
     except Exception:
         return None
 
+
 def _to_dmy(v: Optional[object]) -> Optional[str]:
     d = _parse_date_flexible(v)
     return f"{d.day:02d}/{d.month:02d}/{d.year:04d}" if d else None
+
 
 def _to_iso(v: Optional[object]) -> Optional[str]:
     if v is None or v == "":
@@ -131,15 +134,21 @@ def _to_iso(v: Optional[object]) -> Optional[str]:
     d = _parse_date_flexible(v)
     return datetime.combine(d, datetime.min.time()).isoformat() if d else None
 
+
 def snapshot_applicant(a: Applicant) -> dict:
     """Chụp nhanh bản ghi để ghi audit (prev/new)."""
     if not a:
         return {}
+
     def iso(d):
-        if not d: return None
-        if isinstance(d, datetime): return d.isoformat()
-        if isinstance(d, date): return datetime.combine(d, datetime.min.time()).isoformat()
+        if not d:
+            return None
+        if isinstance(d, datetime):
+            return d.isoformat()
+        if isinstance(d, date):
+            return datetime.combine(d, datetime.min.time()).isoformat()
         return str(d)
+
     return {
         "ma_so_hv": a.ma_so_hv,
         "ma_ho_so": a.ma_ho_so,
@@ -148,7 +157,8 @@ def snapshot_applicant(a: Applicant) -> dict:
         "ngay_nhan_hs": iso(a.ngay_nhan_hs),
         "ngay_sinh": iso(a.ngay_sinh),
         "so_dt": a.so_dt,
-        "nganh_nhap_hoc": getattr(a, "nganh_nhap_hoc", None),
+        # trả về theo key nganh_nhap_hoc — map cả khi DB dùng cột 'nganh'
+        "nganh_nhap_hoc": getattr(a, "nganh_nhap_hoc", None) if hasattr(a, "nganh_nhap_hoc") else getattr(a, "nganh", None),
         "dot": getattr(a, "dot", None),
         "khoa": getattr(a, "khoa", None),
         "da_tn_truoc_do": getattr(a, "da_tn_truoc_do", None),
@@ -163,10 +173,12 @@ def snapshot_applicant(a: Applicant) -> dict:
         "deleted_reason": getattr(a, "deleted_reason", None),
     }
 
+
 # 🆕 Helper: lấy map docs {code: so_luong}
 def _docs_map(db: Session, mshv: str) -> dict[str, int]:
     rows = db.query(ApplicantDoc).filter_by(applicant_ma_so_hv=mshv).all()
     return {d.code: int(d.so_luong or 0) for d in rows}
+
 
 # ================= GET by code =================
 @router.get("/by-code/{key}")
@@ -178,8 +190,10 @@ def get_by_code(
 ):
     k = (key or "").strip()
     if not k:
-        write_audit(db, action="READ", target_type="Applicant", target_id=None,
-                    status="FAILURE", new_values={"reason":"missing key"}, request=request)
+        write_audit(
+            db, action="READ", target_type="Applicant", target_id=None,
+            status="FAILURE", new_values={"reason": "missing key"}, request=request
+        )
         db.commit()
         raise HTTPException(400, "Thiếu mã tra cứu")
 
@@ -194,7 +208,7 @@ def get_by_code(
     if not a:
         a = (
             db.query(Applicant)
-            .filter(Applicant.ma_ho_so.ilike(k))
+            .filter(Applicant.ma_ho_so.ilike(f"%{k}%"))
             .order_by(Applicant.created_at.desc())
             .first()
         )
@@ -203,6 +217,10 @@ def get_by_code(
         write_audit(db, action="READ", target_type="Applicant", target_id=k, status="FAILURE", request=request)
         db.commit()
         raise HTTPException(404, "Not Found")
+
+    # Chặn hồ sơ đã xoá mềm
+    if hasattr(Applicant, "deleted_at") and getattr(a, "deleted_at", None):
+        raise HTTPException(410, "Hồ sơ đã bị xoá tạm.")
 
     docs = db.query(ApplicantDoc).filter(
         ApplicantDoc.applicant_ma_so_hv == a.ma_so_hv
@@ -247,6 +265,7 @@ def get_by_code(
         "docs": [{"code": d.code, "so_luong": int(d.so_luong or 0)} for d in docs],
     }
 
+
 @router.get("/by-mshv/{ma_so_hv}")
 def get_by_mshv(
     ma_so_hv: str,
@@ -268,6 +287,10 @@ def get_by_mshv(
         db.commit()
         raise HTTPException(status_code=404, detail="Not Found")
 
+    # Chặn hồ sơ đã xoá mềm
+    if hasattr(Applicant, "deleted_at") and getattr(a, "deleted_at", None):
+        raise HTTPException(410, "Hồ sơ đã bị xoá tạm.")
+
     docs = db.query(ApplicantDoc).filter(
         ApplicantDoc.applicant_ma_so_hv == a.ma_so_hv
     ).all()
@@ -281,17 +304,22 @@ def get_by_mshv(
         return None
 
     def _to_dmy2(v):
-        if not v: return None
-        if isinstance(v, datetime): v = v.date()
-        if isinstance(v, date): return f"{v.day:02d}/{v.month:02d}/{v.year:04d}"
+        if not v:
+            return None
+        if isinstance(v, datetime):
+            v = v.date()
+        if isinstance(v, date):
+            return f"{v.day:02d}/{v.month:02d}/{v.year:04d}"
         try:
             return datetime.fromisoformat(str(v)).strftime("%d/%m/%Y")
         except Exception:
             return str(v)
 
     def _to_iso2(v):
-        if not v: return None
-        if isinstance(v, datetime): return v.isoformat()
+        if not v:
+            return None
+        if isinstance(v, datetime):
+            return v.isoformat()
         if isinstance(v, date):
             return datetime.combine(v, datetime.min.time()).isoformat()
         try:
@@ -311,12 +339,12 @@ def get_by_mshv(
         "ho_ten": a.ho_ten,
         "ma_so_hv": a.ma_so_hv,
         "so_dt": a.so_dt,
-        "nganh_nhap_hoc": pick("nganh_nhap_hoc","nganh"),
-        "dot": pick("dot","dot_tuyen"),
-        "khoa": pick("khoa","khoa_hoc","khoahoc","nien_khoa"),
+        "nganh_nhap_hoc": pick("nganh_nhap_hoc", "nganh"),
+        "dot": pick("dot", "dot_tuyen"),
+        "khoa": pick("khoa", "khoa_hoc", "khoahoc", "nien_khoa"),
         "da_tn_truoc_do": a.da_tn_truoc_do,
         "ghi_chu": a.ghi_chu,
-        "nguoi_nhan_ky_ten": pick("nguoi_nhan_ky_ten","nguoi_nhan","nguoi_ky"),
+        "nguoi_nhan_ky_ten": pick("nguoi_nhan_ky_ten", "nguoi_nhan", "nguoi_ky"),
         "status": getattr(a, "status", None),
         "printed": getattr(a, "printed", None),
         "checklist_version_id": getattr(a, "checklist_version_id", None),
@@ -331,12 +359,13 @@ def get_by_mshv(
         "docs": [{"code": d.code, "so_luong": int(d.so_luong or 0)} for d in docs],
     }
 
+
 # ================= CREATE =================
 @router.post("", status_code=201)
 @router.post("/", status_code=201)
 def create_applicant(
     request: Request,
-    payload: dict = Body(...),  # <- dùng dict để tự parse, tránh 422 của Pydantic
+    payload: dict = Body(...),  # dùng dict để tự parse, tránh 422 của Pydantic
     db: Session = Depends(get_db),
     me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
 ):
@@ -345,8 +374,15 @@ def create_applicant(
         ChecklistVersion.version_name == version_name
     ).first()
     if not v:
-        write_audit(db, action="CREATE", target_type="Applicant", target_id=None,
-                    status="FAILURE", new_values={"reason":"Checklist version not found", "version":version_name}, request=request)
+        write_audit(
+            db,
+            action="CREATE",
+            target_type="Applicant",
+            target_id=None,
+            status="FAILURE",
+            new_values={"reason": "Checklist version not found", "version": version_name},
+            request=request,
+        )
         db.commit()
         raise HTTPException(400, "Checklist version không tồn tại")
 
@@ -354,19 +390,22 @@ def create_applicant(
     ensure_mssv(ma_so_hv)
 
     ma_ho_so = (payload.get("ma_ho_so") or "").strip()
-    ho_ten   = (payload.get("ho_ten") or "").strip()
+    ho_ten = (payload.get("ho_ten") or "").strip()
     ngay_nhan_hs = _parse_date_flexible(payload.get("ngay_nhan_hs"))
 
     if not ma_ho_so:
-        raise HTTPException(422, "Thiếu trường bắt buộc: ma_ho_so")
+        raise HTTPException(422, "Thiếu trường bắt buộc: Mã Hồ Sơ")
     if not ho_ten:
-        raise HTTPException(422, "Thiếu trường bắt buộc: ho_ten")
+        raise HTTPException(422, "Thiếu trường bắt buộc: Họ Và Tên")
     if not ngay_nhan_hs:
-        raise HTTPException(422, "Thiếu trường bắt buộc: ngay_nhan_hs (dd/MM/YYYY hoặc YYYY-MM-DD)")
+        raise HTTPException(422, "Thiếu trường bắt buộc: Ngày nhận hồ sơ (dd/MM/YYYY hoặc YYYY-MM-DD)")
 
     existed_mssv = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
     if existed_mssv:
-        raise HTTPException(409, "MSSV (ma_so_hv) đã tồn tại")
+        raise HTTPException(409, "Mã số học viên đã tồn tại!")
+
+    # ✅ chấp nhận cả 'nganh_nhap_hoc' (mới) hoặc 'nganh' (cũ)
+    _nganh_val = (payload.get("nganh_nhap_hoc") or payload.get("nganh") or None)
 
     a = Applicant(
         ma_so_hv=ma_so_hv,
@@ -376,7 +415,6 @@ def create_applicant(
         email_hoc_vien=payload.get("email_hoc_vien"),
         ngay_sinh=_parse_date_flexible(payload.get("ngay_sinh")),
         so_dt=payload.get("so_dt"),
-        nganh_nhap_hoc=payload.get("nganh_nhap_hoc"),
         dot=payload.get("dot"),
         khoa=payload.get("khoa"),
         da_tn_truoc_do=payload.get("da_tn_truoc_do"),
@@ -386,21 +424,34 @@ def create_applicant(
         status="saved",
         printed=False,
     )
+    # ✅ ghi vào đúng cột hiện có trong model
+    if hasattr(Applicant, "nganh_nhap_hoc"):
+        a.nganh_nhap_hoc = _nganh_val
+    elif hasattr(Applicant, "nganh"):
+        a.nganh = _nganh_val
+
     prev_snapshot = {}
     db.add(a)
     try:
         db.flush()
     except IntegrityError:
         db.rollback()
-        write_audit(db, action="CREATE", target_type="Applicant", target_id=ma_so_hv,
-                    status="FAILURE", new_values={"error":"IntegrityError"}, request=request)
+        write_audit(
+            db,
+            action="CREATE",
+            target_type="Applicant",
+            target_id=ma_so_hv,
+            status="FAILURE",
+            new_values={"error": "IntegrityError"},
+            request=request,
+        )
         db.commit()
         raise HTTPException(409, "Mã số HV đã tồn tại")
 
     docs = (payload.get("docs") or [])
     for d in docs:
         code = d.get("code") if isinstance(d, dict) else getattr(d, "code", None)
-        sl   = d.get("so_luong") if isinstance(d, dict) else getattr(d, "so_luong", None)
+        sl = d.get("so_luong") if isinstance(d, dict) else getattr(d, "so_luong", None)
         if sl in (None, ""):
             continue
         db.add(ApplicantDoc(applicant_ma_so_hv=a.ma_so_hv, code=code, so_luong=int(sl)))
@@ -428,6 +479,7 @@ def create_applicant(
         "printed": a.printed,
     }
 
+
 # ================= SEARCH =================
 @router.get("/search")
 def search_applicants(
@@ -438,12 +490,14 @@ def search_applicants(
     me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
 ):
     qn = (q or "").strip() or None
+
+    # Bắt đầu query
     query = db.query(Applicant)
 
-    # Ẩn record đã soft-delete (nếu schema có cột này)
-    if hasattr(Applicant, "deleted_at"):
-        query = query.filter(getattr(Applicant, "deleted_at").is_(None))
+    # Ẩn toàn bộ hồ sơ đã bị xoá mềm (tự động nhận diện cột)
+    query = exclude_deleted(Applicant, query)
 
+    # Nếu có từ khoá tìm kiếm
     if qn:
         like = f"%{qn}%"
         query = query.filter(
@@ -471,7 +525,8 @@ def search_applicants(
                 "email_hoc_vien": getattr(a, "email_hoc_vien", None),
                 "ngay_nhan_hs": a.ngay_nhan_hs.isoformat() if a.ngay_nhan_hs else None,
                 "dot": a.dot,
-                "nganh_nhap_hoc": getattr(a, "nganh_nhap_hoc", None),
+                # ✅ luôn trả về theo key 'nganh_nhap_hoc'
+                "nganh_nhap_hoc": getattr(a, "nganh_nhap_hoc", None) if hasattr(a, "nganh_nhap_hoc") else getattr(a, "nganh", None),
                 "khoa": getattr(a, "khoa", None),
                 "nguoi_nhan_ky_ten": getattr(a, "nguoi_nhan_ky_ten", None),
             }
@@ -481,6 +536,7 @@ def search_applicants(
         "size": size,
         "total": total,
     }
+
 
 # ================= API find theo mã hồ sơ (giữ tương thích) =================
 @router.get("/find")
@@ -500,6 +556,10 @@ def find_by_ma_ho_so(
     if not a:
         raise HTTPException(404, "Not Found")
 
+    # Chặn hồ sơ đã xoá mềm
+    if hasattr(Applicant, "deleted_at") and getattr(a, "deleted_at", None):
+        raise HTTPException(410, "Hồ sơ đã bị xoá tạm.")
+
     docs = db.query(ApplicantDoc).filter_by(applicant_ma_so_hv=a.ma_so_hv).all()
     q = db.query(ChecklistItem).filter(ChecklistItem.version_id == a.checklist_version_id)
     q = q.order_by(getattr(ChecklistItem, "order_no", ChecklistItem.id).asc())
@@ -511,9 +571,13 @@ def find_by_ma_ho_so(
         "ngay_nhan_hs": a.ngay_nhan_hs.isoformat() if a.ngay_nhan_hs else None,
         "ho_ten": a.ho_ten,
         "email_hoc_vien": getattr(a, "email_hoc_vien", None),
-        "ngay_sinh": (a.ngay_sinh if isinstance(a, "ngay_sinh", str) else (a.ngay_sinh.isoformat() if a.ngay_sinh else None)) if hasattr(a, "ngay_sinh") else None,  # giữ tương thích
+        "ngay_sinh": (
+            a.ngay_sinh if isinstance(getattr(a, "ngay_sinh", None), str)
+            else (a.ngay_sinh.isoformat() if getattr(a, "ngay_sinh", None) else None)
+        ) if hasattr(a, "ngay_sinh") else None,
         "so_dt": a.so_dt,
-        "nganh_nhap_hoc": a.nganh_nhap_hoc,
+        # ✅ map về key chuẩn 'nganh_nhap_hoc'
+        "nganh_nhap_hoc": getattr(a, "nganh_nhap_hoc", None) if hasattr(a, "nganh_nhap_hoc") else getattr(a, "nganh", None),
         "dot": a.dot,
         "khoa": getattr(a, "khoa", None),
         "da_tn_truoc_do": a.da_tn_truoc_do,
@@ -526,6 +590,7 @@ def find_by_ma_ho_so(
         ],
     }
 
+
 # ================= UPDATE (có lý do) =================
 @router.put("/{ma_so_hv}")
 def update_applicant(
@@ -533,7 +598,7 @@ def update_applicant(
     request: Request,
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    me = Depends(require_roles("Admin","NhanVien","CongTacVien")),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
 ):
     ensure_mssv(ma_so_hv)
 
@@ -542,8 +607,6 @@ def update_applicant(
         raise HTTPException(404, "Applicant not found")
 
     # 🟦 kiểm tra lý do cập nhật (hỗ trợ 2 kiểu truyền)
-    #  - Ưu tiên object: body.update_reason = {key, text}
-    #  - Fallback: body.update_reason_key + body.update_reason_text
     reason_payload = body.get("update_reason")
     if not isinstance(reason_payload, dict):
         reason_payload = {
@@ -559,7 +622,8 @@ def update_applicant(
     def has(k): return k in body
     def get(k, d=None): return body.get(k, d)
     def str_or_none(v):
-        if v is None: return None
+        if v is None:
+            return None
         if isinstance(v, str):
             s = v.strip()
             return s if s else None
@@ -572,12 +636,9 @@ def update_applicant(
             existed = db.query(Applicant).filter(Applicant.ma_so_hv == new_mssv).first()
             if existed:
                 raise HTTPException(409, "MSSV mới đã tồn tại.")
-            # cập nhật MSSV
             a.ma_so_hv = new_mssv
-            # chuyển hết docs từ MSSV cũ sang mới
             for d in db.query(ApplicantDoc).filter_by(applicant_ma_so_hv=ma_so_hv).all():
                 d.applicant_ma_so_hv = new_mssv
-            # cập nhật biến local để các bước sau dùng MSSV mới
             ma_so_hv = new_mssv
 
     # ma_ho_so: không cho phép để trống
@@ -593,10 +654,18 @@ def update_applicant(
     if has("ngay_sinh"):
         a.ngay_sinh = _parse_date_flexible(get("ngay_sinh"))
 
-    # Text fields: "" -> None
-    for f in ("ho_ten","email_hoc_vien","so_dt","nganh_nhap_hoc","dot","khoa","da_tn_truoc_do","ghi_chu"):
+    # Text fields: "" -> None (ngoại trừ ngành – xử riêng bên dưới)
+    for f in ("ho_ten", "email_hoc_vien", "so_dt", "dot", "khoa", "da_tn_truoc_do", "ghi_chu"):
         if has(f):
             setattr(a, f, str_or_none(get(f)))
+
+    # ✅ Ngành học: nhận cả 'nganh_nhap_hoc' hoặc 'nganh', ghi đúng cột hiện có
+    if has("nganh_nhap_hoc") or has("nganh"):
+        _nganh_val = str_or_none(get("nganh_nhap_hoc", get("nganh")))
+        if hasattr(Applicant, "nganh_nhap_hoc"):
+            a.nganh_nhap_hoc = _nganh_val
+        elif hasattr(Applicant, "nganh"):
+            a.nganh = _nganh_val
 
     # Lưu người cập nhật gần nhất
     a.nguoi_nhan_ky_ten = getattr(me, "full_name", None) or getattr(me, "username", None)
@@ -609,7 +678,7 @@ def update_applicant(
         }
         for d in (get("docs") or []):
             code = (d.get("code") if isinstance(d, dict) else getattr(d, "code", None)) or None
-            sl   =  d.get("so_luong") if isinstance(d, dict) else getattr(d, "so_luong", None)
+            sl = d.get("so_luong") if isinstance(d, dict) else getattr(d, "so_luong", None)
             if not code:
                 continue
             try:
@@ -650,7 +719,7 @@ def update_applicant(
             **after,
             "docs_after": docs_after,
             "docs_diff": docs_diff,
-            "update_reason": update_reason,  # ✅ lưu lý do vào new_values
+            "update_reason": update_reason,
         },
         status="SUCCESS",
         request=request,
@@ -663,6 +732,7 @@ def update_applicant(
         "ma_ho_so": a.ma_ho_so,
         "ho_ten": a.ho_ten,
     }
+
 
 # ================= DELETE by MSSV (SOFT-DELETE, chỉ cần lý do) =================
 @router.delete("/{ma_so_hv}", status_code=status.HTTP_204_NO_CONTENT)
@@ -683,31 +753,39 @@ def delete_applicant(
     if not a:
         raise HTTPException(404, "Applicant not found")
 
+    # 🟦 Lấy snapshot + DOCS trước khi xóa — để journal có cái hiển thị
+    before = snapshot_applicant(a)
+    docs_before = _docs_map(db, a.ma_so_hv)
+
     reason = (body or {}).get("reason") if isinstance(body, dict) else None
     if not reason or not str(reason).strip():
         raise HTTPException(400, "Thiếu lý do xoá (reason)")
     reason = str(reason).strip()[:1000]
 
-    before = snapshot_applicant(a)
-
     # Idempotent: nếu đã có deleted_at thì chỉ cập nhật lý do/người xoá
     now = datetime.utcnow()
     if not getattr(a, "deleted_at", None):
         a.deleted_at = now
-    # luôn set/ghi lại người xoá theo actor hiện tại
+
+    # Đặt thêm các cờ phổ biến để mọi nơi đều bắt được xoá mềm
+    if hasattr(a, "status"):
+        a.status = "deleted"
+    if hasattr(a, "is_deleted"):
+        a.is_deleted = True
+
     a.deleted_by = getattr(me, "full_name", None) or getattr(me, "username", None) or "ADMIN"
     a.deleted_reason = reason
 
     db.add(a)
     db.commit()
 
-    # 🔧 Ghi audit đầy đủ để FE hiển thị "Thời điểm xóa" / "Người xóa"
+    # 🧾 Ghi audit đầy đủ (kèm docs_before)
     write_audit(
         db,
         action="DELETE_SOFT",
         target_type="Applicant",
         target_id=ma_so_hv,
-        prev_values=before,
+        prev_values={**before, "docs_before": docs_before},
         new_values={
             "deleted_at": _to_iso(getattr(a, "deleted_at", None)),
             "deleted_by": getattr(a, "deleted_by", None),
@@ -720,8 +798,8 @@ def delete_applicant(
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-# ================= PRINT (A4, A5) by MSSV =================
 
+# ================= PRINT (A4, A5) by MSSV =================
 def _do_print(ma_so_hv: str, mark_printed: bool, db: Session, request: Request, a5: bool = False):
     from app.services.pdf_service import render_single_pdf, render_single_pdf_a5
 
@@ -729,6 +807,10 @@ def _do_print(ma_so_hv: str, mark_printed: bool, db: Session, request: Request, 
     a = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
     if not a:
         raise HTTPException(404, "Applicant not found")
+
+    # ⛔️ Chặn in nếu đã soft-delete
+    if hasattr(Applicant, "deleted_at") and getattr(a, "deleted_at", None):
+        raise HTTPException(410, "Hồ sơ đã bị xoá tạm, không thể in.")
 
     q = db.query(ChecklistItem).filter(ChecklistItem.version_id == a.checklist_version_id)
     if hasattr(ChecklistItem, "order_no"):
@@ -745,16 +827,25 @@ def _do_print(ma_so_hv: str, mark_printed: bool, db: Session, request: Request, 
         a.status = "printed"
         db.commit()
         # log đánh dấu in
-        write_audit(db, action="PRINT", target_type="Applicant", target_id=a.ma_so_hv,
-                    prev_values={}, new_values={"printed": True, "a5": a5}, status="SUCCESS", request=request)
+        write_audit(
+            db,
+            action="PRINT",
+            target_type="Applicant",
+            target_id=a.ma_so_hv,
+            prev_values={},
+            new_values={"printed": True, "a5": a5},
+            status="SUCCESS",
+            request=request,
+        )
         db.commit()
 
     filename = f"HS_{a.ma_ho_so or a.ma_so_hv}{'_A5' if a5 else ''}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
+
 
 @router.get("/{ma_so_hv}/print")
 def print_applicant_now(
@@ -765,6 +856,7 @@ def print_applicant_now(
 ):
     return _do_print(ma_so_hv, mark_printed, db, request=request, a5=False)
 
+
 @router.post("/{ma_so_hv}/print")
 def print_applicant_now_post(
     ma_so_hv: str,
@@ -773,6 +865,7 @@ def print_applicant_now_post(
     db: Session = Depends(get_db),
 ):
     return _do_print(ma_so_hv, mark_printed, db, request=request, a5=False)
+
 
 @router.get("/{ma_so_hv}/print-a5")
 def print_applicant_a5(
@@ -783,6 +876,7 @@ def print_applicant_a5(
 ):
     return _do_print(ma_so_hv, mark_printed, db, request=request, a5=True)
 
+
 @router.post("/{ma_so_hv}/print-a5")
 def print_applicant_a5_post(
     ma_so_hv: str,
@@ -791,6 +885,7 @@ def print_applicant_a5_post(
     db: Session = Depends(get_db),
 ):
     return _do_print(ma_so_hv, mark_printed, db, request=request, a5=True)
+
 
 # ================= Recent =================
 @router.get("/recent")

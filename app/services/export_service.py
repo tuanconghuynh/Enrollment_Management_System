@@ -31,6 +31,28 @@ def _parse_to_date(v: Optional[object]) -> Optional[date]:
             continue
     return None
 
+def _norm_gender(v: Optional[object]) -> str:
+    """
+    Chuẩn hoá giới tính về: 'Nam' | 'Nữ' | 'Khác' | ''.
+    Hỗ trợ các biến thể: M/F, male/female, 1/0, nam/nu, ...
+    """
+    if v in (None, ""):
+        return ""
+    s = str(v).strip().lower()
+    # số
+    if s in {"1", "m", "male", "nam"}:
+        return "Nam"
+    if s in {"0", "f", "female", "nu", "nữ", "nư"}:
+        return "Nữ"
+    if s in {"other", "khac", "khác"}:
+        return "Khác"
+    # tiếng Việt có dấu/không dấu
+    if "nam" == s:
+        return "Nam"
+    if s in {"nu", "nữ"}:
+        return "Nữ"
+    return s.capitalize()  # fallback: "Khac"/"Other" -> "Khac"/"Other"
+
 def _autosize(ws):
     ws.freeze_panes = "A2"
     for col in ws.columns:
@@ -46,6 +68,7 @@ def build_excel_bytes_by_items(apps: List[Applicant], docs: List[ApplicantDoc], 
 
     base_headers = [
         "Ngày nhận HS", "Niên Khóa", "Mã hồ sơ", "Mã số HV", "Họ tên",
+        "Giới tính",                      # 👈 THÊM
         "Email học viên", "Ngày sinh", "Số ĐT", "Ngành nhập học",
         "Đợt", "Đối tượng", "Ghi chú", "Printed"
     ]
@@ -65,8 +88,9 @@ def build_excel_bytes_by_items(apps: List[Applicant], docs: List[ApplicantDoc], 
             a.ma_ho_so or "",
             a.ma_so_hv or "",
             a.ho_ten or "",
+            _norm_gender(getattr(a, "gioi_tinh", "")),   # 👈 THÊM
             getattr(a, "email_hoc_vien", "") or "",
-            _parse_to_date(a.ngay_sinh),
+            _parse_to_date(getattr(a, "ngay_sinh", None)),
             a.so_dt or "",
             a.nganh_nhap_hoc or "",
             a.dot or "",
@@ -80,7 +104,7 @@ def build_excel_bytes_by_items(apps: List[Applicant], docs: List[ApplicantDoc], 
         ws.append(row)
 
     # format cột ngày
-    for col in (1, 7):
+    for col in (1, 8):  # 1: Ngày nhận HS, 8: Ngày sinh (đã dịch do thêm giới tính)
         for cell in ws.iter_cols(min_col=col, max_col=col, min_row=2):
             for c in cell:
                 if isinstance(c.value, (date, datetime)):
@@ -101,7 +125,8 @@ def build_excel_bytes_simple(rows: Iterable[Any]) -> bytes:
     ws.title = "TongHop"
 
     headers = [
-        "Mã HS", "Họ tên", "MSHV", "Email học viên",
+        "Mã HS", "Họ tên", "MSHV", "Giới tính",  # 👈 THÊM
+        "Email học viên",
         "Ngày nhận HS", "Ngày sinh", "Ngành", "Đợt",
         "Khóa", "Người nhận", "Ghi chú"
     ]
@@ -113,6 +138,7 @@ def build_excel_bytes_simple(rows: Iterable[Any]) -> bytes:
             get("ma_ho_so"),
             get("ho_ten"),
             get("ma_so_hv"),
+            _norm_gender(get("gioi_tinh", "")),  # 👈 THÊM
             get("email_hoc_vien", ""),
             _parse_to_date(get("ngay_nhan_hs")),
             _parse_to_date(get("ngay_sinh")),
@@ -123,7 +149,8 @@ def build_excel_bytes_simple(rows: Iterable[Any]) -> bytes:
             get("ghi_chu"),
         ])
 
-    for col in (5, 6):
+    # format cột ngày (đổi index do thêm giới tính)
+    for col in (6, 7):  # 6: Ngày nhận HS, 7: Ngày sinh
         for cell in ws.iter_cols(min_col=col, max_col=col, min_row=2):
             for c in cell:
                 if isinstance(c.value, (date, datetime)):

@@ -3,7 +3,7 @@ from datetime import datetime, date
 import io, os
 from typing import List, Dict
 
-from reportlab.lib.pagesizes import A4, A5, landscape # ⬅️ thêm A5
+from reportlab.lib.pagesizes import A4, A5, landscape  # ⬅️ thêm A5
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas as rl_canvas
@@ -16,6 +16,9 @@ from reportlab.pdfbase.ttfonts import TTFont
 from ..core.config import settings
 from ..models.applicant import Applicant, ApplicantDoc
 from ..models.checklist import ChecklistItem
+
+from reportlab.platypus import Table, TableStyle, BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
 # Kích thước chữ theo yêu cầu
 TITLE_SIZE = 13
@@ -102,31 +105,41 @@ def _draw_kv(c: rl_canvas.Canvas, x_label, x_val, y, label, value, step=KV_STEP)
     return y - step
 
 
+# ================== (đã thêm cột STT) ==================
 def _build_checklist_rows(items: List[ChecklistItem], docs: List[ApplicantDoc]):
     doc_map = {d.code: d.so_luong for d in docs}
-    rows = [["Danh mục", "Số lượng"]]
+    rows = [["STT", "Danh mục", "Số lượng"]]
+    stt = 1
     for it in items:
         qty = int(doc_map.get(it.code, 0) or 0)
-        rows.append([it.display_name, "" if qty == 0 else str(qty)])  # ⬅️ 0 -> để trống
+        rows.append([str(stt), it.display_name, "" if qty == 0 else str(qty)])  # ⬅️ 0 -> để trống
+        stt += 1
     return rows
+# =======================================================
 
 
+# ================== (đã chỉnh 3 cột có STT) ==================
 def _draw_checklist_table(c: rl_canvas.Canvas, x, y, w, rows):
     """Bảng danh mục: ẩn kẻ header nhẹ, padding thoáng."""
-    table = Table(rows, colWidths=[w*0.78, w*0.22])
+    # col widths: STT ~10%, Danh mục ~68%, Số lượng ~22%
+    table = Table(rows, colWidths=[w*0.10, w*0.68, w*0.22])
     table.setStyle(TableStyle([
         ("FONTNAME",   (0,0), (-1,-1), FONT_REG),
         ("FONTNAME",   (0,0), (-1,0),  FONT_BOLD),
         ("FONTSIZE",   (0,0), (-1,-1), TEXT_SIZE),
-        ("ALIGN",      (0,0), (-1,0),  "CENTER"),   # căn giữa header
-        ("ALIGN",      (1,1), (1,-1),  "CENTER"),   # căn giữa cột số lượng
+        ("ALIGN",      (0,0), (-1,0),  "CENTER"),   # header giữa
+        ("ALIGN",      (0,1), (0,-1),  "CENTER"),   # STT giữa
+        ("ALIGN",      (-1,1), (-1,-1),  "CENTER"), # số lượng giữa
         ("GRID",       (0,0), (-1,-1), 0.5, colors.black),
         ("TOPPADDING",    (0,0), (-1,-1), 6),
         ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("LEFTPADDING",   (0,0), (-1,-1), 4),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 4),
     ]))
     table.wrapOn(c, 0, 0)
     table.drawOn(c, x, y - table._height)
     return y - table._height
+# ============================================================
 
 
 # Chuẩn hóa mọi kiểu ngày về dd/mm/yyyy
@@ -150,71 +163,154 @@ def _fmt_dmy(v) -> str:
     except Exception:
         return s  # không parse được thì trả nguyên văn
 
-
 def _header_block(c: rl_canvas.Canvas, W, H, khoa: str, ma_hs: str, ngay_nhan):
+    """
+    Header bố cục rõ ràng với khoảng cách thoáng hơn:
+      [1] Khung MÃ HỒ SƠ
+      [2] TIÊU ĐỀ (cách khung 12 mm)
+      [3] Ngày nhận HS (cách tiêu đề 7 mm)
+      [4] Đoạn intro “Viện Hợp tác…” (cách ngày 10 mm)
+    """
+
+    # ===== [1] KHUNG MÃ HỒ SƠ =====
+    box_w = 42 * mm     # gọn vừa nội dung
+    box_h = 14 * mm
+    box_margin_top = 7 * mm
+    x_box = W - box_w - 8 * mm    # ⬅️ chỉ chừa 8 mm cách mép phải (thay vì trừ RM = 25 mm)
+    y_box = H - box_margin_top - box_h
+
+    c.setLineWidth(1.0)
+    c.roundRect(x_box, y_box, box_w, box_h, 3.0 * mm, stroke=1, fill=0)
+
+    c.setFont(FONT_BOLD, 11)
+    c.drawCentredString(x_box + box_w / 2, y_box + box_h - 4.0 * mm, "MÃ HỒ SƠ")
+    c.setFont(FONT_BOLD, 13)
+    c.drawCentredString(x_box + box_w / 2, y_box + 4.0 * mm, (ma_hs or ""))
+
+    # ===== [2] TIÊU ĐỀ =====
+    GAP_AFTER_BOX = 12 * mm
+    title_y = y_box - GAP_AFTER_BOX
     c.setFont(FONT_BOLD, TITLE_SIZE)
     title = "BIÊN NHẬN HỒ SƠ NHẬP HỌC CHƯƠNG TRÌNH ĐÀO TẠO TỪ XA"
     if (khoa or "").strip():
         title += f" KHÓA {khoa.strip()}"
-    c.drawCentredString(W/2, H - TM, title)
+    c.drawCentredString(W / 2, title_y, title)
 
-    c.setFont(FONT_BOLD, TEXT_SIZE)
-    c.drawRightString(W - RM, H - TM - 10*mm, f"Mã HS: {ma_hs or ''}")
-    c.drawRightString(W - RM, H - TM - 18*mm, f"Ngày nhận HS: {_fmt_dmy(ngay_nhan)}")
+    # ===== [3] Ngày nhận HS =====
+    GAP_DATE_BELOW_TITLE = 7 * mm
+    date_y = title_y - GAP_DATE_BELOW_TITLE
+    c.setFont(FONT_BOLD, TEXT_SIZE + 1)
+    c.drawRightString(W - RM, date_y, f"Ngày nhận HS: {_fmt_dmy(ngay_nhan)}")
 
+    # ===== [4] Intro =====
+    GAP_INTRO_BELOW_DATE = 10 * mm
+    y = date_y - GAP_INTRO_BELOW_DATE
+
+    c.setFont(FONT_REG, TEXT_SIZE)
     intro = "Viện Hợp tác và Phát triển Đào tạo xác nhận đã nhận hồ sơ nhập học"
     intro += f" khóa {khoa.strip()} của Anh/Chị:" if (khoa or "").strip() else " của Anh/Chị:"
-
     text_w = W - LM - RM
-    c.setFont(FONT_REG, TEXT_SIZE)
-    y = H - TM - 26*mm
+
     for line in _wrap_lines(intro, FONT_REG, TEXT_SIZE, text_w):
         c.drawString(LM, y, line)
         y -= PARA_LEADING
-    return y
 
+    return y
 
 def _draw_signature_block(c: rl_canvas.Canvas, y, W, receiver_name: str):
     """
-    Bảng 2 cột × 2 hàng, cột 2 căn giữa, ẩn toàn bộ nét kẻ:
-      [("", "Người nhận"),
-       ("", receiver_name)]
+    Bảng chữ ký 2 cột × 3 hàng:
+      [0] (trống 1 dòng)
+      [1] 'Người nhận'
+      [2] Tên người nhận (vùng ký rộng hơn)
     """
     table_w = W - LM - RM
+
+    spacer_h = 1 * PARA_LEADING   # 1 hàng trống
+    label_h  = 12 * mm
+    sign_h   = 36 * mm            # vùng ký rộng hơn trước
+    row_heights = [spacer_h, label_h, sign_h]
+    col_widths  = [table_w * 0.5, table_w * 0.5]
+
     data = [
+        ["", ""],
         ["", "Người nhận"],
         ["", receiver_name or ""],
     ]
-    col_widths = [table_w * 0.5, table_w * 0.5]
-    row_heights = [12*mm, 28*mm]  # chừa chỗ ký tên
 
     t = Table(data, colWidths=col_widths, rowHeights=row_heights)
     t.setStyle(TableStyle([
-        ("FONTNAME", (1,0), (1,0), FONT_REG),
-        ("FONTNAME", (1,1), (1,1), FONT_BOLD),
+        ("FONTNAME", (0,0), (-1,-1), FONT_REG),
+        ("FONTNAME", (1,2), (1,2), FONT_BOLD),
         ("FONTSIZE", (0,0), (-1,-1), TEXT_SIZE),
-        ("ALIGN",    (1,0), (1,1), "CENTER"),
+        ("ALIGN",    (1,1), (1,2), "CENTER"),
         ("VALIGN",   (0,0), (-1,-1), "MIDDLE"),
-        # Ẩn toàn bộ đường kẻ
-        ("LINEBEFORE", (0,0), (-1,-1), 0, colors.white),
-        ("LINEAFTER",  (0,0), (-1,-1), 0, colors.white),
-        ("LINEABOVE",  (0,0), (-1,-1), 0, colors.white),
-        ("LINEBELOW",  (0,0), (-1,-1), 0, colors.white),
-        ("INNERGRID",  (0,0), (-1,-1), 0, colors.white),
-        ("TOPPADDING",    (0,0), (-1,-1), 2),
+        ("LINEBEFORE",(0,0),(-1,-1),0,colors.white),
+        ("LINEAFTER", (0,0),(-1,-1),0,colors.white),
+        ("LINEABOVE", (0,0),(-1,-1),0,colors.white),
+        ("LINEBELOW", (0,0),(-1,-1),0,colors.white),
+        ("INNERGRID", (0,0),(-1,-1),0,colors.white),
+        ("TOPPADDING", (0,0), (-1,-1), 2),
         ("BOTTOMPADDING", (0,0), (-1,-1), 2),
     ]))
     t.wrapOn(c, 0, 0)
-    y = max(BM + 42*mm, y)  # đảm bảo không đụng lề dưới
-    t.drawOn(c, LM, y - sum(row_heights))
-    return y - sum(row_heights)
+
+    total_h = sum(row_heights)
+    t.drawOn(c, LM, y - total_h)
+    return y - total_h
+
+def _vn_date_line(d: date | datetime | None, location: str = "TP.HCM") -> str:
+    if not d:
+        d = datetime.today()
+    if isinstance(d, date) and not isinstance(d, datetime):
+        d = datetime(d.year, d.month, d.day)
+    return f"{location}, ngày {d.day:02d} tháng {d.month:02d} năm {d.year}"
+
+def _vn_date_line(d: date | datetime | None, location: str = "TP.HCM") -> str:
+    if not d:
+        d = datetime.today()
+    if isinstance(d, date) and not isinstance(d, datetime):
+        d = datetime(d.year, d.month, d.day)
+        yy = str(d.year)[-2:]
+        return f"{location}, ngày {d.day:02d} tháng {d.month:02d} năm 20{yy}"
+
+def _onpage_footer_a5(canvas, doc, a: Applicant, location: str = "TP.HCM"):
+    """Vẽ footer cố định ở chân trang cho A5 ngang."""
+    W, H = landscape(A5)
+    bm = 6 * mm  # lề dưới riêng footer
+    y0 = bm + 4*mm  # baseline
+    canvas.saveState()
+
+    # Dòng ngày tháng năm (canh giữa)
+    canvas.setFont(FONT_REG, 9)
+    canvas.drawCentredString(W/2, y0 + 18*mm, _vn_date_line(getattr(a, "ngay_nhan_hs", None), location))
+
+    # Nhãn 2 cột
+    left_x  = W/2 - 55*mm
+    right_x = W/2 + 55*mm
+    canvas.setFont(FONT_BOLD, 10)
+    canvas.drawCentredString(left_x,  y0 + 10*mm, "NGƯỜI NỘP HỒ SƠ")
+    canvas.drawCentredString(right_x, y0 + 10*mm, "NGƯỜI NHẬN HỒ SƠ")
+
+    canvas.setFont(FONT_REG, 9)
+    canvas.drawCentredString(left_x,  y0 + 4*mm, "(Ký, ghi rõ họ tên)")
+    canvas.drawCentredString(right_x, y0 + 4*mm, "(Ký, ghi rõ họ tên)")
+
+    # Đường ký
+    canvas.setLineWidth(0.6)
+    line_w = 50 * mm
+    canvas.line(left_x - line_w/2,  y0, left_x + line_w/2,  y0)
+    canvas.line(right_x - line_w/2, y0, right_x + line_w/2, y0)
+
+    canvas.restoreState()
 
 
-# ========== A4 (giữ nguyên, chỉ sửa chỗ truyền ngày) ==========
+# ========== A4 ==========
 def render_single_pdf(a: Applicant, items: List[ChecklistItem], docs: List[ApplicantDoc]) -> bytes:
     _register_font_times()
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
+    c.setTitle(f"Bản in A4 - {a.ho_ten}")
     W, H = A4
 
     # Header + intro
@@ -253,14 +349,30 @@ def render_single_pdf(a: Applicant, items: List[ChecklistItem], docs: List[Appli
     rows = _build_checklist_rows(items, docs)
     y = _draw_checklist_table(c, LM, y, W - LM - RM, rows)
 
-    # Ghi chú: cách bảng 10mm
-    y -= 10*mm
-    c.setFont(FONT_REG, TEXT_SIZE);  c.drawString(LM, y, "Ghi chú:")
-    c.setFont(FONT_BOLD, TEXT_SIZE); c.drawString(LM + 22*mm, y, a.ghi_chu or "")
+    # ===== TÁCH KHỎI BẢNG: tạo khoảng trắng cứng =====
+    GAP_AFTER_TABLE = 10 * mm     # giảm 20 → 10mm cho ghi chú lên gần bảng hơn
+    y -= GAP_AFTER_TABLE
 
-    # Chữ ký: bảng 2×2 ẩn kẻ, cột 2 căn giữa
-    y -= 5*mm
-    _draw_signature_block(c, y, W, a.nguoi_nhan_ky_ten or "")
+    # ===== Ghi chú: tự wrap nếu dài =====
+    c.setFont(FONT_REG, TEXT_SIZE)
+    c.drawString(LM, y, "Ghi chú:")
+    c.setFont(FONT_BOLD, TEXT_SIZE)
+
+    NOTE_LABEL_W = 22 * mm
+    text_w = W - LM - RM - NOTE_LABEL_W
+    note_text = a.ghi_chu or ""
+
+    lines = _wrap_lines(note_text, FONT_BOLD, TEXT_SIZE, text_w)
+    y_note = y
+    for line in lines:
+        c.drawString(LM + NOTE_LABEL_W, y_note, line)
+        y_note -= PARA_LEADING
+
+    # ===== Khối chữ ký 2 cột × 3 hàng (chỉ 1 hàng trống) =====
+    SAFE_GAP_AFTER_NOTE = 4 * mm   # giảm bớt khoảng trắng giữa ghi chú và chữ ký
+
+    sig_top = y_note - SAFE_GAP_AFTER_NOTE
+    _draw_signature_block(c, sig_top, W, a.nguoi_nhan_ky_ten or "")
 
     c.showPage(); c.save()
     return buf.getvalue()
@@ -274,6 +386,7 @@ def render_batch_pdf(
     _register_font_times()
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
+    c.setTitle("Bản in A4 - Danh sách")
     W, H = A4
 
     for a in apps:
@@ -309,33 +422,50 @@ def render_batch_pdf(
         rows = _build_checklist_rows(items, docs)
         y = _draw_checklist_table(c, LM, y, W - LM - RM, rows)
 
-        y -= 10*mm
-        c.setFont(FONT_REG, TEXT_SIZE);  c.drawString(LM, y, "Ghi chú:")
-        c.setFont(FONT_BOLD, TEXT_SIZE); c.drawString(LM + 22*mm, y, a.ghi_chu or "")
+        # ===== TÁCH KHỎI BẢNG (đồng bộ bản đơn) =====
+        GAP_AFTER_TABLE = 10 * mm
+        y -= GAP_AFTER_TABLE
 
-        # Chữ ký: bảng 2×2 ẩn kẻ, cột 2 căn giữa
-        y -= 5*mm
-        _draw_signature_block(c, y, W, a.nguoi_nhan_ky_ten or "")
+        # ===== Ghi chú: tự wrap =====
+        c.setFont(FONT_REG, TEXT_SIZE);  c.drawString(LM, y, "Ghi chú:")
+        c.setFont(FONT_BOLD, TEXT_SIZE)
+        NOTE_LABEL_W = 22 * mm
+        text_w = W - LM - RM - NOTE_LABEL_W
+        note_text = a.ghi_chu or ""
+
+        lines = _wrap_lines(note_text, FONT_BOLD, TEXT_SIZE, text_w)
+        y_note = y
+        for line in lines:
+            c.drawString(LM + NOTE_LABEL_W, y_note, line)
+            y_note -= PARA_LEADING
+
+        # ===== Khối chữ ký 2 cột × 3 hàng (1 hàng trống) =====
+        SAFE_GAP_AFTER_NOTE = 4 * mm
+        sig_top = y_note - SAFE_GAP_AFTER_NOTE
+        _draw_signature_block(c, sig_top, W, a.nguoi_nhan_ky_ten or "")
 
         c.showPage()
 
     c.save()
     return buf.getvalue()
 
-
 # ================== BẢN IN A5 TỐI GIẢN (cho học viên) ==================
 
+# ================== (đã thêm cột STT) ==================
 def _build_rows_nonzero(items: List[ChecklistItem], docs: List[ApplicantDoc]):
-    """Chỉ lấy mục có số lượng > 0 để bản A5 gọn."""
+    """Chỉ lấy mục có số lượng > 0 để bản A5 gọn + thêm cột STT."""
     doc_map = {d.code: int(d.so_luong or 0) for d in docs}
-    rows = [["Danh mục", "Số lượng"]]
+    rows = [["STT", "Danh mục", "Số lượng"]]
+    stt = 1
     for it in items:
         n = int(doc_map.get(it.code, 0))
         if n > 0:
-            rows.append([it.display_name, str(n)])
+            rows.append([str(stt), it.display_name, str(n)])
+            stt += 1
     if len(rows) == 1:
-        rows.append(["(Chưa nộp hồ sơ!)", ""])
+        rows.append(["", "(Chưa nộp hồ sơ!)", ""])
     return rows
+# =======================================================
 
 
 def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[ApplicantDoc]) -> bytes:
@@ -345,6 +475,7 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
     _register_font_times()
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=landscape(A5))
+    c.setTitle(f"Bản in A5 - {a.ho_ten}")
     W, H = landscape(A5)
 
     # Lề & cỡ chữ gọn
@@ -407,81 +538,63 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
     c.setFont(FONT_BOLD, text_sz); c.drawString(r_val_x,  y, getattr(a, "khoa", "") or "")
     y -= para_step
 
-    # ===== Bảng giấy tờ đã nộp (SL > 0) =====
-    # c.setFont(FONT_BOLD, text_sz); c.drawString(lm, y, "Giấy tờ đã nộp")
-    # y -= 3*mm
-
-    rows = _build_rows_nonzero(items, docs)
+    # ===== Bảng giấy tờ đã nộp (số lượng >0) =====
+    rows = _build_rows_nonzero(items, docs)     # ⬅️ có STT
+    # rows = _build_checklist_rows(items, docs) #Bảng đầy đủ 
     table_w = W - lm - rm
-    table = Table(rows, colWidths=[table_w*0.78, table_w*0.22])
-    table.setStyle(TableStyle([
+    # STT ~12%, Danh mục ~66%, Số lượng ~22% (tỷ lệ gọn cho A5)
+    tbl = Table(rows, colWidths=[table_w*0.12, table_w*0.66, table_w*0.22])
+    tbl.setStyle(TableStyle([
         ("FONTNAME", (0,0), (-1,-1), FONT_REG),
         ("FONTNAME", (0,0), (-1,0),  FONT_BOLD),
         ("FONTSIZE", (0,0), (-1,-1), text_sz),
-        ("ALIGN",    (0,0), (-1,0),  "CENTER"),
-        ("ALIGN",    (1,1), (1,-1),  "CENTER"),
+        ("ALIGN",    (0,0), (-1,0),  "CENTER"),    # header giữa
+        ("ALIGN",    (0,1), (0,-1),  "CENTER"),    # STT giữa
+        ("ALIGN",    (-1,1), (-1,-1), "CENTER"),   # số lượng giữa
         ("GRID",     (0,0), (-1,-1), 0.4, colors.black),
         ("TOPPADDING",(0,0),(-1,-1), 2),
         ("BOTTOMPADDING",(0,0),(-1,-1), 1),
         ("LEFTPADDING",(0,0),(-1,-1), 3),
         ("RIGHTPADDING",(0,0),(-1,-1), 3),
     ]))
-    table.wrapOn(c, 0, 0)
-    tbl_h = table._height
+    tbl.wrapOn(c, 0, 0)
+    tbl_h = tbl._height
+    tbl.drawOn(c, lm, y - tbl_h)
+    y = y - tbl_h - 4*mm
 
-    # ===== Tính không gian còn lại để không chồng =====
-    note_h = 7*mm if a.ghi_chu else 0
-    extra_note_gap = 1.0*mm if a.ghi_chu else 0  # <-- thêm 0.5mm giữa bảng và Ghi chú
-
-    sign_h_full = 10*mm + 26*mm
-    sign_h_min  = 10*mm + 22*mm
-    safety = 1.5*mm
-    gap_after_table = 4*mm
-    gap_min = 2*mm
-
-    y0 = y
-    # tính nhu cầu từ đáy trang (có + extra_note_gap)
-    need_from_bottom = tbl_h + gap_after_table + extra_note_gap + note_h + sign_h_full + safety
-    if bm + need_from_bottom <= y0:
-        y_tbl_top = y0
-        sign_h = sign_h_full
-    else:
-        spare = (y0 - bm) - (tbl_h + note_h + extra_note_gap + sign_h_full + safety)
-        gap_after_table = max(gap_min, spare)
-        sign_h = sign_h_full
-        if gap_after_table == gap_min:
-            need2 = tbl_h + gap_after_table + extra_note_gap + note_h + sign_h_min + safety
-            if bm + need2 > y0:
-                sign_h = sign_h_min
-        y_tbl_top = y0
-
-    # Vẽ bảng
-    table.drawOn(c, lm, y_tbl_top - tbl_h)
-    # sau bảng lùi xuống: gap_after_table + 0.5mm (nếu có ghi chú)
-    y = y_tbl_top - tbl_h - (gap_after_table + extra_note_gap)
-
-    # ===== Ghi chú (ngay dưới bảng) =====
+    # ===== Ghi chú (nếu có) =====
     if a.ghi_chu:
         c.setFont(FONT_REG, text_sz);  c.drawString(lm, y, "Ghi chú:")
         c.setFont(FONT_BOLD, text_sz); c.drawString(lm + 15*mm, y, a.ghi_chu)
-        y -= 9*mm
+        y -= 8*mm
 
+    # ===== Footer cố định sát chân trang =====
+    bm_footer    = 1*mm              # mép dưới an toàn
+    sign_label_h = 6*mm              # hàng "Người nộp/nhận"
+    sign_area_h  = 24*mm             # vùng ký tên
+    sign_h       = sign_label_h + sign_area_h
 
-    # ===== Chữ ký (sát lề dưới), Người nộp = tên học viên =====
-    bm = 8*mm        # lề dưới mỏng
-    safety = 0.8*mm  # chừa 1 chút để không “ăn mép”
+    # Dòng ngày tháng năm — căn phải, nằm ngay trên khu ký tên ~3mm
+    c.setFont(FONT_REG, 9)
+    c.drawRightString(
+        W - rm,
+        bm_footer + sign_h + 2*mm,
+        _vn_date_line(getattr(a, "ngay_nhan_hs", None), "__________")
+    )
 
+    # Bảng chữ ký: Người nộp (HV) — Người nhận (NV)
     content_w = W - lm - rm
-    sign_w = content_w / 2.0          # mỗi cột ~1/2 bề ngang
-    total_w = sign_w * 2               # block 2 cột
-    x_right = W - rm - total_w         # neo sát lề phải  ⟵ quan trọng
+    sign_w    = content_w / 2.0
+    total_w   = sign_w * 2
+    x_right   = W - rm - total_w   # neo block sát lề phải
 
-    data = [["Người nộp", "Người nhận"],
-            [a.ho_ten or "", a.nguoi_nhan_ky_ten or ""]]
-
-    t = Table(data, colWidths=[sign_w, sign_w],
-            rowHeights=[10*mm, sign_h - 10*mm])
-    t.setStyle(TableStyle([
+    sig = Table(
+        [["Người nộp", "Người nhận"],
+         [a.ho_ten or "", a.nguoi_nhan_ky_ten or ""]],
+        colWidths=[sign_w, sign_w],
+        rowHeights=[sign_label_h, sign_area_h],
+    )
+    sig.setStyle(TableStyle([
         ("FONTNAME", (0,0), (-1,0), FONT_REG),
         ("FONTNAME", (0,1), (1,1), FONT_BOLD),
         ("ALIGN",    (0,0), (-1,-1), "CENTER"),
@@ -492,60 +605,10 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
         ("LINEBELOW", (0,0),(-1,-1),0,colors.white),
         ("INNERGRID", (0,0),(-1,-1),0,colors.white),
     ]))
-
-    t.wrapOn(c, 0, 0)
-    y_sig_top = bm + sign_h + safety
-    y = max(y, y_sig_top)
-    t.drawOn(c, x_right, y - sign_h)   # vẽ sát lề phải
+    sig.wrapOn(c, 0, 0)
+    sig.drawOn(c, x_right, bm_footer)  # <-- đặt sát chân trang
 
     c.showPage(); c.save()
     return buf.getvalue()
 
 # ================== HẾT BẢN IN A5 ==================
-
-# def a5_two_up_to_a4(a5_pdf_bytes: bytes, margin_pt: int = 8, gap_pt: int = 8, duplicate_if_needed: bool = True) -> bytes:
-#     """
-#     Ghép các trang A5 (dọc/ ngang) thành A4 *dọc*, 2-up (một trên, một dưới).
-#     - Scale theo *chiều cao nửa A4* để bản in đủ khổ.
-#     - Nếu chỉ có 1 trang A5 -> nhân đôi trang đó (2 bản giống nhau).
-#     - Nếu số trang A5 lẻ -> nhân bản trang cuối để đủ cặp.
-#     """
-#     reader = PdfReader(io.BytesIO(a5_pdf_bytes))
-#     src_pages = list(reader.pages)
-
-#     if duplicate_if_needed:
-#         if len(src_pages) == 1:
-#             src_pages = [src_pages[0], src_pages[0]]
-#         elif len(src_pages) % 2 == 1:
-#             src_pages.append(src_pages[-1])
-
-#     out = PdfWriter()
-#     a4w, a4h = A4
-#     half_h = (a4h - 2*margin_pt - gap_pt) / 2.0  # vùng vẽ mỗi nửa A4
-
-#     page = None
-#     for i, src in enumerate(src_pages):
-#         sw = float(src.mediabox.width)
-#         sh = float(src.mediabox.height)
-
-#         # scale theo chiều cao nửa A4
-#         scale = half_h / sh
-#         placed_w = sw * scale
-#         placed_h = sh * scale
-
-#         # canh giữa theo ngang
-#         x = (a4w - placed_w) / 2.0
-
-#         # mỗi 2 A5 -> 1 A4 dọc
-#         if i % 2 == 0:
-#             page = out.add_blank_page(width=a4w, height=a4h)
-#             y = a4h - margin_pt - placed_h      # nửa trên
-#         else:
-#             y = margin_pt                        # nửa dưới
-
-#         t = Transformation().scale(scale).translate(x/scale, y/scale)
-#         page.merge_transformed_page(src, t)
-
-#     buf = io.BytesIO()
-#     out.write(buf)
-#     return buf.getvalue()

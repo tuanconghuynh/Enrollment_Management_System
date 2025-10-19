@@ -156,24 +156,26 @@ def restore_from_log(
     prev = (log.prev_values or {})  # snapshot trước khi thao tác
 
     # ⚠️ Quan trọng: clear cờ xóa mềm nếu log là DELETE_SOFT (hoặc có deleted_at trong new_values)
-    apply_values = dict(prev)  # copy để không đụng vào prev gốc
+    apply_values = dict(prev)  # copy để không đụng prev gốc
     if log.action in ("DELETE_SOFT", "DELETE_REQUEST") or ("deleted_at" in nv):
         apply_values.update({
             "deleted_at": None,
             "deleted_by": None,
             "deleted_reason": None,
         })
+        # 🟢 BỔ SUNG: reset đầy đủ các cờ để khôi phục hiển thị bình thường
+        if hasattr(obj, "status"):
+            apply_values["status"] = "saved"
+        if hasattr(obj, "is_deleted"):
+            apply_values["is_deleted"] = False
 
-    # (nếu app của anh dùng cờ trạng thái riêng, có thể set mặc định hiển thị)
-    # apply_values.setdefault("status", "saved")
-
+    # Áp lại giá trị
     for k, v in apply_values.items():
         if hasattr(obj, k):
             setattr(obj, k, v)
 
     db.add(obj)
     db.commit()
-
     write_audit(
         db,
         action="RESTORE",

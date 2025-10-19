@@ -82,8 +82,8 @@
           </div>
           <div id="mappings" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
           <p class="text-xs text-gray-500">
-            Bắt buộc phải map: <b>ma_ho_so</b>, <b>ho_ten</b>, <b>ma_so_hv</b>.
-            <br>Ngày nhận HS lấy từ ô bên trái, không cần có trong file.
+            Bắt buộc phải map: <b>Họ và tên</b>, <b>Mã số học viên</b>.
+            <br><i>mã hồ sơ</i> có thể bỏ trống — hệ thống sẽ tự sinh.
           </p>
         </section>
 
@@ -115,7 +115,6 @@
         </div>
 
         <div class="overflow-hidden border rounded-xl">
-          <!-- Giới hạn chiều cao, cho cuộn -->
           <div id="previewBox" class="overflow-x-auto overflow-y-auto">
             <table class="table min-w-full">
               <thead id="thead"></thead>
@@ -133,7 +132,6 @@
               <span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">ERROR: <span id="errCount">0</span></span>
               <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">SKIP: <span id="skipCount">0</span></span>
 
-              <!-- Export buttons -->
               <button id="btnExportErr" class="btn btn-outline btn-xs" disabled>📤 Xuất lỗi (XLSX)</button>
               <button id="btnExportAll" class="btn btn-outline btn-xs" disabled>📦 Xuất tất cả (XLSX)</button>
 
@@ -208,11 +206,8 @@
     let parsedRows = [];
     let stopFlag = false;
 
-    // Kết quả: lưu cả data gốc đã gửi (payload)
-    // {type:'OK'|'ERR'|'SKIP', idx:number, msg:string, data:{...payload}}
     const results = [];
 
-    //--- Xử lý lỗi thường gặp ---
     function translateMessage(msg){
       if (msg.includes("HTTP 409") && msg.includes("MSSV")) return "❗ Mã số học viên (MSSV) đã tồn tại.";
       if (msg.includes("HTTP 422") && msg.includes("10 chữ số")) return "⚠️ MSSV phải gồm đúng 10 chữ số.";
@@ -263,14 +258,9 @@
       results.push({type, idx, data, msg});
       renderResults();
     }
-
-    // Ẩn log text, giữ API tương thích
     function log(){ /* no-op */ }
 
-    // Copy / Clear
-    $('btnClearLog')?.addEventListener('click', ()=>{
-      results.splice(0, results.length); renderResults();
-    });
+    $('btnClearLog')?.addEventListener('click', ()=>{ results.splice(0, results.length); renderResults(); });
 
     function setBar(done, total){
       const pct = total ? Math.round(done*100/total) : 0;
@@ -279,11 +269,12 @@
       $('stats').textContent = total ? `Đã gửi ${done}/${total}` : "Chưa chạy.";
     }
 
-    // ===== Field defs (để hiển thị tiếng Việt phần xem trước) =====
+    // ===== Field defs (đã thêm giới_tính) =====
     const FIELD_DEFS = [
-      {key:"ma_ho_so",       label:"Mã HS",           aliases:["ma ho so","ma_hs","mhs"]},
+      {key:"ma_ho_so",       label:"Mã hồ sơ",        aliases:["ma ho so","ma_hs","ma_hoso","hoso","code"]},
       {key:"ho_ten",         label:"Họ tên",          aliases:["ho va ten","hovaten","hoten","ten_hv","tenhv","ten"]},
       {key:"ma_so_hv",       label:"Mã số HV",        aliases:["mshv","ma so","ma hoc vien","ma_hv","mahv"]},
+      {key:"gioi_tinh",      label:"Giới tính",       aliases:["gioi tinh","sex","gender","gt"]},
       {key:"ngay_sinh",      label:"Ngày sinh",       aliases:["dob","date of birth","ns"]},
       {key:"so_dt",          label:"Số ĐT",           aliases:["sdt","so dien thoai","dien thoai","so lien he"]},
       {key:"email_hoc_vien", label:"Email học viên",  aliases:["email","email hoc vien","mail","gmail"]},
@@ -347,7 +338,7 @@
       const headers = lines[0].split(",").map(s=>s.trim());
       const rows = lines.slice(1).map(ln=>{
         const cols = ln.split(",");
-        theObj = {}; headers.forEach((h,i)=> theObj[h]= (cols[i] ?? "").trim());
+        const theObj = {}; headers.forEach((h,i)=> theObj[h]= (cols[i] ?? "").trim());
         return theObj;
       });
       return {headers, rows};
@@ -389,11 +380,30 @@
       return LABEL_BY_KEY[k] || k;
     }
 
-    // === CHỈ 5 DÒNG & KHUNG CUỘN (max-h-40 ở outer) ===
+    // === Xem trước (toàn bộ, auto height) ===
     function preview(headers, rows){
       $('thead').innerHTML = `<tr>${headers.map(h=>`<th class="text-left">${labelForPreview(h)}</th>`).join("")}</tr>`;
-      $('tbody').innerHTML = rows.slice(0,5).map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
+      $('tbody').innerHTML = rows.map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
+      requestAnimationFrame(adjustPreviewHeight);
     }
+
+    function adjustPreviewHeight() {
+      const box = document.getElementById('previewBox');
+      if (!box) return;
+      box.style.maxHeight = 'none';
+      const thead = document.querySelector('#thead');
+      const tbody = document.querySelector('#tbody');
+      const headerH = thead ? thead.getBoundingClientRect().height : 36;
+      let rowH = 40;
+      const firstRow = tbody?.querySelector('tr');
+      if (firstRow) rowH = firstRow.getBoundingClientRect().height || rowH;
+      const desired = headerH + rowH * 5 + 8;
+      const maxByViewport = Math.floor(window.innerHeight * 0.7);
+      box.style.maxHeight = Math.min(desired, maxByViewport) + 'px';
+      box.style.overflowY = 'auto';
+      box.style.overflowX = 'auto';
+    }
+    window.addEventListener('resize', adjustPreviewHeight);
 
     // ===== Date helpers =====
     function excelSerialToISO(n){
@@ -414,39 +424,92 @@
       return "";
     }
 
-    // ===== Build payload & call API =====
-    function makeApplicantPayload(src, map){
-      const pick = (key, d="") => (map[key] ? (src[map[key]] ?? "").trim() : d);
-
-      const ma_ho_so = pick("ma_ho_so","");
-
-      // ✅ luôn dùng ngày ở ô mặc định
-      const ngay_nhan_form = $('defaultNgayNhan').value; // YYYY-MM-DD từ input[type=date]
-      const ngay_nhan_iso = parseDateFlexible(ngay_nhan_form) || ngay_nhan_form;
-
-      const ngay_sinh_iso = parseDateFlexible(pick("ngay_sinh")) || null;
-
-      return {
-        ma_ho_so,
-        ngay_nhan_hs: ngay_nhan_iso,         // ✅ chỉ dùng từ form
-        ho_ten: pick("ho_ten"),
-        ma_so_hv: pick("ma_so_hv"),
-        ngay_sinh: ngay_sinh_iso,
-        so_dt: pick("so_dt") || null,
-        email_hoc_vien: pick("email_hoc_vien") || null,
-        nganh_nhap_hoc: pick("nganh_nhap_hoc") || null,
-        dot: pick("dot") || null,
-        khoa: pick("khoa") || null,
-        da_tn_truoc_do: pick("da_tn_truoc_do") || null,
-        ghi_chu: pick("ghi_chu") || null,
-        nguoi_nhan_ky_ten: $('nguoiNhan').value.trim() || null,
-        docs: [],
-        checklist_version_name: "v1"
-      };
+    // ===== Giới tính normalize =====
+    function normalizeGender(v){
+      const s = String(v||"").trim().toLowerCase();
+      if (!s) return null;
+      if (["nam","male","m","1","true","nam "," n","n am"].includes(s) || s === "xn") return "Nam";
+      if (["nu","nữ","female","f","0"].includes(s)) return "Nữ";
+      if (["khac","other","o","x"].includes(s)) return "Khác";
+      // Chuẩn thử heuristics
+      if (s.startsWith("n")) return "Nam";
+      if (s.startsWith("f")) return "Nữ";
+      return "Khác";
     }
 
+    // --- Tạo mã hồ sơ tiếp theo: HS-[A..Z][0001..9999]
+    async function generateNextMaHoSo() {
+      try {
+        // dùng API đã có sẵn trong BE
+        const r = await apiFetch("/applicants/recent?limit=1");
+        if (r && r.ok) {
+          const arr = await r.json();
+          const last = Array.isArray(arr) && arr.length ? String(arr[0].ma_ho_so || "") : "";
+          const m = last.match(/^HS-([A-Z])(\d{4})$/i);
+          if (m) {
+            const letter = m[1].toUpperCase();
+            const num = parseInt(m[2], 10);
+            if (num >= 9999) {
+              const nextLetter = String.fromCharCode(letter.charCodeAt(0) + 1);
+              return `HS-${nextLetter}0001`;
+            }
+            return `HS-${letter}${String(num + 1).toString().padStart(4, "0")}`;
+          }
+        }
+      } catch (_) {}
+
+      // Fallback: theo ngày + random để không chặn luồng import
+      const now = new Date();
+      const y = String(now.getFullYear()).slice(-2);
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      const rnd = Math.floor(Math.random() * 9000 + 1000);
+      return `HS-${y}${m}${d}-${rnd}`;
+    }
+
+    // Chuẩn hoá giới tính → "Nam" | "Nữ" | "Khác" | null
+    function normalizeGender(raw) {
+      const s = String(raw || "").trim().toLowerCase();
+      if (!s) return null;
+      if (["nam","male","m","1"].includes(s)) return "Nam";
+      if (["nu","nữ","female","f","0"].includes(s)) return "Nữ";
+      return "Khác";
+    }
+
+    // ===== Build payload & call API =====
+    async function makeApplicantPayload(src, map){
+    const pick = (key, d="") => (map[key] ? String(src[map[key]] ?? "").trim() : d);
+
+    let ma_ho_so = pick("ma_ho_so", "");
+    if (!ma_ho_so) ma_ho_so = await generateNextMaHoSo();
+
+    const ngay_nhan_form = $('defaultNgayNhan').value; // YYYY-MM-DD
+    const ngay_nhan_iso  = parseDateFlexible(ngay_nhan_form) || ngay_nhan_form;
+    const ngay_sinh_iso  = parseDateFlexible(pick("ngay_sinh")) || null;
+    const gioi_tinh      = normalizeGender(pick("gioi_tinh")) || null;
+
+    return {
+      ma_ho_so,
+      ngay_nhan_hs: ngay_nhan_iso,
+      ho_ten: pick("ho_ten"),
+      ma_so_hv: pick("ma_so_hv"),
+      gioi_tinh,
+      ngay_sinh: ngay_sinh_iso,
+      so_dt: pick("so_dt") || null,
+      email_hoc_vien: pick("email_hoc_vien") || null,
+      nganh_nhap_hoc: pick("nganh_nhap_hoc") || null,
+      dot: pick("dot") || null,
+      khoa: pick("khoa") || null,
+      da_tn_truoc_do: pick("da_tn_truoc_do") || null,
+      ghi_chu: pick("ghi_chu") || null,
+      nguoi_nhan_ky_ten: $('nguoiNhan').value.trim() || null,
+      docs: [],
+      checklist_version_name: "v1",
+    };
+  }
+
     function requireMappings(m){
-      const need = ["ma_ho_so","ho_ten","ma_so_hv"];
+      const need = ["ho_ten","ma_so_hv"];
       const miss = need.filter(k=>!m[k]);
       if (miss.length){ alert("Thiếu map cột: " + miss.join(", ")); return false; }
       return true;
@@ -456,14 +519,12 @@
       const m = getMappingFromUI();
       if (!requireMappings(m)) return;
       const test = parsedRows.slice(0,5).map(row=> makeApplicantPayload(row, m));
+      console.log("Preview payloads:", test);
     };
 
     $('btnUpload').onclick = async ()=>{
       if (parsedRows.length === 0) { alert("Chưa chọn tệp hoặc tệp rỗng"); return; }
-      if (!$('defaultNgayNhan').value) {
-        alert("Vui lòng chọn 'Ngày nhận HS (mặc định)' trước khi import.");
-        return;
-      }
+      if (!$('defaultNgayNhan').value) { alert("Vui lòng chọn 'Ngày nhận HS (mặc định)' trước khi import."); return; }
       await detectPrefix();
       stopFlag = false; $('btnStop').classList.remove('hidden');
       $('btnUpload').disabled = true;
@@ -472,15 +533,14 @@
       if (!requireMappings(m)) { $('btnUpload').disabled=false; return; }
 
       const total = parsedRows.length; let done=0, ok=0, fail=0;
-      setBar(0,total); $('log').textContent="";
+      setBar(0,total);
 
       for (let i=0;i<parsedRows.length;i++){
-        if (stopFlag) { log("== ĐÃ DỪNG =="); break; }
-        const body = makeApplicantPayload(parsedRows[i], m);
-
-        if (!body.ma_ho_so || !body.ho_ten || !body.ma_so_hv){
+        if (stopFlag) break;
+        const body = await makeApplicantPayload(parsedRows[i], m);
+        if (!body.ho_ten || !body.ma_so_hv){
           fail++; done++; setBar(done,total);
-          addResult('SKIP', i+1, body, 'Thiếu bắt buộc (ma_ho_so/ho_ten/ma_so_hv)');
+          addResult('SKIP', i+1, body, 'Thiếu bắt buộc (ho_ten/ma_so_hv)');
           continue;
         }
         try{
@@ -537,20 +597,19 @@
     }
     window.addEventListener("load", ensureNguoiNhanFromSession);
 
-    // ===== Template
+    // ===== Template (đã thêm gioi_tinh) =====
     function buildTemplateHeaders(){
-      return ["ma_ho_so","ho_ten","ma_so_hv","ngay_sinh","so_dt","email_hoc_vien",
-              "nganh_nhap_hoc","dot","khoa","da_tn_truoc_do","ghi_chu"]; // ❌ không có 'ngay_nhan_hs'
+      return ["Mã HS","Họ và Tên","Mã số HV","Giới tính","Ngày sinh","Số ĐT","Email học viên",
+              "Ngành nhập học","Đợt","Khóa","Đối tượng TN","ghi chú"];
     }
-
     function sampleRows(){
       return [
-        { ma_ho_so:"HS-0001", ho_ten:"Nguyễn Văn A", ma_so_hv:"1234567890", ngay_sinh:"15/01/2005",
-          so_dt:"0901234567", email_hoc_vien:"vana@example.com", nganh_nhap_hoc:"Công nghệ thông tin",
-          dot:"1/2025", khoa:"25", da_tn_truoc_do:"THPT", ghi_chu:"" },
-        { ma_ho_so:"HS-0002", ho_ten:"Trần Thị B",   ma_so_hv:"0987654321", ngay_sinh:"20/12/2004",
-          so_dt:"0912345678", email_hoc_vien:"tran@example.com", nganh_nhap_hoc:"Quản trị kinh doanh",
-          dot:"1/2025", khoa:"25", da_tn_truoc_do:"Cao đẳng", ghi_chu:"" }
+        { ma_ho_so:"", ho_ten:"Nguyễn Văn A", ma_so_hv:"1234567890", gioi_tinh:"Nam",
+          ngay_sinh:"15/01/2005", so_dt:"0901234567", email_hoc_vien:"vana@example.com",
+          nganh_nhap_hoc:"Công nghệ thông tin", dot:"1", khoa:"25", da_tn_truoc_do:"THPT", ghi_chu:"" },
+        { ma_ho_so:"", ho_ten:"Trần Thị B",   ma_so_hv:"0987654321", gioi_tinh:"Nữ",
+          ngay_sinh:"20/12/2004", so_dt:"0912345678", email_hoc_vien:"tran@example.com",
+          nganh_nhap_hoc:"Quản trị kinh doanh", dot:"1", khoa:"25", da_tn_truoc_do:"Cao đẳng", ghi_chu:"" }
       ];
     }
 
@@ -562,9 +621,10 @@
       XLSX.utils.book_append_sheet(wb, ws, "HocVien");
       const guide = [
         ["Hướng dẫn"],
-        ["- Cột bắt buộc: ma_ho_so | ho_ten | ma_so_hv"],
+        ["- Cột bắt buộc: ho_ten | ma_so_hv"],
         ["- Ngày nhận HS được chọn ở giao diện, KHÔNG cần có trong file."],
-        ["- Định dạng ngày sinh gợi ý: DD/MM/YYYY (ví dụ: 01/10/2005)."]
+        ["- Định dạng ngày sinh gợi ý: DD/MM/YYYY (ví dụ: 01/10/2005)."],
+        ["- Giới tính chấp nhận: Nam | Nữ | Khác (hoặc m/f, male/female, 1/0)."]
       ];
       const rand = Math.floor(10000 + Math.random() * 90000);
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(guide), "HuongDan");
@@ -585,10 +645,10 @@
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
     };
 
-    // ===== Export XLSX từ kết quả (đầy đủ trường) =====
+    // ===== Export XLSX (thêm cột Giới tính) =====
     function toAoAFull(list){
       const header = [
-        "MaHO","Họ tên","MSSV","Ngày sinh","Số ĐT","Email",
+        "MaHS","Họ tên","MSSV","Giới tính","Ngày sinh","Số ĐT","Email",
         "Ngành nhập học","Đợt","Khóa","Đã TN trước đó","Ngày nhận",
         "Kết quả","Ghi chú kết quả"
       ];
@@ -600,6 +660,7 @@
           d.ma_ho_so || "",
           d.ho_ten || "",
           d.ma_so_hv || "",
+          d.gioi_tinh || "",
           d.ngay_sinh || "",
           d.so_dt || "",
           d.email_hoc_vien || "",
@@ -625,7 +686,7 @@
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(toAoAFull(data));
       ws['!cols'] = [
-        {wch:12},{wch:22},{wch:14},{wch:12},{wch:12},{wch:26},
+        {wch:12},{wch:22},{wch:14},{wch:10},{wch:12},{wch:12},{wch:26},
         {wch:22},{wch:10},{wch:8},{wch:16},{wch:12},{wch:12},{wch:60}
       ];
       XLSX.utils.book_append_sheet(wb, ws, "KetQuaImport");
@@ -634,46 +695,6 @@
     }
     $("btnExportAll").addEventListener("click", ()=> exportResults(false));
     $("btnExportErr").addEventListener("click", ()=> exportResults(true));
-
-    function adjustPreviewHeight() {
-      const box = document.getElementById('previewBox');
-      if (!box) return;
-
-      box.style.maxHeight = 'none'; // bỏ limit tạm để đo
-      const thead = document.querySelector('#thead');
-      const tbody = document.querySelector('#tbody');
-
-      const headerH = thead ? thead.getBoundingClientRect().height : 36;
-      let rowH = 40;
-      const firstRow = tbody?.querySelector('tr');
-      if (firstRow) rowH = firstRow.getBoundingClientRect().height || rowH;
-
-      const desired = headerH + rowH * 5 + 8;        // ~5 dòng
-      const maxByViewport = Math.floor(window.innerHeight * 0.7);
-
-      box.style.maxHeight = Math.min(desired, maxByViewport) + 'px';
-      box.style.overflowY = 'auto';   // đảm bảo có cuộn dọc
-      box.style.overflowX = 'auto';   // cuộn ngang nếu cần
-    }
-
-    // ⬇️ Render TẤT CẢ các dòng, KHÔNG slice
-    function preview(headers, rows) {
-      const labelForPreview = (h) => {
-        const k = String(h || '').trim();
-        return (LABEL_BY_KEY && LABEL_BY_KEY[k]) ? LABEL_BY_KEY[k] : k;
-      };
-
-      document.getElementById('thead').innerHTML =
-        `<tr>${headers.map(h => `<th class="text-left">${labelForPreview(h)}</th>`).join('')}</tr>`;
-
-      document.getElementById('tbody').innerHTML =
-        rows.map(r => `<tr>${headers.map(h => `<td>${(r[h] ?? '')}</td>`).join('')}</tr>`).join('');
-
-      requestAnimationFrame(adjustPreviewHeight);
-    }
-
-    window.addEventListener('resize', adjustPreviewHeight);
-
   </script>
 </body>
 </html>

@@ -12,7 +12,7 @@ from app.core.security import verify_password, hash_password
 
 router = APIRouter()
 
-IDLE_TIMEOUT_SEC = 2 * 60 * 60   # 2 giờ
+IDLE_TIMEOUT_SEC = 1 * 60 * 60   # 2 giờ
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
     # IDLE TIMEOUT CHECK (3h không hoạt động)

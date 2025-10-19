@@ -17,20 +17,21 @@ from app.models.checklist import ChecklistItem
 from app.services.pdf_service import (
     render_single_pdf,
     render_single_pdf_a5,
-    render_batch_pdf
+    render_batch_pdf,  # (giữ import nếu dùng nơi khác)
 )
 
-# Tạo Excel trực tiếp
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
+from app.utils.soft_delete import exclude_deleted, ensure_not_deleted
+
 router = APIRouter()  # không prefix; main sẽ mount /api
 
-# ================= Helpers chung =================
 
+# ================= Helpers chung =================
 def _parse_day_any(raw: str) -> date:
     """
-    Ưu tiên 'dd/MM/YYYY' theo yêu cầu, vẫn chấp nhận 'YYYY-MM-DD' (input type=date).
+    Ưu tiên 'dd/MM/YYYY', chấp nhận 'YYYY-MM-DD'.
     """
     s = (raw or "").strip()
     for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
@@ -40,8 +41,9 @@ def _parse_day_any(raw: str) -> date:
             pass
     raise HTTPException(
         status_code=400,
-        detail="Sai định dạng ngày. Dùng 'date=dd/MM/YYYY' (khuyến nghị) hoặc 'day=YYYY-MM-DD'."
+        detail="Sai định dạng ngày. Dùng 'date=dd/MM/YYYY' (khuyến nghị) hoặc 'day=YYYY-MM-DD'.",
     )
+
 
 def _items_merged_by_versions(db: Session, version_ids: set) -> List[ChecklistItem]:
     code_seen = set()
@@ -60,6 +62,7 @@ def _items_merged_by_versions(db: Session, version_ids: set) -> List[ChecklistIt
                 items.append(it)
     return items
 
+
 def _docs_map_by_mssv(docs: List[ApplicantDoc]) -> Dict[str, Dict[str, int]]:
     """
     Nhóm theo MSSV:
@@ -69,6 +72,7 @@ def _docs_map_by_mssv(docs: List[ApplicantDoc]) -> Dict[str, Dict[str, int]]:
     for d in docs:
         out.setdefault(d.applicant_ma_so_hv, {})[d.code] = int(d.so_luong or 0)
     return out
+
 
 def _fmt_date_excel(v: Optional[object]) -> str:
     """
@@ -80,7 +84,6 @@ def _fmt_date_excel(v: Optional[object]) -> str:
         v = v.date()
     if isinstance(v, date):
         return v.strftime("%d/%m/%Y")
-    # chuỗi -> cố gắng parse
     s = str(v).strip()
     for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
         try:
@@ -88,6 +91,7 @@ def _fmt_date_excel(v: Optional[object]) -> str:
         except Exception:
             continue
     return s
+
 
 def _build_excel_bytes(apps: List[Applicant], docs: List[ApplicantDoc], items_all: List[ChecklistItem]) -> bytes:
     """
@@ -148,11 +152,14 @@ def _build_excel_bytes(apps: List[Applicant], docs: List[ApplicantDoc], items_al
     wb.save(buf)
     return buf.getvalue()
 
+
 def _get_app_by_mssv(db: Session, ma_so_hv: str) -> Applicant:
     a = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
     if not a:
         raise HTTPException(status_code=404, detail="Applicant not found")
+    ensure_not_deleted(a)  # 🔒 hồ sơ xoá -> 410
     return a
+
 
 def _get_items_for_app(db: Session, app: Applicant):
     ver_id = getattr(app, "checklist_version_id", None)
@@ -167,11 +174,12 @@ def _get_items_for_app(db: Session, app: Applicant):
         q = q.order_by(ChecklistItem.id.asc())
     return q.all()
 
+
 def _get_docs_for_mssv(db: Session, ma_so_hv: str):
     return db.query(ApplicantDoc).filter(ApplicantDoc.applicant_ma_so_hv == ma_so_hv).all()
 
-# ================= EXPORT EXCEL THEO NGÀY =================
 
+# ================= EXPORT EXCEL THEO NGÀY =================
 @router.get("/export/excel")
 def export_excel(
     day: str | None = Query(None, description="YYYY-MM-DD"),
@@ -184,23 +192,20 @@ def export_excel(
         raise HTTPException(status_code=400, detail="Thiếu tham số 'date=dd/MM/YYYY' hoặc 'day=YYYY-MM-DD'")
     d = _parse_day_any(raw)
 
-    # Bao phủ DATE lẫn DATETIME
     d1 = datetime.combine(d, datetime.min.time())
     d2 = d1 + timedelta(days=1)
 
-    apps = (
-        db.query(Applicant)
-        .filter(Applicant.ngay_nhan_hs >= d1, Applicant.ngay_nhan_hs < d2)
-        .order_by(Applicant.created_at.asc(), Applicant.ma_so_hv.asc())
-        .all()
-    )
+    # Lọc theo khoảng thời gian (datetime) trước
+    q = db.query(Applicant).filter(Applicant.ngay_nhan_hs >= d1, Applicant.ngay_nhan_hs < d2)
+    q = exclude_deleted(Applicant, q)
+    apps = q.order_by(Applicant.created_at.asc(), Applicant.ma_so_hv.asc()).all()
+
+    # Fallback nếu cột trong DB là DATE (không có time)
     if not apps:
-        apps = (
-            db.query(Applicant)
-            .filter(Applicant.ngay_nhan_hs == d)
-            .order_by(Applicant.created_at.asc(), Applicant.ma_so_hv.asc())
-            .all()
-        )
+        q = exclude_deleted(Applicant, db.query(Applicant).filter(Applicant.ngay_nhan_hs == d))
+        apps = q.order_by(Applicant.created_at.asc(), Applicant.ma_so_hv.asc()).all()
+
+    apps = [a for a in apps if ensure_not_deleted(a, raise_http_exception=False)]
     if not apps:
         raise HTTPException(status_code=404, detail=f"Không có hồ sơ trong ngày {d.strftime('%d/%m/%Y')}")
 
@@ -211,7 +216,6 @@ def export_excel(
     items_all = _items_merged_by_versions(db, version_ids) if version_ids else []
 
     xls_bytes = _build_excel_bytes(apps, docs, items_all)
-    # Tên file dùng dấu '-' để tránh lỗi khi lưu
     filename = f"Export_{d.strftime('%d-%m-%Y')}.xlsx"
     return StreamingResponse(
         io.BytesIO(xls_bytes),
@@ -219,14 +223,14 @@ def export_excel(
         headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
     )
 
-# ================= EXPORT EXCEL THEO ĐỢT =================
 
+# ================= EXPORT EXCEL THEO ĐỢT =================
 @router.get("/export/excel-dot")
 def export_excel_dot(
     dot: str = Query(..., description="Ví dụ: 'Đợt 1/2025' hoặc '9'"),
     khoa: str | None = Query(None, description="(Tuỳ chọn) Lọc theo Khóa, ví dụ: '27'"),
     db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin","NhanVien")),
+    user=Depends(require_roles("Admin", "NhanVien")),
 ):
     key = (dot or "").strip()
     if not key:
@@ -241,14 +245,17 @@ def export_excel_dot(
         k = khoa.strip()
         q = q.filter(Applicant.khoa.isnot(None)).filter(func.lower(func.trim(Applicant.khoa)) == k.lower())
 
+    q = exclude_deleted(Applicant, q)
+
     apps = q.order_by(Applicant.created_at.asc(), Applicant.ma_so_hv.asc()).all()
+    apps = [a for a in apps if ensure_not_deleted(a, raise_http_exception=False)]
     if not apps:
         raise HTTPException(status_code=404, detail="Không có hồ sơ nào phù hợp")
 
     mssv_list = [a.ma_so_hv for a in apps]
     docs = db.query(ApplicantDoc).filter(ApplicantDoc.applicant_ma_so_hv.in_(mssv_list)).all()
 
-    # hợp nhất danh mục nhiều version
+    # Hợp nhất danh mục nhiều version
     items_all = _items_merged_by_versions(db, {a.checklist_version_id for a in apps if a.checklist_version_id})
 
     xls_bytes = _build_excel_bytes(apps, docs, items_all)
@@ -262,18 +269,18 @@ def export_excel_dot(
         headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
     )
 
-# ================= PRINT 1 HỒ SƠ (theo MSSV) =================
 
+# ================= PRINT 1 HỒ SƠ (theo MSSV) =================
 @router.get("/print/a5/{ma_so_hv}", summary="In 01 hồ sơ A5 (ngang) theo MSSV")
 def print_a5(ma_so_hv: str, db: Session = Depends(get_db)):
-    app = _get_app_by_mssv(db, ma_so_hv)
+    app = _get_app_by_mssv(db, ma_so_hv)  # đã chặn deleted
     items = _get_items_for_app(db, app)
-    docs  = _get_docs_for_mssv(db, ma_so_hv)
+    docs = _get_docs_for_mssv(db, ma_so_hv)
     pdf_bytes = render_single_pdf_a5(app, items, docs)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename=\"{app.ma_ho_so or ma_so_hv}_A5.pdf\"'}
+        headers={"Content-Disposition": f'inline; filename=\"{app.ma_ho_so or ma_so_hv}_A5.pdf\"'},
     )
 
 
@@ -281,10 +288,10 @@ def print_a5(ma_so_hv: str, db: Session = Depends(get_db)):
 def print_a4(ma_so_hv: str, db: Session = Depends(get_db)):
     app = _get_app_by_mssv(db, ma_so_hv)
     items = _get_items_for_app(db, app)
-    docs  = _get_docs_for_mssv(db, ma_so_hv)
+    docs = _get_docs_for_mssv(db, ma_so_hv)
     pdf_bytes = render_single_pdf(app, items, docs)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename=\"{app.ma_ho_so or ma_so_hv}_A4.pdf\"'}
+        headers={"Content-Disposition": f'inline; filename=\"{app.ma_ho_so or ma_so_hv}_A4.pdf\"'},
     )

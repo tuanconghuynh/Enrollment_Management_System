@@ -28,7 +28,7 @@ except Exception:
 
 app = FastAPI()
 
-# Cookie sống 7 ngày; idle timeout xử lý riêng (3 giờ trong auth + middleware)
+# Cookie sống 7 ngày; idle timeout xử lý riêng (1 giờ trong auth + middleware)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "change-me-please"),  # nên đưa vào ENV
@@ -46,7 +46,7 @@ async def add_correlation_id(request: Request, call_next):
     return resp
 
 # ===== Idle timeout =====
-MAX_IDLE_SECONDS = AUTH_IDLE_TIMEOUT_SEC  # 2h từ auth.py
+MAX_IDLE_SECONDS = AUTH_IDLE_TIMEOUT_SEC  # 1h từ auth.py
 
 WHITELIST_PREFIXES = (
     # KHÔNG để "/" ở đây kẻo bypass mọi route

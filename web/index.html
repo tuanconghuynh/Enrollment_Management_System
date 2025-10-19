@@ -16,17 +16,13 @@
 
   <div class="max-w-6xl mx-auto p-6 space-y-6">
     <header class="flex flex-wrap items-center justify-between border-b border-gray-200 pb-3">
-      <!-- Logo + Tiêu đề -->
       <div class="flex items-center gap-3 min-w-0">
         <a href="/index_home.html" class="flex items-center gap-3 hover:opacity-90 transition">
           <img src="hutech.png" alt="HUTECH" class="h-9 w-9 object-contain select-none" />
-          <h1 class="text-2xl font-bold leading-none truncate text-blue-700">
-            BIÊN NHẬN HỒ SƠ NHẬP HỌC
-          </h1>
+          <h1 class="text-2xl font-bold leading-none truncate text-blue-700">BIÊN NHẬN HỒ SƠ NHẬP HỌC</h1>
         </a>
       </div>
 
-      <!-- API / Buttons -->
       <div class="flex flex-wrap items-center gap-2 text-sm">
         <label for="apiBase" class="text-gray-600 font-medium">API Base</label>
         <input id="apiBase" class="input w-64 md:w-80" placeholder="http://..." />
@@ -36,14 +32,8 @@
     </header>
 
     <style>
-      header {
-        background: rgba(255,255,255,0.85);
-        backdrop-filter: blur(6px);
-      }
-      a:hover img {
-        transform: scale(1.05);
-        transition: transform 0.2s ease;
-      }
+      header { background: rgba(255,255,255,0.85); backdrop-filter: blur(6px); }
+      a:hover img { transform: scale(1.05); transition: transform 0.2s ease; }
     </style>
 
     <!-- Quick Nav -->
@@ -59,18 +49,18 @@
     </nav>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Form tạo/cập nhật hồ sơ -->
+      <!-- Form -->
       <section class="lg:col-span-2 card">
         <div class="section-title">Nhập Thông Tin Hồ Sơ</div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="label">Mã hồ sơ</label>
-            <input class="input" id="ma_ho_so" placeholder="HS-XXXXX" />
+            <input class="input" id="ma_ho_so" placeholder="HS-XXXXX" readonly />
           </div>
           <div>
-            <label class="label">Ngày nhận HS</label>
-            <input class="input" id="ngay_nhan_hs" type="date" />
+            <label class="label">Ngày nhận HS (Mặc định)</label>
+            <input class="input" id="ngay_nhan_hs" type="date" readonly disabled />
           </div>
           <div>
             <label class="label" for="khoa">Niên Khóa</label>
@@ -100,6 +90,15 @@
           <div>
             <label class="label">Mã số HV</label>
             <input class="input" id="ma_so_hv" />
+          </div>
+          <div>
+            <label class="label">Giới tính</label>
+            <select class="input" id="gioi_tinh">
+              <option value="">-- Chọn giới tính --</option>
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Khác">Khác</option>
+            </select>
           </div>
           <div>
             <label class="label">Ngày sinh</label>
@@ -138,12 +137,7 @@
           <div>
             <label class="label">Người nhận (Chữ ký)</label>
             <div class="relative">
-              <input
-                id="nguoi_nhan_ky_ten"
-                class="input pr-9 bg-gray-100 text-gray-500 cursor-not-allowed"
-                readonly
-                title="Tự động lấy theo tài khoản đăng nhập"
-              />
+              <input id="nguoi_nhan_ky_ten" class="input pr-9 bg-gray-100 text-gray-500 cursor-not-allowed" readonly />
               <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 select-none" title="Đã khóa">🔒</span>
             </div>
           </div>
@@ -166,7 +160,8 @@
             </table>
           </div>
         </div>
-        <!-- 🆕 Ghi chú đặt dưới bảng -->
+
+        <!-- Ghi chú -->
         <div class="mt-4">
           <label class="label">Ghi chú (Các chứng chỉ khác sẽ điền ở đây)</label>
           <input class="input" id="ghi_chu" />
@@ -181,7 +176,6 @@
 
       <!-- Panel phải -->
       <aside class="card space-y-6 lg:sticky lg:top-4">
-        <!-- Tra cứu & Chỉnh sửa -->
         <section>
           <div class="section-title">Tra cứu & Chỉnh sửa hồ sơ</div>
 
@@ -205,27 +199,19 @@
           <div class="grid grid-cols-2 gap-2 mt-3">
             <button id="btnUpdateApplicant" class="btn btn-secondary">Cập nhật</button>
             <button id="btnDeleteApplicant" class="btn btn-outline">Xóa</button>
+
             <!-- Modal cập nhật lý do -->
-            <div id="modalUpdateReason"
-                class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 backdrop-blur-sm">
+            <div id="modalUpdateReason" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 backdrop-blur-sm">
               <div class="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-2xl transform transition-all scale-100">
-                <!-- Header -->
                 <div class="px-6 py-4 border-b flex items-center justify-between bg-blue-50 rounded-t-2xl">
                   <div class="text-lg font-bold text-blue-800">📝 YÊU CẦU CẬP NHẬT HỒ SƠ</div>
-                  <button id="urClose"
-                          class="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-300">
-                    ❌
-                  </button>
+                  <button id="urClose" class="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-300">❌</button>
                 </div>
 
-                <!-- Body -->
                 <div class="p-6 space-y-4 text-base">
                   <div>
-                    <label for="updateReasonSelect" class="block font-semibold text-gray-800 mb-2">
-                      Yêu cầu cập nhật
-                    </label>
-                    <select id="updateReasonSelect"
-                            class="input w-full h-12 text-base border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <label for="updateReasonSelect" class="block font-semibold text-gray-800 mb-2">Yêu cầu cập nhật</label>
+                    <select id="updateReasonSelect" class="input w-full h-12 text-base">
                       <option value="">-- Chọn lệnh bổ sung --</option>
                       <option value="capnhat_hoso_moi">Cập nhật hồ sơ mới</option>
                       <option value="bosung_hoso">Bổ sung hồ sơ</option>
@@ -237,32 +223,21 @@
                   </div>
 
                   <div id="reasonOtherWrap" class="hidden">
-                    <label for="updateReasonText" class="block font-semibold text-gray-800 mb-2">
-                      Nhập lý do khác
-                    </label>
-                    <textarea id="updateReasonText" rows="3"
-                              class="input w-full text-base border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                              placeholder="Nhập lý do khác..."></textarea>
+                    <label for="updateReasonText" class="block font-semibold text-gray-800 mb-2">Nhập lý do khác</label>
+                    <textarea id="updateReasonText" rows="3" class="input w-full text-base" placeholder="Nhập lý do khác..."></textarea>
                   </div>
                 </div>
 
-                <!-- Footer -->
                 <div class="px-6 py-4 border-t flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
-                  <button id="urCancel"
-                          class="px-5 py-2 text-sm border border-gray-400 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-300">
-                    Hủy
-                  </button>
-                  <button id="urOK"
-                          class="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-400">
-                    Xác nhận
-                  </button>
+                  <button id="urCancel" class="px-5 py-2 text-sm border border-gray-400 rounded-lg hover:bg-gray-100">Hủy</button>
+                  <button id="urOK" class="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Xác nhận</button>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- In hồ sơ đang mở -->
+        <!-- In -->
         <section id="sectionPrintLoaded" class="mt-2">
           <div class="flex gap-2">
             <button id="btnPrintLoadedA5" class="btn btn-outline" disabled>In A5</button>
@@ -278,7 +253,6 @@
           <ul class="list-disc ml-5 text-sm text-gray-600 space-y-1">
             <li>Chọn API Base rồi nhấn nút Test cho lần đầu hoặc khi đổi server.</li>
             <li>Nhấn nút ↻ để tải lại danh sách hồ sơ và checklist từ server.</li>
-            <li>Đổi API Base ở góc trên nếu bạn deploy nơi khác.</li>
             <li>PDF mở trong tab mới; nếu bị chặn sẽ mở ngay tại tab.</li>
             <li>Tìm kiếm theo <b>Mã số HV</b> hoặc <b>Họ tên</b>.</li>
             <li>Để trống số lượng trong checklist để đánh dấu có/không.</li>
@@ -291,16 +265,11 @@
   </div>
 
   <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
-    © <span class="font-semibold">
-      <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">V-HT.PTĐT HUTECH</a>
-    </span>
-    ➖ Code by:
-    <span class="font-semibold">
-      <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">HC- Tuan</a>
-    </span>
+    © <span class="font-semibold"><a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">V-HT.PTĐT HUTECH</a></span>
+    ➖ Code by: <span class="font-semibold"><a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">HC- Tuan</a></span>
   </footer>
 
-  <!-- Modal Xoá lý do (center) -->
+  <!-- Modal Xoá -->
   <div id="modalDel" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50">
     <div class="bg-white rounded-2xl shadow-2xl w-[92vw] max-w-xl">
       <div class="px-5 py-4 border-b flex items-center justify-between">
@@ -319,11 +288,9 @@
     </div>
   </div>
 
-  <!-- Scripts -->
   <script>
-  // Ẩn trang trong lúc kiểm tra đăng nhập
+  /* Ẩn trang khi check đăng nhập */
   document.documentElement.style.visibility = 'hidden';
-
   (async () => {
     const base = location.origin.replace(/\/+$/, '');
     const candidates = ["", "/api"];
@@ -340,38 +307,22 @@
     document.documentElement.style.visibility = '';
   })();
 
-  // ========= helpers =========
+  /* ===== helpers ===== */
   const $ = (id) => document.getElementById(id);
+  const debounce = (fn, ms=400) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
 
-  // Toast (center-top)
   function showToast(msg, type='info', ms=2500){
-    const wrap = document.getElementById('toast-wrap');
-    if (!wrap) return;
-
-    // Giới hạn tối đa 3 toast đang hiện
-    const existing = wrap.querySelectorAll('.toast');
-    if (existing.length >= 3) existing[0].remove();
-
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
-    el.setAttribute('role','status');
-    el.innerHTML = msg;
-
-    wrap.appendChild(el);
-    requestAnimationFrame(()=> el.classList.add('show'));
-
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    const wrap = $('toast-wrap'); if (!wrap) return;
+    const existing = wrap.querySelectorAll('.toast'); if (existing.length >= 3) existing[0].remove();
+    const el = document.createElement('div'); el.className = `toast ${type}`; el.setAttribute('role','status'); el.innerHTML = escapeHtml(msg);
+    wrap.appendChild(el); requestAnimationFrame(()=> el.classList.add('show'));
     const t = setTimeout(()=>dismiss(), ms);
-
-    function dismiss(){
-      el.classList.remove('show');
-      el.addEventListener('transitionend', ()=> el.remove(), {once:true});
-    }
-    el.onclick = ()=> { clearTimeout(t); dismiss(); };
+    function dismiss(){ el.classList.remove('show'); el.addEventListener('transitionend', ()=> el.remove(), {once:true}); }
+    el.onclick = ()=>{ clearTimeout(t); dismiss(); };
   }
 
-
   // Date utils
-  function ymdToDMY_SLASH(s){ if(!s) return ""; const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:s; }
   const ymdKeep = (s)=> (s||"").slice(0,10);
   function fmtDateToInput(s){
     if(!s) return "";
@@ -383,7 +334,11 @@
   // API base / prefix
   const STORAGE_KEY="apiBase"; let API_PREFIX = window.__API_PREFIX || "";
   function apiBase(){ return ($("apiBase").value || localStorage.getItem(STORAGE_KEY) || window.location.origin).trim().replace(/\/+$/,''); }
-  async function pingPrefix(base){ try{let r=await fetch(base+"/health",{credentials:"include"}); if(r.ok) return "";}catch(_){ } try{let r2=await fetch(base+"/api/health",{credentials:"include"}); if(r2.ok) return "/api";}catch(_){ } return null; }
+  async function pingPrefix(base){
+    try{let r=await fetch(base+"/health",{credentials:"include"}); if(r.ok) return "";}catch(_){}
+    try{let r2=await fetch(base+"/api/health",{credentials:"include"}); if(r2.ok) return "/api";}catch(_){}
+    return null;
+  }
   async function ensureApiBaseAndPrefix(){
     let base = localStorage.getItem(STORAGE_KEY) || window.location.origin; $("apiBase").value = base;
     let pref = await pingPrefix(base); if (pref !== null){ API_PREFIX=pref; return; }
@@ -397,42 +352,55 @@
   function handleAuth(r){ if(r && (r.status===401||r.status===403)){ showToast("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.","warn",2500); setTimeout(()=>location.href="/login",700); return true; } return false; }
   const safeJson = async (r)=>{ try{ return await r.json(); }catch{ return {}; } };
 
-  // ====== NAV / Auth UI ======
+  /* ===== Deleted flags helper ===== */
+  function isSoftDeleted(x) {
+    if (!x) return false;
+    const status = String(x.status ?? x.trang_thai ?? x.trangthai ?? '').toUpperCase().trim();
+    const state  = String(x.state ?? '').toUpperCase().trim();
+    const dts = x.deleted_at || x.deletedAt || x.removed_at || x.archived_at;
+    const boolTrue = (v) => String(v).toLowerCase() === 'true' || v === true || v === 1 || v === '1';
+    const flags =
+      boolTrue(x.deleted) ||
+      boolTrue(x.is_deleted) ||
+      boolTrue(x.isDeleted) ||
+      boolTrue(x.hard_deleted) ||
+      !String(x.active ?? x.is_active ?? true).match(/^(true|1)$/i) ||
+      ['DELETED','DELETE_SOFT','DELETED_SOFT','REMOVED','INACTIVE','ARCHIVED'].includes(status) ||
+      ['DELETED','REMOVED','ARCHIVED','INACTIVE'].includes(state);
+    return Boolean(dts || flags);
+  }
+
+  /* ===== NAV / Auth UI ===== */
   async function refreshAuthUI(){
     try{
       const r = await apiFetch('/me', { credentials:'include' });
       if (!r || !r.ok){
-        ["navHello"].forEach(id=>$(id)?.classList.add("hidden"));
-        $("navLogin")?.classList.remove("hidden");
-        $("navLogout")?.classList.add("hidden");
-        // clear người nhận khi chưa đăng nhập
-        const rec = $("nguoi_nhan_ky_ten"); if (rec) rec.value = "";
+        ['navHello'].forEach(id=>$(id)?.classList.add("hidden"));
+        $('navLogin')?.classList.remove("hidden");
+        $('navLogout')?.classList.add("hidden");
+        const rec = $('nguoi_nhan_ky_ten'); if (rec) rec.value = "";
         return;
       }
       const me = await r.json();
       const role = me.role || "";
       const displayName = me.full_name || me.username || "";
 
-      $("navHello").textContent = `Xin chào, ${displayName} (${role})`;
-      $("navHello").classList.remove("hidden");
-      $("navLogin")?.classList.add("hidden");
-      $("navLogout")?.classList.remove("hidden");
+      $('navHello').textContent = `Xin chào, ${displayName} (${role})`;
+      $('navHello').classList.remove("hidden");
+      $('navLogin')?.classList.add("hidden");
+      $('navLogout')?.classList.remove("hidden");
 
-      // ✅ Điền vào ô Người nhận (nếu đang trống)
-      const rec = $("nguoi_nhan_ky_ten");
-      if (rec && !rec.value) {
-        rec.value = displayName;
-        rec.title = `Tự động theo tài khoản: ${displayName}`;
-      }
+      const rec = $('nguoi_nhan_ky_ten');
+      if (rec && !rec.value) { rec.value = displayName; rec.title = `Tự động theo tài khoản: ${displayName}`; }
     }catch(_){
-      ["navHello"].forEach(id=>$(id)?.classList.add("hidden"));
-      $("navLogin")?.classList.remove("hidden");
-      $("navLogout")?.classList.add("hidden");
+      ['navHello'].forEach(id=>$(id)?.classList.add("hidden"));
+      $('navLogin')?.classList.remove("hidden");
+      $('navLogout')?.classList.add("hidden");
     }
   }
-  $("navLogout")?.addEventListener("click", async ()=>{ try{ await apiFetch('/logout', { method:'POST', credentials:'include' }); }catch(_){ } location.href='/login'; });
+  $('navLogout')?.addEventListener('click', async ()=>{ try{ await apiFetch('/logout', { method:'POST', credentials:'include' }); }catch(_){ } location.href='/login'; });
 
-  // ===== Checklist =====
+  /* ===== Checklist ===== */
   const DEFAULT_QTY = { bang_tot_nghiep_dai_hoc:2, bang_diem_dai_hoc:2, bang_tot_nghiep_cao_dang:2, bang_diem_cao_dang:2, bang_tot_nghiep_trung_cap:2, bang_diem_trung_cap:2, anh_3x4:2 };
   const getDefaultQty = (code) => DEFAULT_QTY[code] ?? 1;
 
@@ -441,6 +409,7 @@
       const r = await apiFetch("/checklist/active");
       if (!r || !r.ok) { showToast("Không lấy được checklist", "error"); return; }
       const data = await r.json();
+      window.__CHECKLIST_VERSION_NAME__ = data?.version_name || data?.version || data?.name || 'unknown';
       const body = $("docsBody"); body.innerHTML = "";
       (data.items||[])
         .sort((a,b)=> (a.order_index ?? a.order_no ?? 0) - (b.order_index ?? b.order_no ?? 0))
@@ -469,39 +438,57 @@
     return rows.map(tr => {
       const chk  = tr.querySelector('.has-doc');
       const qtyI = tr.querySelector('.qty');
-      const code = chk.dataset.code;
+      const code = chk?.dataset.code || '';
       const def  = getDefaultQty(code);
-      let val = chk.checked ? Number(qtyI.value || def) : 0;
+      let val = chk?.checked ? Number(qtyI.value || def) : 0;
       if (!Number.isFinite(val) || val < 0) val = 0;
       return { code, so_luong: val };
     });
   }
 
-  // ===== Payloads =====
-  function payloadForCreate() {
-    return {
-      ma_ho_so: $("ma_ho_so").value.trim(),
-      ngay_nhan_hs: ymdToDMY_SLASH($("ngay_nhan_hs").value),
-      ho_ten: $("ho_ten").value.trim(),
-      ma_so_hv: $("ma_so_hv").value.trim(),
-      ngay_sinh: ymdToDMY_SLASH($("ngay_sinh").value) || null,
-      so_dt: $("so_dt").value.trim() || null,
-      email_hoc_vien: $("email_hoc_vien").value.trim() || null,
-      nganh_nhap_hoc: $("nganh_nhap_hoc").value.trim() || null,
-      dot: $("dot").value.trim() || null,
-      khoa: $("khoa").value.trim() || null,
-      da_tn_truoc_do: $("da_tn_truoc_do").value || null,
-      ghi_chu: $("ghi_chu").value.trim() || null,
-      nguoi_nhan_ky_ten: $("nguoi_nhan_ky_ten").value.trim() || null,
-      docs: collectDocs(),
-      checklist_version_name: "v1"
-    };
+  /* ===== Generator mã hồ sơ (GLOBAL) ===== */
+  async function generateNextMaHoSo() {
+    try {
+      // Lấy hồ sơ mới nhất rồi tăng
+      const r = await apiFetch(`/applicants/recent?limit=1`);
+      if (!r || !r.ok) throw new Error("API /applicants/recent lỗi");
+      const arr = await r.json();
+      const last = (Array.isArray(arr) && arr.length) ? (arr[0].ma_ho_so || "HS-A0000") : "HS-A0000";
+
+      const m = String(last).match(/^HS-([A-Z])(\d{4})$/i);
+      if (!m) return "HS-A0001";
+
+      const ch = m[1].toUpperCase();
+      let num = parseInt(m[2] || "0", 10);
+      num += 1;
+      if (num > 9999) {
+        const nextChar = String.fromCharCode(ch.charCodeAt(0) + 1);
+        return `HS-${nextChar}0001`;
+      }
+      return `HS-${ch}${String(num).padStart(4,"0")}`;
+    } catch (e) {
+      console.warn("generateNextMaHoSo() fallback:", e);
+      return "HS-A0001";
+    }
   }
-  function payloadForUpdate() {
+
+  /* ===== Payloads ===== */
+  async function payloadForCreate() {
+    let maHoSo = $("ma_ho_so").value.trim();
+    if (!maHoSo) {
+      maHoSo = await generateNextMaHoSo();
+      $("ma_ho_so").value = maHoSo;
+    }
+
+    // 🗓️ Tự động set ngày nhận hồ sơ (ngày hiện tại)
+    const today = new Date().toISOString().split("T")[0];
+    $("ngay_nhan_hs").value = today;
+
     return {
-      ma_ho_so: $("ma_ho_so").value.trim(),
-      ngay_nhan_hs: ymdKeep($("ngay_nhan_hs").value),
+      ma_ho_so: maHoSo,
+      ngay_nhan_hs: ymdKeep(today),
       ho_ten: $("ho_ten").value.trim(),
+      gioi_tinh: $("gioi_tinh").value || null,
       ma_so_hv: $("ma_so_hv").value.trim(),
       ngay_sinh: ymdKeep($("ngay_sinh").value) || null,
       so_dt: $("so_dt").value.trim() || null,
@@ -512,31 +499,61 @@
       da_tn_truoc_do: $("da_tn_truoc_do").value || null,
       ghi_chu: $("ghi_chu").value.trim() || null,
       nguoi_nhan_ky_ten: $("nguoi_nhan_ky_ten").value.trim() || null,
-      docs: collectDocs()
+      docs: collectDocs(),
+      checklist_version_name: window.__CHECKLIST_VERSION_NAME__ || "v1",
     };
   }
 
-  // ===== Lookup / Update / Delete =====
-  let loadedDocsByCode = {};
-  function setPrintButtonsEnabled(on) {
-    $("btnPrintLoadedA5").disabled = !on;
-    $("btnPrintLoadedA4").disabled = !on;
+  function payloadForUpdate() {
+    const currentDate = $("ngay_nhan_hs").value || new Date().toISOString().split("T")[0];
+    return {
+      ma_ho_so: $("ma_ho_so").value.trim(),
+      ngay_nhan_hs: ymdKeep(currentDate),
+      ho_ten: $("ho_ten").value.trim(),
+      gioi_tinh: $("gioi_tinh").value || null,
+      ma_so_hv: $("ma_so_hv").value.trim(),
+      ngay_sinh: ymdKeep($("ngay_sinh").value) || null,
+      so_dt: $("so_dt").value.trim() || null,
+      email_hoc_vien: $("email_hoc_vien").value.trim() || null,
+      nganh_nhap_hoc: $("nganh_nhap_hoc").value.trim() || null,
+      dot: $("dot").value.trim() || null,
+      khoa: $("khoa").value.trim() || null,
+      da_tn_truoc_do: $("da_tn_truoc_do").value || null,
+      ghi_chu: $("ghi_chu").value.trim() || null,
+      nguoi_nhan_ky_ten: $("nguoi_nhan_ky_ten").value.trim() || null,
+      docs: collectDocs(),
+    };
   }
 
-  function populateFormFromApplicant(a, docs){
-    $("ma_ho_so").value = a.ma_ho_so || "";
-    $("ngay_nhan_hs").value = fmtDateToInput(a.ngay_nhan_hs);
-    $("khoa").value = a.khoa || "";
-    $("ho_ten").value = a.ho_ten || "";
-    $("ma_so_hv").value = a.ma_so_hv || "";
-    $("ngay_sinh").value = fmtDateToInput(a.ngay_sinh);
-    $("so_dt").value = a.so_dt || "";
-    $("email_hoc_vien").value = a.email_hoc_vien || "";
-    $("nganh_nhap_hoc").value = a.nganh_nhap_hoc || "";
-    $("dot").value = a.dot || "";
-    $("da_tn_truoc_do").value = a.da_tn_truoc_do || "";
-    $("ghi_chu").value = a.ghi_chu || "";
-    $("nguoi_nhan_ky_ten").value = a.nguoi_nhan_ky_ten || "";
+  // ===== Local tombstone cho MSHV đã xoá =====
+  const TOMBSTONE_KEY = 'deleted_mshv_set_v1';
+  function getDeletedSet() { try { return new Set(JSON.parse(localStorage.getItem(TOMBSTONE_KEY) || '[]')); } catch { return new Set(); } }
+  function saveDeletedSet(set) { try { localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(Array.from(set))); } catch {} }
+  function markDeleted(mshv) { const s = getDeletedSet(); s.add(String(mshv).trim()); saveDeletedSet(s); }
+  function isMarkedDeleted(mshv) { return getDeletedSet().has(String(mshv).trim()); }
+
+  /* ===== Lookup / Update / Delete ===== */
+  let loadedDocsByCode = {};
+  function setPrintButtonsEnabled(on) {
+    $('btnPrintLoadedA5').disabled = !on;
+    $('btnPrintLoadedA4').disabled = !on;
+  }
+
+  function populateFormFromApplicant(a={}, docs){
+    $('ma_ho_so').value = a.ma_ho_so || "";
+    $('ngay_nhan_hs').value = fmtDateToInput(a.ngay_nhan_hs);
+    $('khoa').value = a.khoa || "";
+    $('ho_ten').value = a.ho_ten || "";
+    $('ma_so_hv').value = a.ma_so_hv || "";
+    $('ngay_sinh').value = fmtDateToInput(a.ngay_sinh);
+    $('gioi_tinh').value = a.gioi_tinh || "";
+    $('so_dt').value = a.so_dt || "";
+    $('email_hoc_vien').value = a.email_hoc_vien || "";
+    $('nganh_nhap_hoc').value = a.nganh_nhap_hoc || "";
+    $('dot').value = a.dot || "";
+    $('da_tn_truoc_do').value = a.da_tn_truoc_do || "";
+    $('ghi_chu').value = a.ghi_chu || "";
+    $('nguoi_nhan_ky_ten').value = a.nguoi_nhan_ky_ten || $('nguoi_nhan_ky_ten').value || "";
 
     loadedDocsByCode = {}; (docs||[]).forEach(d => loadedDocsByCode[d.code] = d.so_luong || 0);
     const applyDocsToTable = () => {
@@ -551,116 +568,111 @@
   }
 
   async function loadApplicantByMSHV(mshv){
+    // endpoint chuẩn
     let r = await apiFetch(`/applicants/by-mshv/${encodeURIComponent(mshv)}`);
-    if (!r || r.status === 404 || r.status === 405) {
+    if (r && r.ok) {
+      const data = await r.json();
+      const ap = (data && data.applicant) ? { ...data.applicant, docs: data.docs || [] } : data;
+      if (isSoftDeleted(ap)) {
+        showToast(`MSHV ${mshv} đã bị xóa, không thể mở!`, "warn");
+        throw new Error(`Hồ sơ ${mshv} đã bị xóa!`);
+      }
+      return ap;
+    }
+
+    // 404: không có
+    if (r && r.status === 404) {
+      showToast(`Không tìm thấy MSHV ${mshv}`, "warn");
+      throw new Error(`Không tìm thấy hồ sơ ${mshv}`);
+    }
+
+    // Fallback (API cũ): phải lọc kỹ
+    if (!r || r.status === 405) {
       const rs = await apiFetch(`/applicants/search?q=${encodeURIComponent(mshv)}`);
       if (rs && rs.ok) {
         const j = await rs.json();
-        const list = Array.isArray(j.items) ? j.items : (Array.isArray(j) ? j : []);
-        const hit = list.find(x => (x.ma_so_hv || "").toLowerCase() === String(mshv).toLowerCase()) || list[0];
-        if (hit) r = await apiFetch(`/applicants/by-code/${encodeURIComponent(hit.ma_ho_so)}`);
+        let raw = Array.isArray(j.items) ? j.items : (Array.isArray(j) ? j : []);
+        raw = (raw || []).filter(it => !isSoftDeleted(it));
+        const hit = raw.find(x => (String(x.ma_so_hv||'').toLowerCase() === String(mshv).toLowerCase()));
+        if (hit) {
+          const rd = await apiFetch(`/applicants/by-code/${encodeURIComponent(hit.ma_ho_so)}`);
+          if (rd && rd.ok) {
+            const d2 = await rd.json();
+            const ap2 = (d2 && d2.applicant) ? { ...d2.applicant, docs: d2.docs || [] } : d2;
+            if (isSoftDeleted(ap2)) {
+              showToast(`MSHV ${mshv} đã bị xóa không thể mở!`, "warn");
+              throw new Error(`Hồ sơ ${mshv} đã bị xóa!`);
+            }
+            return ap2;
+          }
+        }
       }
     }
-    if (!r || !r.ok) {
-      if (r && r.status === 404) showToast(`Không tìm thấy MSHV ${mshv}`, "warn");
-      const t = r ? await r.text() : "(không phản hồi)";
-      throw new Error(`Lỗi tải hồ sơ (HTTP ${r ? r.status : '???'})\n${t}`);
-    }
-    const data = await r.json();
-    return (data && data.applicant) ? { ...data.applicant, docs: data.docs || [] } : data;
+
+    const t = r ? await r.text().catch(()=>"(không phản hồi)") : "(không phản hồi)";
+    throw new Error(`Lỗi tải hồ sơ (HTTP ${r ? r.status : '???'})\n${t}`);
   }
 
-  async function updateLoadedApplicant(){
-  if(!window.loadedApplicant?.ma_so_hv) throw new Error("Chưa tải hồ sơ nào để cập nhật.");
+  function askUpdateReason() {
+    return new Promise((resolve) => {
+      const wrap = $('modalUpdateReason');
+      const select = $('updateReasonSelect');
+      const txt = $('updateReasonText');
+      const ok = $('urOK');
+      const cancel = $('urCancel');
+      const close = $('urClose');
 
-  const body = payloadForUpdate();
-  if(!body.ho_ten) throw new Error("Thiếu Họ tên.");
+      select.value = ""; txt.value = "";
+      const toggleOther = ()=>{ (select.value === 'khac') ? txt.parentElement.classList.remove('hidden') : txt.parentElement.classList.add('hidden'); };
+      toggleOther();
 
-  const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {
-    method: "PUT",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify(body)
-  });
-  if (handleAuth(r)) return;
-  if(!r || !r.ok){
-    const t = r ? await r.text() : "(không phản hồi)";
-    throw new Error(`Cập nhật thất bại (HTTP ${r ? r.status : '???'})\n${t}`);
+      wrap.classList.remove('hidden'); wrap.classList.add('flex');
+
+      const onBackdrop = (e) => { if (e.target === wrap) done(null); };
+      const onEsc = (e) => { if (e.key === 'Escape') done(null); };
+      wrap.addEventListener('click', onBackdrop);
+      document.addEventListener('keydown', onEsc);
+      select.addEventListener('change', toggleOther);
+
+      const done = (v) => {
+        wrap.classList.add('hidden'); wrap.classList.remove('flex');
+        ok.onclick = cancel.onclick = close.onclick = null;
+        wrap.removeEventListener('click', onBackdrop);
+        document.removeEventListener('keydown', onEsc);
+        select.removeEventListener('change', toggleOther);
+        resolve(v);
+      };
+
+      ok.onclick = () => {
+        const key = select.value;
+        const text = txt.value.trim();
+        if (!key) { showToast("Vui lòng chọn lý do cập nhật.", "warn"); return; }
+        if (key === "khac" && !text) { showToast("Nhập lý do khác.", "warn"); return; }
+        done({ key, text });
+      };
+      cancel.onclick = close.onclick = () => done(null);
+    });
   }
 
-  const res = await r.json();
-
-  // ✅ Chỉ cập nhật MSHV nếu còn giữ loadedApplicant
-  if (window.loadedApplicant) {
-    window.loadedApplicant.ma_so_hv = res.ma_so_hv || body.ma_so_hv || window.loadedApplicant.ma_so_hv;
-  }
-
-  return res;
-}
-
-function askUpdateReason() {
-  return new Promise((resolve) => {
-    const wrap = $("modalUpdateReason");
-    const select = $("updateReasonSelect");
-    const txt = $("updateReasonText");
-    const ok = $("urOK");
-    const cancel = $("urCancel");
-    const close = $("urClose");
-
-    select.value = "";
-    txt.value = "";
-    txt.classList.add("hidden");
-    wrap.classList.remove("hidden");
-    wrap.classList.add("flex");
-
-    select.onchange = () => {
-      if (select.value === "khac") txt.classList.remove("hidden");
-      else txt.classList.add("hidden");
-    };
-
-    const done = (v) => {
-      wrap.classList.add("hidden");
-      wrap.classList.remove("flex");
-      ok.onclick = cancel.onclick = close.onclick = null;
-      resolve(v);
-    };
-
-    ok.onclick = () => {
-      const key = select.value;
-      const text = txt.value.trim();
-      if (!key) { showToast("Vui lòng chọn lý do cập nhật.", "warn"); return; }
-      if (key === "khac" && !text) { showToast("Nhập lý do khác.", "warn"); return; }
-      done({ key, text });
-    };
-    cancel.onclick = close.onclick = () => done(null);
-  });
-}
-
-  // ===== Modal hỏi lý do xoá =====
+  // Modal hỏi lý do xoá
   function askDeleteReason(title, defText=""){
     return new Promise((resolve)=>{
-      const wrap = document.getElementById('modalDel');
-      const titleEl = document.getElementById('mdTitle');
-      const input = document.getElementById('mdReason');
-      const ok = document.getElementById('mdOK');
-      const cancel = document.getElementById('mdCancel');
-      const close = document.getElementById('mdClose');
-
-      titleEl.textContent = title || "Xoá hồ sơ này?";
-      input.value = defText || "";
-      wrap.classList.remove('hidden');
-      wrap.classList.add('flex');
-      input.focus();
+      const wrap = $('modalDel'); const titleEl = $('mdTitle'); const input = $('mdReason');
+      const ok = $('mdOK'); const cancel = $('mdCancel'); const close = $('mdClose');
+      titleEl.textContent = title || "Xoá hồ sơ này?"; input.value = defText || "";
+      wrap.classList.remove('hidden'); wrap.classList.add('flex'); input.focus();
 
       const done = (v)=>{ wrap.classList.add('hidden'); wrap.classList.remove('flex'); ok.onclick=cancel.onclick=close.onclick=null; resolve(v); };
-      ok.onclick = ()=>{ const v = (input.value||"").trim(); if(!v){ input.focus(); return; } done(v); };
-      cancel.onclick = ()=> done(null);
-      close.onclick = ()=> done(null);
-      wrap.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ e.preventDefault(); done(null); } });
+      ok.onclick = ()=>{ const v = (input.value||"").trim(); if(!v){ showToast("Vui lòng nhập lý do xoá.", "warn"); input.focus(); return; } done(v); };
+      cancel.onclick = close.onclick = ()=> done(null);
+      wrap.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ e.preventDefault(); done(null); } }, { once:true });
     });
   }
 
   async function clearForm(){
-    ["ma_ho_so","ngay_nhan_hs","khoa","ho_ten","ma_so_hv","ngay_sinh","so_dt","email_hoc_vien","nganh_nhap_hoc","dot","da_tn_truoc_do","ghi_chu"].forEach(id=>{ const el=$(id); if(!el) return; if(el.type==='checkbox') el.checked=false; else el.value=""; });
+    ["ma_ho_so","ngay_nhan_hs","khoa","ho_ten","ma_so_hv","gioi_tinh","ngay_sinh","so_dt","email_hoc_vien","nganh_nhap_hoc","dot","da_tn_truoc_do","ghi_chu"].forEach(id=>{
+      const el=$(id); if(!el) return; if(el.type==='checkbox') el.checked=false; else el.value="";
+    });
     document.querySelectorAll('.has-doc').forEach(chk=>{ chk.checked=false; });
     document.querySelectorAll('.qty').forEach(q=>{ q.value=""; q.disabled=true; q.classList.add("bg-gray-100","text-gray-400"); });
   }
@@ -668,77 +680,127 @@ function askUpdateReason() {
   function resetToNewForm(){
     const today = new Date().toISOString().slice(0,10);
     clearForm();
-    $("ngay_nhan_hs").value = today;           // điền lại hôm nay cho nhanh thao tác
-    // giữ nguyên người nhận đã được set theo tài khoản
-    // reset trạng thái
+    $('ngay_nhan_hs').value = today;
     window.loadedApplicant = null;
     setPrintButtonsEnabled(false);
-    $("lookupMsg").textContent = "";
-    $("msg").textContent = "";
-    document.getElementById('nameResults')?.classList.add('hidden');
+    $('lookupMsg').textContent = "";
+    $('msg').textContent = "";
+    $('nameResults')?.classList.add('hidden');
+    $('gioi_tinh').value = "";
   }
 
-  // --- Sửa handler LƯU:
-  $("btnSave").onclick = async () => {
-    const btn = $("btnSave");
-    btn.disabled = true; const old = btn.textContent; btn.textContent = "Đang lưu...";
+  // Lưu
+  $('btnSave').addEventListener('click', async ()=>{
+    const btn = $('btnSave'); btn.disabled = true; const old = btn.textContent; btn.textContent = "Đang lưu...";
     try{
       const res = await createApplicant();
       if (res) {
-        showToast(`Đã lưu hồ sơ <b>${res.ma_so_hv || $("ma_so_hv").value}</b>.`, "success");
-        $("msg").textContent = `Đã lưu MSHV ${res.ma_so_hv || $("ma_so_hv").value}.`;
+        showToast(`Đã lưu hồ sơ ${res.ma_so_hv || $('ma_so_hv').value}`, "success");
+        $('msg').textContent = `Đã lưu MSHV ${res.ma_so_hv || $('ma_so_hv').value}`;
         resetToNewForm();
       }
     } finally{ btn.disabled = false; btn.textContent = old; }
-  };
-
-  // --- Sửa handler CẬP NHẬT (cả 2 nút Update):
-["btnUpdateApplicant", "btnUpdateApplicantMain"].forEach(id => {
-  $(id)?.addEventListener("click", async () => {
-    try {
-      if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào để cập nhật.", "warn"); return; }
-
-      const reason = await askUpdateReason();
-      if (!reason) return;
-
-      const body = payloadForUpdate();
-      body.update_reason_key = reason.key;
-      body.update_reason_text = reason.text;
-
-      $("lookupMsg").textContent = "Đang cập nhật...";
-      const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (handleAuth(r)) return;
-
-      if (!r.ok) {
-        const t = await r.text();
-        throw new Error(`Cập nhật thất bại (${r.status}): ${t}`);
-      }
-
-      const res = await r.json();
-      showToast(`Đã cập nhật hồ sơ MSHV <b>${res.ma_so_hv}</b>`, "success");
-      $("lookupMsg").textContent = `Cập nhật xong MSHV ${res.ma_so_hv}.`;
-      resetToNewForm();
-    } catch (e) {
-      $("lookupMsg").textContent = e.message;
-      showToast(e.message || "Cập nhật thất bại!", "error");
-    }
   });
-});
+
+  // Cập nhật (2 nút)
+  ["btnUpdateApplicant", "btnUpdateApplicantMain"].forEach(id => {
+    const handler = async ()=>{
+      try {
+        const btn = $(id); const old = btn.textContent; btn.disabled = true; btn.textContent = "Đang cập nhật...";
+        if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào để cập nhật.", "warn"); return; }
+
+        const reason = await askUpdateReason(); if (!reason) return;
+        const body = payloadForUpdate(); body.update_reason_key = reason.key; body.update_reason_text = reason.text;
+
+        $('lookupMsg').textContent = "Đang cập nhật...";
+        const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        if (handleAuth(r)) return;
+        if (!r.ok) { const t = await r.text(); throw new Error(`Cập nhật thất bại (${r.status}): ${t}`); }
+
+        const res = await r.json();
+        showToast(`Đã cập nhật hồ sơ MSHV <b>${res.ma_so_hv}</b>`, "success");
+        $('lookupMsg').textContent = `Cập nhật xong MSHV ${res.ma_so_hv}.`;
+        resetToNewForm();
+      } catch (e) {
+        $('lookupMsg').textContent = e.message;
+        showToast(e.message || "Cập nhật thất bại!", "error");
+      } finally {
+        const btn = $(id); if (btn) { btn.disabled = false; btn.textContent = "Cập nhật"; }
+      }
+    };
+    $(id)?.addEventListener('click', handler);
+  });
 
   async function createApplicant(){
-    const body = payloadForCreate();
-    if(!body.ma_ho_so || !body.ho_ten || !body.ma_so_hv || !body.ngay_nhan_hs){
-      showToast("Thiếu Mã hồ sơ / Họ tên / MSHV / Ngày nhận.", "error"); return null;
+    // lấy & chuẩn hoá input
+    const hoTen = ($('ho_ten')?.value || '').trim();
+    const msHv  = ($('ma_so_hv')?.value || '').trim();
+
+    // highlight helper
+    const markError = (elId, msg) => {
+      const el = $(elId);
+      if (el) {
+        el.classList.add('ring-2','ring-red-400');
+        el.scrollIntoView({behavior:'smooth', block:'center'});
+        el.focus();
+        setTimeout(()=> el.classList.remove('ring-2','ring-red-400'), 1800);
+      }
+      showToast(msg, 'error');
+    };
+
+    // validate bắt buộc
+    if (!hoTen) { markError('ho_ten', 'Vui lòng nhập Họ tên.'); return null; }
+    if (!msHv)  { markError('ma_so_hv','Vui lòng nhập MSHV.');   return null; }
+    // if (!/^\d{10}$/.test(msHv)) { markError('ma_so_hv','MSHV phải gồm 10 số.'); return null; }
+
+    // validate định dạng mềm
+    const email = ($('email_hoc_vien')?.value || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { markError('email_hoc_vien','Email không hợp lệ.'); return null; }
+    const phone = ($('so_dt')?.value || '').trim();
+    if (phone && !/^[0-9 +().-]{8,20}$/.test(phone)) { markError('so_dt','Số điện thoại chưa đúng.'); return null; }
+
+    // build payload
+    const body = await payloadForCreate();
+
+    // đảm bảo 2 trường bắt buộc đã gán đúng
+    body.ho_ten   = hoTen;
+    body.ma_so_hv = msHv;
+
+    // bù ngày nhận nếu trống + đồng bộ UI
+    if (!body.ngay_nhan_hs) {
+      body.ngay_nhan_hs = new Date().toISOString().slice(0,10);
+      const ngayNhan = $('ngay_nhan_hs'); if (ngayNhan) ngayNhan.value = body.ngay_nhan_hs;
     }
-    const r = await apiFetch("/applicants", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+
+    // bù mã hồ sơ nếu trống (dùng generator mới)
+    if (!body.ma_ho_so) {
+      try {
+        body.ma_ho_so = await generateNextMaHoSo();
+        const mhs = $('ma_ho_so'); if (mhs) mhs.value = body.ma_ho_so;
+      } catch(_) {}
+    }
+
+    // gửi API
+    const r = await apiFetch("/applicants", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    });
     if (handleAuth(r)) return null;
+
     const j = await safeJson(r);
-    if (!r || !r.ok){ showToast(j.detail || `Lỗi lưu (HTTP ${r ? r.status : '???'})`, "error", 4000); return null; }
-    window.loadedApplicant = { ma_so_hv: j.ma_so_hv || body.ma_so_hv, ma_ho_so: j.ma_ho_so || body.ma_ho_so };
+    if (!r || !r.ok){
+      console.log("👀 Payload gửi lên:", body);
+      showToast(j.detail || `Lỗi lưu (HTTP ${r ? r.status : '???'})`, "error", 4000);
+      return null;
+    }
+
+    window.loadedApplicant = {
+      ma_so_hv: j.ma_so_hv || body.ma_so_hv,
+      ma_ho_so: j.ma_ho_so || body.ma_ho_so
+    };
     setPrintButtonsEnabled(true);
     return j;
   }
@@ -750,17 +812,16 @@ function askUpdateReason() {
     if (reason === null) return;
 
     const r = await apiFetch(`/applicants/${encodeURIComponent(mshv)}`, {
-      method: "DELETE",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ reason })
+      method: "DELETE", headers: { "Content-Type":"application/json" }, body: JSON.stringify({ reason })
     });
     if (handleAuth(r)) return;
 
     if (r && r.status === 204){
+      markDeleted(mshv);
       window.loadedApplicant = null; loadedDocsByCode = {};
       setPrintButtonsEnabled(false);
       await clearForm();
-      $("lookupMsg").textContent = "Đã xoá hồ sơ.";
+      $('lookupMsg').textContent = "Đã xoá hồ sơ.";
       showToast("Đã xoá hồ sơ và ghi vào nhật ký.", "success");
       return;
     }
@@ -770,7 +831,7 @@ function askUpdateReason() {
     showToast(msg, "error", 4000);
   }
 
-  // ===== Tìm theo tên =====
+  /* ===== Tìm theo tên ===== */
   async function searchByName(name) {
     const q = String(name || "").trim().replace(/\s+/g, " ");
     if (q.length < 2) throw new Error("Nhập tối thiểu 2 ký tự để tìm theo tên.");
@@ -793,14 +854,16 @@ function askUpdateReason() {
       const j = await readJson(r);
       if (!j) continue;
 
-      let list = [];
-      if (Array.isArray(j)) list = j;
-      else if (Array.isArray(j.items)) list = j.items;
-      else if (Array.isArray(j.data))  list = j.data;
-      else if (Array.isArray(j.results)) list = j.results;
-      else if (j.items && j.items.data && Array.isArray(j.items.data)) list = j.items.data;
+      let raw = [];
+      if (Array.isArray(j)) raw = j;
+      else if (Array.isArray(j.items)) raw = j.items;
+      else if (Array.isArray(j.data))  raw = j.data;
+      else if (Array.isArray(j.results)) raw = j.results;
+      else if (j.items && j.items.data && Array.isArray(j.items.data)) raw = j.items.data;
 
-      list = (list || []).map(it => ({
+      raw = (raw || []).filter(it => !isSoftDeleted(it));
+
+      const list = raw.map(it => ({
         ho_ten: it.ho_ten || it.full_name || it.ten || "",
         ma_ho_so: it.ma_ho_so || it.code || it.ma_hs || "",
         ma_so_hv: it.ma_so_hv || it.mssv || it.mshv || "",
@@ -825,7 +888,7 @@ function askUpdateReason() {
   }
   function renderNameResults(list){
     list = Array.isArray(list) ? list : (Array.isArray(list?.items) ? list.items : []);
-    const box = $("nameResults"); const ul = $("nameResultsList"); if(!box||!ul) return;
+    const box = $('nameResults'); const ul = $('nameResultsList'); if(!box||!ul) return;
     if(!list || list.length===0){ box.classList.remove("hidden"); ul.innerHTML='<li class="p-2 text-sm text-gray-500">Không tìm thấy.</li>'; return; }
     ul.innerHTML = list.map(it => {
       const ngay = it.ngay_nhan_hs ? String(it.ngay_nhan_hs).slice(0,10) : '';
@@ -843,103 +906,132 @@ function askUpdateReason() {
         </li>`;
     }).join("");
     if (!ul._boundClick) {
-      ul.addEventListener('click', (e)=>{ const li=e.target.closest('li[data-mshv]'); if(!li) return; $("q_ma_so_hv").value = li.dataset.mshv || ''; box.classList.add('hidden'); $("btnLoadApplicantMSHV")?.click(); });
-      ul._boundClick = true;
+      ul.addEventListener('click', (e)=>{ const li=e.target.closest('li[data-mshv]'); if(!li) return; $('q_ma_so_hv').value = li.dataset.mshv || ''; box.classList.add('hidden'); $('btnLoadApplicantMSHV')?.click(); });
     }
     box.classList.remove('hidden');
   }
 
-  // ===== In hồ sơ đang mở =====
-  function openPdf(url){
-    const w = window.open(url, "_blank");
-    if (!w) window.location.href = url;
-  }
-
+  /* ===== In PDF (khớp BE) ===== */
+  function openPdf(url){ const w = window.open(url, "_blank"); if (!w) window.location.href = url; }
   $("btnPrintLoadedA5").onclick = () => {
-    if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào.", "warn"); return; }
-    showToast("Đang mở PDF A5…", "info", 1800);
-    openPdf(makeUrl(`/print/a5/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`));
+    const cur = window.loadedApplicant;
+    if (!cur?.ma_so_hv) { showToast("Chưa tải hồ sơ nào.", "warn"); return; }
+    if (isMarkedDeleted(cur.ma_so_hv) || isSoftDeleted(cur)) { showToast("Hồ sơ đã bị xóa, không thể in!", "warn"); return; }
+    openPdf(makeUrl(`/applicants/${encodeURIComponent(cur.ma_so_hv)}/print-a5`));
   };
-
   $("btnPrintLoadedA4").onclick = () => {
-    if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào!", "warn"); return; }
-    showToast("Đang mở PDF A4…", "info", 1800);
-    openPdf(makeUrl(`/print/a4/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`));
+    const cur = window.loadedApplicant;
+    if (!cur?.ma_so_hv) { showToast("Chưa tải hồ sơ nào!", "warn"); return; }
+    if (isMarkedDeleted(cur.ma_so_hv) || isSoftDeleted(cur)) { showToast("Hồ sơ đã bị xóa, không thể in!", "warn"); return; }
+    openPdf(makeUrl(`/applicants/${encodeURIComponent(cur.ma_so_hv)}/print`));
   };
 
-  // ===== Bind actions =====
-  $("btnSave").onclick = async () => {
-    const btn = $("btnSave");
-    btn.disabled = true; const old = btn.textContent; btn.textContent = "Đang lưu...";
+  // Load theo MSHV
+  $('btnLoadApplicantMSHV').addEventListener('click', async ()=>{
     try{
-      const res = await createApplicant();
-      if (res) { $("msg").textContent = `Đã lưu hồ sơ ${res.ma_so_hv || $("ma_so_hv").value}.`; showToast(`Đã lưu hồ sơ <b>${res.ma_so_hv || $("ma_so_hv").value}</b>`, "success"); }
-    } finally{ btn.disabled = false; btn.textContent = old; }
-  };
+      const mshv = $('q_ma_so_hv').value.trim();
+      if(!mshv){ alert("Nhập MSHV (MSSV) để tải!"); return; }
 
-  $("btnLoadApplicantMSHV").onclick = async () => {
-    try{
-      const mshv = $("q_ma_so_hv").value.trim(); if(!mshv){ alert("Nhập MSHV (MSSV) để tải!"); return; }
-      $("lookupMsg").textContent = "Đang tải theo MSHV...";
+      // ❗ Chặn nếu vừa bị xoá trong phiên/thiết bị này
+      if (isMarkedDeleted(mshv)) {
+        $('lookupMsg').textContent = `MSHV ${mshv} đã bị xóa tạm`;
+        showToast(`MSHV ${mshv} đã bị xóa`, 'warn');
+        window.loadedApplicant = null;
+        setPrintButtonsEnabled(false);
+        await clearForm();
+        return;
+      }
+
+      $('lookupMsg').textContent = "Đang tải theo MSHV...";
       const a = await loadApplicantByMSHV(mshv);
+
+      if (isSoftDeleted(a) || isSoftDeleted(a?.applicant)) {
+        $('lookupMsg').textContent = `MSHV ${mshv} đã bị xóa`;
+        showToast(`MSHV ${mshv} đã bị xóa`, 'warn');
+        window.loadedApplicant = null;
+        setPrintButtonsEnabled(false);
+        await clearForm();
+        return;
+      }
+
       window.loadedApplicant = { ma_so_hv: a.ma_so_hv, ma_ho_so: a.ma_ho_so };
       populateFormFromApplicant(a, a.docs || []);
       setPrintButtonsEnabled(true);
-      $("lookupMsg").textContent = `Đã tải hồ sơ: ${a.ho_ten} • Mã HS ${a.ma_ho_so} • MSHV ${a.ma_so_hv}`;
-    }catch(e){ $("lookupMsg").textContent = e.message; setPrintButtonsEnabled(false); }
-  };
-  $("q_ma_so_hv").addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); $("btnLoadApplicantMSHV").click(); } });
+      $('lookupMsg').textContent = `Đã tải hồ sơ: ${a.ho_ten} • Mã HS ${a.ma_ho_so} • MSHV ${a.ma_so_hv}`;
+    }catch(e){
+      $('lookupMsg').textContent = e.message;
+      window.loadedApplicant = null;
+      setPrintButtonsEnabled(false);
+      await clearForm();
+    }
+  });
+  $('q_ma_so_hv').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); $('btnLoadApplicantMSHV').click(); } });
 
-  $("btnSearchByName").onclick = async () => {
+  // Tìm theo tên (debounced)
+  $('btnSearchByName').addEventListener('click', debounce(async ()=>{
     try{
-      const name = $("q_ho_ten").value.trim(); if(name.length < 2){ alert("Nhập tối thiểu 2 ký tự."); return; }
-      $("lookupMsg").textContent = "Đang tìm theo tên...";
+      const name = $('q_ho_ten').value.trim(); if(name.length < 2){ alert("Nhập tối thiểu 2 ký tự."); return; }
+      $('lookupMsg').textContent = "Đang tìm theo tên...";
       let list = await searchByName(name);
       list = filterAndSortByName(list, name, 25);
       renderNameResults(list);
-      $("lookupMsg").textContent = list.length ? `Tìm thấy ${list.length} kết quả.` : "Không tìm thấy.";
-    }catch(e){ $("lookupMsg").textContent = e.message || "Lỗi tìm kiếm."; showToast(e.message || "Lỗi tìm kiếm.", "error"); }
-  };
-  $("q_ho_ten").addEventListener('keydown', (e)=>{ if(e.key==='Enter') $("btnSearchByName").click(); });
+      $('lookupMsg').textContent = list.length ? `Tìm thấy ${list.length} kết quả.` : "Không tìm thấy.";
+    }catch(e){ $('lookupMsg').textContent = e.message || "Lỗi tìm kiếm."; showToast(e.message || "Lỗi tìm kiếm.", "error"); }
+  }, 400));
+  $('q_ho_ten').addEventListener('keydown', (e)=>{ if(e.key==='Enter') $('btnSearchByName').click(); });
 
-  // Xoá (mở modal nhập lý do)
-  $("btnDeleteApplicant").onclick = async () => {
-    try{ await deleteLoadedApplicant(); } catch(e){ $("lookupMsg").textContent = e.message; showToast(e.message, "error"); }
-  };
+  // Xoá (mở modal)
+  $('btnDeleteApplicant').addEventListener('click', async ()=>{ try{ await deleteLoadedApplicant(); } catch(e){ $('lookupMsg').textContent = e.message; showToast(e.message, "error"); } });
 
   // Reload checklist
-  $("btnReloadChecklist").onclick = () => loadChecklist();
+  $('btnReloadChecklist').addEventListener('click', ()=> loadChecklist());
 
-  // Test API button
-  $("btnTestApi").onclick = async ()=>{
+  // Test API
+  $('btnTestApi').addEventListener('click', async ()=>{
     const base = apiBase();
     const pref = await pingPrefix(base);
     if (pref === null) showToast("Không ping được API /health", "error");
     else { API_PREFIX = pref; localStorage.setItem(STORAGE_KEY, base); showToast(`Kết nối OK (${base}${pref||""}/health)`, "success"); }
-  };
-  $("apiBase").addEventListener("change", async ()=>{
+  });
+  $('apiBase').addEventListener('change', async ()=>{
     const base = apiBase(); localStorage.setItem(STORAGE_KEY, base);
     const pref = await pingPrefix(base);
     if (pref === null) showToast("Không ping được API /health", "warn");
     else { API_PREFIX = pref; showToast("Đã cập nhật máy chủ API", "success"); }
   });
 
-  // ===== init =====
+  /* ===== init ===== */
   window.addEventListener('load', async () => {
-    
     const today = new Date().toISOString().slice(0,10);
-    $("ngay_nhan_hs").value = today;
-    $("q_ma_so_hv")?.focus();
+    $('ngay_nhan_hs').value = today;
+    $('q_ma_so_hv')?.focus();
 
     await ensureApiBaseAndPrefix();
     await refreshAuthUI();
     await loadChecklist();
     setPrintButtonsEnabled(false);
 
-    // Auto-load khi có ?mshv=... trên URL
     const url = new URL(window.location.href);
     const mshv = url.searchParams.get('mshv');
-    if (mshv) { $("q_ma_so_hv").value = mshv; $("btnLoadApplicantMSHV").click(); }
+    if (mshv) { $('q_ma_so_hv').value = mshv; $('btnLoadApplicantMSHV').click(); }
+  });
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const ngayNhan = document.getElementById("ngay_nhan_hs");
+      if (ngayNhan) ngayNhan.value = today;
+
+      const maHoSo = document.getElementById("ma_ho_so");
+      if (maHoSo && !maHoSo.value) {
+        const nextCode = await generateNextMaHoSo();
+        maHoSo.value = nextCode || "HS-A0001";
+        maHoSo.placeholder = nextCode || "HS-A0001";
+        console.log("✅ Mã hồ sơ tự sinh:", nextCode);
+      }
+    } catch (err) {
+      console.error("⚠️ Lỗi khi sinh mã hồ sơ tự động:", err);
+    }
   });
   </script>
 </body>
