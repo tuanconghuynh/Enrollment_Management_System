@@ -135,6 +135,19 @@ def _to_iso(v: Optional[object]) -> Optional[str]:
     return datetime.combine(d, datetime.min.time()).isoformat() if d else None
 
 
+# 🆕 Chuẩn hóa giới tính
+def _normalize_gender(v):
+    if v is None:
+        return None
+    s = str(v).strip().lower()
+    if s in {"nam", "m", "male", "1", "true"}:
+        return "Nam"
+    if s in {"nữ", "nu", "f", "female", "0", "false"}:
+        return "Nữ"
+    # nếu FE gửi "Nam"/"Nữ"/khác đúng ý thì giữ nguyên
+    return v
+
+
 def snapshot_applicant(a: Applicant) -> dict:
     """Chụp nhanh bản ghi để ghi audit (prev/new)."""
     if not a:
@@ -171,6 +184,8 @@ def snapshot_applicant(a: Applicant) -> dict:
         "deleted_at": iso(getattr(a, "deleted_at", None)),
         "deleted_by": getattr(a, "deleted_by", None),
         "deleted_reason": getattr(a, "deleted_reason", None),
+        # 🆕 giới tính
+        "gioi_tinh": getattr(a, "gioi_tinh", None),
     }
 
 
@@ -191,8 +206,13 @@ def get_by_code(
     k = (key or "").strip()
     if not k:
         write_audit(
-            db, action="READ", target_type="Applicant", target_id=None,
-            status="FAILURE", new_values={"reason": "missing key"}, request=request
+            db,
+            action="READ",
+            target_type="Applicant",
+            target_id=None,
+            status="FAILURE",
+            new_values={"reason": "missing key"},
+            request=request
         )
         db.commit()
         raise HTTPException(400, "Thiếu mã tra cứu")
@@ -255,6 +275,8 @@ def get_by_code(
         "status": getattr(a, "status", None),
         "printed": getattr(a, "printed", None),
         "checklist_version_id": getattr(a, "checklist_version_id", None),
+        # 🆕 giới tính
+        "gioi_tinh": getattr(a, "gioi_tinh", None),
     }
 
     write_audit(db, action="READ", target_type="Applicant", target_id=a.ma_so_hv, status="SUCCESS", request=request)
@@ -349,6 +371,8 @@ def get_by_mshv(
         "printed": getattr(a, "printed", None),
         "checklist_version_id": getattr(a, "checklist_version_id", None),
         "email_hoc_vien": getattr(a, "email_hoc_vien", None),
+        # 🆕 giới tính
+        "gioi_tinh": getattr(a, "gioi_tinh", None),
     }
 
     write_audit(db, action="READ", target_type="Applicant", target_id=a.ma_so_hv, status="SUCCESS", request=request)
@@ -423,6 +447,8 @@ def create_applicant(
         checklist_version_id=v.id,
         status="saved",
         printed=False,
+        # 🆕 giới tính
+        gioi_tinh=_normalize_gender(payload.get("gioi_tinh")),
     )
     # ✅ ghi vào đúng cột hiện có trong model
     if hasattr(Applicant, "nganh_nhap_hoc"):
@@ -529,6 +555,8 @@ def search_applicants(
                 "nganh_nhap_hoc": getattr(a, "nganh_nhap_hoc", None) if hasattr(a, "nganh_nhap_hoc") else getattr(a, "nganh", None),
                 "khoa": getattr(a, "khoa", None),
                 "nguoi_nhan_ky_ten": getattr(a, "nguoi_nhan_ky_ten", None),
+                # 🆕 giới tính
+                "gioi_tinh": getattr(a, "gioi_tinh", None),
             }
             for a in rows
         ],
@@ -588,6 +616,8 @@ def find_by_ma_ho_so(
             {"code": it.code, "display_name": it.display_name, "order_no": getattr(it, "order_no", 0)}
             for it in items
         ],
+        # 🆕 giới tính
+        "gioi_tinh": getattr(a, "gioi_tinh", None),
     }
 
 
@@ -666,6 +696,10 @@ def update_applicant(
             a.nganh_nhap_hoc = _nganh_val
         elif hasattr(Applicant, "nganh"):
             a.nganh = _nganh_val
+
+    # 🆕 cập nhật giới tính (normalize)
+    if "gioi_tinh" in body:
+        a.gioi_tinh = _normalize_gender(body.get("gioi_tinh"))
 
     # Lưu người cập nhật gần nhất
     a.nguoi_nhan_ky_ten = getattr(me, "full_name", None) or getattr(me, "username", None)

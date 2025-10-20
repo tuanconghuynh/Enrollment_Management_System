@@ -720,7 +720,7 @@
         if (!r.ok) { const t = await r.text(); throw new Error(`Cập nhật thất bại (${r.status}): ${t}`); }
 
         const res = await r.json();
-        showToast(`Đã cập nhật hồ sơ MSHV <b>${res.ma_so_hv}</b>`, "success");
+        showToast(`Đã cập nhật hồ sơ của MSHV: ${res.ma_so_hv}`, "success");
         $('lookupMsg').textContent = `Cập nhật xong MSHV ${res.ma_so_hv}.`;
         resetToNewForm();
       } catch (e) {
@@ -821,8 +821,8 @@
       window.loadedApplicant = null; loadedDocsByCode = {};
       setPrintButtonsEnabled(false);
       await clearForm();
-      $('lookupMsg').textContent = "Đã xoá hồ sơ.";
-      showToast("Đã xoá hồ sơ và ghi vào nhật ký.", "success");
+      $('lookupMsg').textContent = "Đã xoá hồ sơ!";
+      showToast("Đã xoá hồ sơ và ghi vào lưu trữ!", "success");
       return;
     }
 

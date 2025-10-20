@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body
+from fastapi.encoders import jsonable_encoder  # ✅ thêm dòng này
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
@@ -19,7 +20,7 @@ from app.models.applicant import Applicant, ApplicantDoc
 
 router = APIRouter(prefix="/journal", tags=["Journal"])
 
-# Chỉ Admin được phép thao tác với nhật ký
+# Chỉ Admin hoặc Nhân viên được phép thao tác với nhật ký
 RequireAdmin = Depends(require_roles("Admin", "NhanVien"))
 
 # ===================== LIST =====================
@@ -109,8 +110,8 @@ def list_logs(
     qset = qset.order_by(order_col.asc() if order_dir == "asc" else order_col.desc())
     items = (
         qset.offset((page - 1) * page_size)
-            .limit(page_size)
-            .all()
+           .limit(page_size)
+           .all()
     )
 
     return {
@@ -141,7 +142,7 @@ def restore_from_log(
     if not log.target_type or not log.target_id:
         raise HTTPException(400, "Log này không gắn với đối tượng dữ liệu")
 
-    # Nếu là hard-delete thì chặn (giống patch trước)
+    # Nếu là hard-delete thì chặn
     nv = (log.new_values or {}) or {}
     if log.action in ("DELETE_HARD", "DELETE") or nv.get("hard_deleted") is True:
         raise HTTPException(410, detail={
@@ -149,23 +150,23 @@ def restore_from_log(
             "reason": "hard_deleted",
         })
 
+    if log.target_type != "Applicant":
+        raise HTTPException(400, f"Chưa hỗ trợ khôi phục cho {log.target_type}")
+
     obj = db.query(Applicant).get(log.target_id)
     if not obj:
         raise HTTPException(404, "Không tìm thấy dữ liệu để khôi phục")
 
     prev = (log.prev_values or {})  # snapshot trước khi thao tác
 
-    # ⚠️ Quan trọng: clear cờ xóa mềm nếu log là DELETE_SOFT (hoặc có deleted_at trong new_values)
-    apply_values = dict(prev)  # copy để không đụng prev gốc
+    # Clear cờ xóa mềm & KHÔNG ép status="saved"
+    apply_values = dict(prev)  # copy
     if log.action in ("DELETE_SOFT", "DELETE_REQUEST") or ("deleted_at" in nv):
         apply_values.update({
             "deleted_at": None,
             "deleted_by": None,
             "deleted_reason": None,
         })
-        # 🟢 BỔ SUNG: reset đầy đủ các cờ để khôi phục hiển thị bình thường
-        if hasattr(obj, "status"):
-            apply_values["status"] = "saved"
         if hasattr(obj, "is_deleted"):
             apply_values["is_deleted"] = False
 
@@ -176,6 +177,26 @@ def restore_from_log(
 
     db.add(obj)
     db.commit()
+    db.refresh(obj)
+
+    # Huỷ DeletionRequest liên quan (nếu có)
+    try:
+        reqs = (
+            db.query(DeletionRequest)
+              .filter(
+                  DeletionRequest.target_type == log.target_type,
+                  DeletionRequest.target_id == str(log.target_id),
+                  DeletionRequest.status.in_(["PENDING", "REQUESTED"])
+              ).all()
+        )
+        if reqs:
+            for r in reqs:
+                r.status = "CANCELLED"
+            db.commit()
+    except Exception:
+        pass  # không chặn luồng nếu lỗi nhỏ
+
+    # Ghi audit
     write_audit(
         db,
         action="RESTORE",
@@ -187,7 +208,10 @@ def restore_from_log(
         request=request,
     )
     db.commit()
-    return {"ok": True}
+    db.refresh(obj)
+
+    # ✅ Trả về item đã được encode JSON an toàn (thay cho obj.to_dict())
+    return {"ok": True, "item": jsonable_encoder(obj)}
 
 # ===================== (OPTIONAL) Deletion Requests =====================
 @router.get("/deletion-requests", dependencies=[RequireAdmin])
@@ -203,9 +227,9 @@ def list_deletion_requests(
     total = q.count()
     rows = (
         q.order_by(DeletionRequest.id.desc())
-        .offset((page - 1) * size)
-        .limit(size)
-        .all()
+         .offset((page - 1) * size)
+         .limit(size)
+         .all()
     )
 
     def to_dict(r):
@@ -286,6 +310,7 @@ def hard_delete(
         "khoa": getattr(a, "khoa", None),
         "status": getattr(a, "status", None),
         "printed": getattr(a, "printed", None),
+        "gioi_tinh": getattr(a, "gioi_tinh", None),
     }
 
     # Xoá chi tiết trước (nếu DB không ON DELETE CASCADE)

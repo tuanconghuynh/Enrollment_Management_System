@@ -87,8 +87,11 @@ async def idle_timeout_middleware(request, call_next):
             request.session.clear()
             # API -> 401 JSON ; Web -> redirect /login
             if path.startswith("/api"):
-                return JSONResponse({"detail": "Session expired"}, status_code=401)
-            return RedirectResponse(url="/login", status_code=302)
+                return JSONResponse(
+                    {"detail": "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!"},
+                    status_code=401
+                )
+            return RedirectResponse(url="/login?expired=1", status_code=302)
 
         # Còn hạn -> cập nhật mốc hoạt động (đồng bộ với auth.py)
         sess["_last_seen"] = now

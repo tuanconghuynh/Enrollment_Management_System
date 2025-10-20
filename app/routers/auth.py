@@ -12,7 +12,7 @@ from app.core.security import verify_password, hash_password
 
 router = APIRouter()
 
-IDLE_TIMEOUT_SEC = 1 * 60 * 60   # 2 giờ
+IDLE_TIMEOUT_SEC = 1 * 60 * 60   # 1 giờ
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
     # IDLE TIMEOUT CHECK (3h không hoạt động)
@@ -32,7 +32,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optiona
 
 def require_user(user: Optional[User] = Depends(get_current_user)) -> User:
     if not user:
-        raise HTTPException(HTTP_401_UNAUTHORIZED, "Not authenticated")
+        raise HTTPException(HTTP_401_UNAUTHORIZED, "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!")
     if not user.is_active:
         raise HTTPException(HTTP_403_FORBIDDEN, "User disabled")
     return user

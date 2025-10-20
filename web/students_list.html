@@ -714,6 +714,23 @@
       }
     }
 
+    (function listenRestoreBroadcast(){
+      try {
+        const bc = new BroadcastChannel('app-events');
+        bc.onmessage = (ev) => {
+          if (ev?.data?.type === 'APPLICANT_RESTORED') {
+            const id = String(ev.data?.mssv || '');
+            if (id) {
+              deletedMshv.delete(id);   // gỡ khỏi blacklist phiên hiện tại
+              persistDeletedMshv();
+              state.page = 1;           // về trang 1 cho chắc
+              runSearch();              // nạp lại danh sách
+            }
+          }
+        };
+      } catch(_) {}
+    })();
+
     // ===== File helpers =====
     async function fetchFileOrAlert(url, filename, type = "excel"){
       const resp = await fetch(makeUrl(url), { credentials: "include" });
@@ -845,6 +862,18 @@
     // ===== init =====
     window.addEventListener('load', async () => {
       await ensureLoggedIn();
+      (function checkRestoredFallback(){
+        try {
+          const id = localStorage.getItem('restored.mssv');
+          if (id) {
+            deletedMshv.delete(String(id));
+            persistDeletedMshv();
+            localStorage.removeItem('restored.mssv');
+            state.page = 1;
+            runSearch();
+          }
+        } catch(_) {}
+      })();
       $("q").focus();
 
       // Luôn mặc định 10 dòng/trang, không đọc localStorage nữa

@@ -12,9 +12,10 @@
 
   <!-- Strip query/hash NGAY LÚC VÀO TRANG -->
   <script>
-    if (location.pathname === '/journal.html' && (location.search || location.hash)) {
-      history.replaceState(null, '', '/journal.html');
-    }
+  const isJournal = /\/journal\.html$/.test(location.pathname);
+  if (isJournal && (location.search || location.hash)) {
+    history.replaceState(null, '', location.pathname); // giữ nguyên subpath, chỉ bỏ ? và #
+  }
   </script>
 
   <style>
@@ -140,7 +141,7 @@
           <table class="table min-w-full">
             <thead>
               <tr>
-                <th class="th-sortable text-left" data-sort="id">ID <span class="arrow">▲▼</span></th>
+                <th class="th-sortable text-left" data-sort="id">STT <span class="arrow">▲▼</span></th>
                 <th class="th-sortable text-center" data-sort="occurred_at">Thời gian <span class="arrow">▲▼</span></th>
                 <th class="th-sortable text-center" data-sort="actor_name">Người <span class="arrow">▲▼</span></th>
                 <th class="th-sortable text-center" data-sort="action">Thao tác <span class="arrow">▲▼</span></th>
@@ -173,10 +174,9 @@
   <div id="detail" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/50">
     <div class="bg-white w-[96vw] max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col">
       <div class="flex items-center justify-between border-b px-4 py-3 sticky top-0 bg-white z-10">
-        <strong>Xem chi tiết ID: <span id="d_id"></span></strong>
+        <strong>#Xem chi tiết đối tượng   <span id="d_id"></span></strong>
         <div class="flex gap-2 flex-wrap">
           <button class="btn btn-outline btn-xs" id="btnCopy">📋 Sao chép</button>
-          <button class="btn btn-outline btn-xs" id="btnOpenApplicant">📂 Mở hồ sơ</button>
           <button class="btn btn-primary btn-xs" id="btnRestore">♻ Khôi phục</button>
 
           <!-- Nút mở xác nhận xóa -->
@@ -214,6 +214,20 @@
         </div>
       </div>
 
+      <!-- Modal xác nhận khôi phục -->
+      <div id="confirmRestore" class="hidden fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center">
+        <div class="bg-white p-6 rounded-2xl shadow-xl max-w-sm text-center space-y-4">
+          <div class="text-lg font-semibold text-gray-800">Khôi phục dữ liệu?</div>
+          <div class="text-sm text-gray-500">
+            Xác nhận khôi phục hồ sơ MSSV <b id="restoreMSSV">—</b> từ thùng rác.
+          </div>
+          <div class="flex justify-center gap-3 pt-2">
+            <button id="btnConfirmRestoreYes" class="btn btn-primary px-4 py-1.5">OK</button>
+            <button id="btnConfirmRestoreNo"  class="btn btn-outline px-4 py-1.5">Hủy</button>
+          </div>
+        </div>
+      </div>
+
       <div id="d_view" class="p-4 overflow-auto flex-1"></div>
     </div>
   </div>
@@ -230,7 +244,12 @@
     clean();
     const _replace = history.replaceState.bind(history);
     const _push    = history.pushState.bind(history);
-    const toClean = (url)=> (typeof url==='string' && url.includes('/journal.html') && url.includes('?')) ? '/journal.html' : url;
+    const toClean = (url) => {
+      try {
+        const u = new URL(url, location.origin);
+        return (/\/journal\.html$/.test(u.pathname)) ? u.pathname : url;
+      } catch { return url; }
+    };
     history.replaceState = (s,t,u)=> _replace(s,t,toClean(u));
     history.pushState    = (s,t,u)=> _push(s,t,toClean(u));
     window.addEventListener('popstate', clean);
@@ -277,7 +296,7 @@
   const FIELD_LABELS = {
     checklist_version_id:"Phiên bản checklist",
     da_tn_truoc_do:"Đã TN trước đó",
-    deleted_at:"Thời điểm xóa (UTC)",
+    deleted_at:"Thời điểm xóa",
     deleted_by:"Người xóa",
     deleted_reason:"Lý do xóa",
     dot:"Đợt",
@@ -293,7 +312,9 @@
     nguoi_nhan_ky_ten:"Người nhận",
     printed:"Trạng thái in",
     status:"Trạng thái",
-    so_dt:"Số điện thoại"
+    so_dt:"Số điện thoại",
+    gioi_tinh:"Giới tính",
+    update_reason: "Lý do cập nhật",
   };
   const getFieldLabel = (k) => FIELD_LABELS[k] || k;
 
@@ -340,27 +361,47 @@
   }
 
   function syncUrl(){
-    if (location.pathname !== '/journal.html' || location.search || location.hash) {
-      history.replaceState(null, '', '/journal.html');
-    }
+  if (location.pathname === '/journal.html' && (location.search || location.hash)) {
+    history.replaceState(null, '', '/journal.html');
+  }
   }
 
-  async function load(){
-    setState({loading:true});
-    const tb = $('#tbody'); tb.innerHTML = `<tr><td colspan="7" class="text-center text-gray-500 py-10">Đang tải dữ liệu…</td></tr>`;
-    try{
-      const res = await apiFetch('/journal/?'+qs());
+  async function load() {
+    setState({ loading: true });
+    const tb = $('#tbody');
+    tb.innerHTML = `<tr><td colspan="7" class="text-center text-gray-500 py-10">Đang tải dữ liệu…</td></tr>`;
+
+    try {
+      const res = await apiFetch('/journal/?' + qs());
       if (!res || !res.ok) throw new Error('Không kết nối được máy chủ');
-      const data = await res.json();
-      state.total = data.total || 0;
-      renderTable(data.items||[]);
+
+      // Dùng tên payload để tránh đụng "data" ngoài phạm vi
+      const payload = await res.json();
+
+      // Chuẩn hóa dữ liệu trả về
+      const items = Array.isArray(payload.items)
+        ? payload.items
+        : (Array.isArray(payload.data) ? payload.data : []);
+
+      const total = Number(payload.total ?? payload.count ?? items.length ?? 0);
+      state.total = total;
+
+      // Nếu trang hiện tại vượt quá tổng trang mới -> nhảy về trang cuối rồi nạp lại
+      const pages = pagesTotal();
+      if (state.page > pages) {
+        state.page = pages;
+        // Dừng luồng hiện tại và nạp lại với trang hợp lệ
+        return load();
+      }
+
+      renderTable(items);
       renderPager();
       $('#count').textContent = String(state.total);
-      setState({loading:false, empty:(data.items||[]).length===0});
+      setState({ loading: false, empty: items.length === 0 });
       syncUrl();
-    }catch(e){
+    } catch (e) {
       tb.innerHTML = `<tr><td colspan="7" class="text-center text-rose-600 py-10">Lỗi: ${e.message}</td></tr>`;
-      setState({loading:false, empty:false});
+      setState({ loading: false, empty: false });
     }
   }
 
@@ -381,6 +422,22 @@
     const get = t => parts.find(p => p.type === t)?.value || '00';
     return `${get('hour')}:${get('minute')}:${get('second')} ${get('day')}/${get('month')}/${get('year')}`;
   }
+
+  // ➕ Hàm rút gọn chỉ lấy ngày (dành cho phần dữ liệu hiện tại)
+  function formatVNDateOnly(input) {
+    if (!input) return '';
+    const d = input instanceof Date ? input : new Date(String(input));
+    if (isNaN(d)) return '';
+    const parts = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(d);
+    const get = t => parts.find(p => p.type === t)?.value || '00';
+    return `${get('day')}/${get('month')}/${get('year')}`;
+  }
+
   function maybeFormatDateLike(v) {
     if (!v) return null;
     if (v instanceof Date) return formatVNDateTime(v);
@@ -449,13 +506,82 @@
 
   /* ====== Common helpers for detail ====== */
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c])); }
-  function cellVal(x){
-    if (x === null || x === undefined || x === '') return '<span class="text-gray-400">—</span>';
-    const maybe = maybeFormatDateLike(x);
-    if (maybe) return escapeHtml(maybe);
-    if (typeof x === 'object') return `<pre class="bg-white border border-dashed border-gray-200 rounded-lg p-2 overflow-auto text-xs">${escapeHtml(JSON.stringify(x,null,2))}</pre>`;
-    return escapeHtml(String(x));
+ 
+  function cellValFor(field, v) {
+    // context để biết đang render field nào (phục vụ rút gọn ngày)
+    window.currentRenderField = field || null;
+    return cellVal(v);
   }
+
+function cellVal(x) {
+  if (x === null || x === undefined || x === '')
+    return '<span class="text-gray-400">—</span>';
+
+  // Giới tính
+  if (typeof x === 'string') {
+    const s = x.trim().toLowerCase();
+    if (s === 'm' || s === 'nam' || s === 'male' || s === '1') return 'Nam';
+    if (s === 'f' || s === 'nu' || s === 'nữ'  || s === 'female' || s === '0') return 'Nữ';
+  }
+
+  // Lý do cập nhật
+  if (typeof x === 'object' && x && ('key' in x || 'text' in x)) {
+    const key  = (x.key  || '').toString();
+    const text = (x.text || '').toString();
+    const MAP = {
+      capnhat_thongtin: 'Cập nhật thông tin học viên',
+      capnhat_hoso_moi: 'Cập nhật hồ sơ mới',
+      bosung_hoso:      'Bổ sung hồ sơ',
+      capnhat_chungchi: 'Cập nhật chứng chỉ',
+      chinhsua_hoso:    'Chỉnh sửa hồ sơ',
+      khac:             `Lý do khác${text ? ': ' + text : ''}`
+    };
+    if (key) return escapeHtml(MAP[key] || key);
+  }
+  if (typeof x === 'string') {
+    const MAP = {
+      capnhat_thongtin: 'Cập nhật thông tin học viên',
+      capnhat_hoso_moi: 'Cập nhật hồ sơ mới',
+      bosung_hoso:      'Bổ sung hồ sơ',
+      capnhat_chungchi: 'Cập nhật chứng chỉ',
+      chinhsua_hoso:    'Chỉnh sửa hồ sơ',
+      khac:             'Lý do khác'
+    };
+    const k = x.trim();
+    if (MAP[k]) return MAP[k];
+  }
+
+  // Ngày: nếu là ngày/ISO -> rút gọn tuỳ ngữ cảnh
+  const maybe = maybeFormatDateLike(x);
+  if (maybe) {
+    const field = (window.currentRenderField || '').toLowerCase();
+
+    // deleted_at: luôn hiển thị đầy đủ theo giờ VN
+    if (field === 'deleted_at') {
+      const d = new Date(x);
+      if (!isNaN(d)) {
+        const vn = new Intl.DateTimeFormat('vi-VN', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        }).format(d);
+        return escapeHtml(vn);
+      }
+    }
+
+    // Các field ngày “ngay_nhan_hs/ngay_sinh” chỉ lấy ngày
+    if (/^ngay_(nhan_hs|sinh)$/.test(field)) {
+      return escapeHtml(formatVNDateOnly(x));
+    }
+    return escapeHtml(maybe);
+  }
+
+  if (typeof x === 'object') {
+    return `<pre class="bg-white border border-dashed border-gray-200 rounded-lg p-2 overflow-auto text-xs">${escapeHtml(JSON.stringify(x, null, 2))}</pre>`;
+  }
+  return escapeHtml(String(x));
+}
+
   function diffKeysFiltered(prev={}, next={}){
     const ignore = new Set(['docs_before','docs_after','docs_diff']);
     const set = new Set([...Object.keys(prev||{}), ...Object.keys(next||{})]);
@@ -467,18 +593,20 @@
     });
     return changes;
   }
+
   function snapshotGrid(obj, picks){
     const rows = (picks||[]).map(([label, key])=>{
       const v = obj ? obj[key] : null;
       return `
         <div class="bg-slate-50 font-semibold p-2">${escapeHtml(label)}</div>
-        <div class="p-2">${cellVal(v)}</div>`;
+        <div class="p-2">${cellValFor(key, v)}</div>`;
     }).join('');
     return `
       <div class="grid grid-cols-[220px_1fr] border border-gray-200 rounded-xl overflow-hidden">
         ${rows || '<div class="p-3 text-gray-500 col-span-2">Không có dữ liệu.</div>'}
       </div>`;
   }
+
 
   /* ====== Lấy map code -> tên danh mục checklist (cache) ====== */
   let __NAME_MAP_CACHE = null;
@@ -574,54 +702,73 @@
       </table>`;
   }
 
-  /* ====== OPEN DETAIL ====== */
-  async function openDetail(id){
-    try{
-      const r = await apiFetch('/journal/detail/'+id);
-      if (!r || !r.ok) throw new Error('Không tải được chi tiết');
-      const d = await r.json();
-      state.currentLog = d;
-      $('#d_id').textContent = id;
+/* ====== OPEN DETAIL ====== */
+async function openDetail(id) {
+  try {
+    const r = await apiFetch('/journal/detail/' + id);
+    if (!r || !r.ok) throw new Error('Không tải được chi tiết');
+    const d = await r.json();
+    state.currentLog = d;
 
-      // ===== Quy tắc hiển thị nút theo ngữ cảnh =====
-      const canTarget = !!(d?.target_id);
-      const isApplicant = (d?.target_type === 'Applicant');
-      const isHardDeleted = (d?.action === 'DELETE_HARD') || (d?.new_values?.hard_deleted === true);
-      const isSoftDeleteAction = (d?.action === 'DELETE_SOFT' || d?.action === 'DELETE');
-      const hasSnapshot = !!(d?.prev_values) || !!(d?.new_values);
+  // ⚙️ Hiển thị MSSV thay cho STT
+  const label = d?.target_id
+    ? `MSSV: ${String(d.target_id)}`
+    : `STT: ${String(id)}`;
+  $('#d_id').textContent = label;
 
-      // Khôi phục: chỉ cho Applicant, có target_id, KHÔNG hard-deleted
-      const btnRestore = document.getElementById('btnRestore');
-      if (!isApplicant || !canTarget || isHardDeleted) {
-        btnRestore.disabled = true;
-        btnRestore.title = isHardDeleted
-          ? 'Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục!'
-          : (!hasSnapshot ? 'Log này không có snapshot để khôi phục.' : 'Không thể khôi phục với log này!');
-      } else {
-        btnRestore.disabled = false;
-        btnRestore.title = 'Khôi phục từ snapshot';
-      }
+    // Ẩn nút mở hồ sơ (vì anh không cần)
+    const btnOpenApplicant = document.getElementById('btnOpenApplicant');
+    if (btnOpenApplicant) btnOpenApplicant.style.display = 'none';
 
-      // Xóa vĩnh viễn: chỉ Admin + log DELETE/DELETE_SOFT + Applicant + có target
-      const btnHardDelete = document.getElementById('btnHardDelete');
-      const showHardDel = IS_ADMIN && isApplicant && canTarget && isSoftDeleteAction && !isHardDeleted;
-      btnHardDelete.style.display = showHardDel ? '' : 'none';
+    // ===== Quy tắc hiển thị nút theo ngữ cảnh =====
+    const canTarget = !!(d?.target_id);
+    const isApplicant = (d?.target_type === 'Applicant');
+    const isHardDeleted = (d?.action === 'DELETE_HARD') || (d?.new_values?.hard_deleted === true);
+    const isSoftDeleteAction = (d?.action === 'DELETE_SOFT' || d?.action === 'DELETE');
+    const hasSnapshot = !!(d?.prev_values) || !!(d?.new_values);
 
-      const nameMap = await getChecklistNameMap();
+    // Khôi phục: chỉ cho Applicant, có target_id, KHÔNG hard-deleted
+    const btnRestore = document.getElementById('btnRestore');
+    if (!isApplicant || !canTarget || isHardDeleted) {
+      btnRestore.disabled = true;
+      btnRestore.title = isHardDeleted
+        ? 'Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục!'
+        : (!hasSnapshot ? 'Log này không có snapshot để khôi phục.' : 'Không thể khôi phục với log này!');
+    } else {
+      btnRestore.disabled = false;
+      btnRestore.title = 'Khôi phục từ snapshot';
+    }
 
-      const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
-      const asObj = (x) => (isObj(x) ? x : {});
-      const prev = asObj(d.prev_values);
-      const next = asObj(d.new_values);
-      const current = Object.keys(next).length ? next : prev;
+    // Xóa vĩnh viễn: chỉ Admin + log DELETE/DELETE_SOFT + Applicant + có target
+    const btnHardDelete = document.getElementById('btnHardDelete');
+    const showHardDel = IS_ADMIN && isApplicant && canTarget && isSoftDeleteAction && !isHardDeleted;
+    btnHardDelete.style.display = showHardDel ? '' : 'none';
 
-      // Tính diff thường (bỏ qua docs*)
-      const diffs = diffKeysFiltered(prev, next);
+    // 🧠 Giữ nguyên logic phía sau
+    const nameMap = await getChecklistNameMap();
+    const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+    const asObj = (x) => (isObj(x) ? x : {});
+    const prev = asObj(d.prev_values);
+    const next = asObj(d.new_values);
+    const current = Object.keys(next).length ? next : prev;
+      // Hành động xoá?
+      const isDeleteAction = ['DELETE_SOFT', 'DELETE', 'DELETE_HARD'].includes(String(d?.action || '').toUpperCase());
 
-      // Docs: an toàn với mọi giá trị undefined/null
+      // Chọn snapshot & docs cho phần “Dữ liệu …”
+      const snapshotForView = isDeleteAction
+        ? prev
+        : (Object.keys(next).length ? next : prev);
+
       const asDict = (x) => (isObj(x) ? x : {});
       const docsBefore = asDict(prev.docs_before) || asDict(prev.docs);
       const docsAfter  = asDict(next.docs_after)  || asDict(next.docs);
+
+      const docsForView = isDeleteAction
+        ? (Object.keys(docsBefore).length ? docsBefore : docsAfter)
+        : (Object.keys(docsAfter).length  ? docsAfter  : docsBefore);
+
+      // Tính diff thường (bỏ qua docs*)
+      const diffs = diffKeysFiltered(prev, next);
 
       // docs_diff có thể là array/object/null — chuẩn hóa
       let docsDiff = Array.isArray(next.docs_diff)
@@ -630,7 +777,7 @@
       if (!Array.isArray(docsDiff) || docsDiff.length === 0) {
         const beforeKeys = Object.keys(asDict(docsBefore));
         const afterKeys  = Object.keys(asDict(docsAfter));
-        const all = new Set([...beforeKeys, ...afterKeys]); // tất cả là array -> không còn lỗi Symbol.iterator
+        const all = new Set([...beforeKeys, ...afterKeys]);
         docsDiff = Array.from(all)
           .map(code => ({
             code,
@@ -647,20 +794,21 @@
           <div class="bg-slate-50 font-semibold p-2">Thời gian</div>     <div class="p-2">${cellVal(d.occurred_at)}</div>
           <div class="bg-slate-50 font-semibold p-2">Người thao tác</div><div class="p-2">${escapeHtml(d.actor_name || d.actor_id || '—')}</div>
           <div class="bg-slate-50 font-semibold p-2">Hành động</div>     <div class="p-2">${escapeHtml(actionVi(d.action))}</div>
-          <div class="bg-slate-50 font-semibold p-2">Trạng thái</div>    <div class="p-2">${escapeHtml(d.status || '')}</div>
+          <div class="bg-slate-50 font-semibold p.2">Trạng thái</div>    <div class="p-2">${escapeHtml(d.status || '')}</div>
           <div class="bg-slate-50 font-semibold p-2">Đối tượng (MSSV)</div><div class="p-2">${escapeHtml(d.target_id || '—')}</div>
           <div class="bg-slate-50 font-semibold p-2">Đường dẫn</div>     <div class="p-2">${escapeHtml(d.path || '')}</div>
           <div class="bg-slate-50 font-semibold p-2">IP</div>             <div class="p-2">${escapeHtml(d.ip_address || '')}</div>
           <div class="bg-slate-50 font-semibold p-2">Correlation ID</div><div class="p-2">${escapeHtml(d.correlation_id || '')}</div>
         </div>`;
 
-      /* Dữ liệu hiện tại (snapshot) */
+      /* Dữ liệu (snapshot) */
       const currentPicks = [
-        ["Mã số học viên","ma_so_hv"],
         ["Mã hồ sơ","ma_ho_so"],
-        ["Họ tên","ho_ten"],
         ["Ngày nhận hồ sơ","ngay_nhan_hs"],
+        ["Mã số học viên","ma_so_hv"],
+        ["Họ tên","ho_ten"],
         ["Ngày sinh","ngay_sinh"],
+        ["Giới tính","gioi_tinh"],
         ["Số điện thoại","so_dt"],
         ["Email học viên","email_hoc_vien"],
         ["Ngành nhập học","nganh_nhap_hoc"],
@@ -674,36 +822,44 @@
         ["Người xóa","deleted_by"],
         ["Lý do xóa","deleted_reason"]
       ];
-      const currentHtml = `
-        <h4 class="mt-6 mb-2 font-bold text-blue-800">Dữ liệu hiện tại</h4>
-        ${snapshotGrid(current, currentPicks)}
 
-        <h4 class="mt-6 mb-2 font-bold text-blue-800">Danh mục hồ sơ (hiện tại)</h4>
-        ${renderDocsCurrentTable(
-          Object.keys(docsAfter).length ? docsAfter : docsBefore,
-          nameMap
-        )}
+      const snapshotTitle = isDeleteAction ? 'Dữ liệu trước khi xóa' : 'Dữ liệu hiện tại';
+
+      window.currentRenderSection = 'snapshot';
+      window.currentRenderField   = null;
+
+      const currentHtml = `
+        <h4 class="mt-6 mb-2 font-bold text-blue-800">${snapshotTitle}</h4>
+        ${snapshotGrid(snapshotForView, currentPicks)}
+
+        <h4 class="mt-6 mb-2 font-bold text-blue-800">Danh mục hồ sơ (${isDeleteAction ? 'trước khi xóa' : 'hiện tại'})</h4>
+        ${renderDocsCurrentTable(docsForView, nameMap)}
       `;
 
-      /* Trường thay đổi */
-      const diffHtml = diffs.length
-        ? `<h4 class="mt-6 mb-2 font-bold text-blue-800">Trường thay đổi</h4>
-           <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
-             <thead class="bg-slate-50">
-               <tr><th class="p-2 text-left">Trường</th><th class="p-2 text-left">Giá trị cũ</th><th class="p-2 text-left">Giá trị mới</th></tr>
-             </thead>
-             <tbody>
-               ${diffs.map(x=>`
-                 <tr class="border-t">
-                   <td class="p-2 font-semibold">${escapeHtml(getFieldLabel(x.field))}</td>
-                   <td class="p-2">${cellVal(x.from)}</td>
-                   <td class="p-2">${cellVal(x.to)}</td>
-                 </tr>`).join('')}
-             </tbody>
-           </table>`
-        : `<div class="text-gray-500 mt-4">Không có trường thay đổi.</div>`;
+     /* Trường thay đổi */
+    const diffHtml = diffs.length
+      ? `<h4 class="mt-6 mb-2 font-bold text-blue-800">Trường thay đổi</h4>
+        <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="p-2 text-left">Trường</th>
+              <th class="p-2 text-left">Giá trị cũ</th>
+              <th class="p-2 text-left">Giá trị mới</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${diffs.map(x => `
+              <tr class="border-t">
+                <td class="p-2 font-semibold">${escapeHtml(getFieldLabel(x.field))}</td>
+                <td class="p-2">${cellValFor(x.field, x.from)}</td>
+                <td class="p-2">${cellValFor(x.field, x.to)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`
+      : `<div class="text-gray-500 mt-4">Không có trường thay đổi.</div>`;
 
-      /* Danh mục hồ sơ thay đổi (không hiện mã) */
+      /* Danh mục hồ sơ thay đổi */
       const docsHtml = `
         <h4 class="mt-6 mb-2 font-bold text-blue-800">Danh mục hồ sơ thay đổi</h4>
         ${renderDocsDiffTable(docsDiff, nameMap)}
@@ -713,11 +869,15 @@
       $('#d_view').innerHTML = infoHtml + currentHtml + diffHtml + docsHtml;
 
       // Admin-only hard delete button (phòng hờ)
-      const isDel = (d.action==='DELETE' || d.action==='DELETE_SOFT');
+      const isDel = ['DELETE','DELETE_SOFT'].includes(String(d.action).toUpperCase());
       $('#btnHardDelete').style.display = (isDel && IS_ADMIN) ? '' : 'none';
       $('#detail').style.display = 'flex';
     }catch(e){
       showNoti('Không tải được chi tiết: ' + (e.message||'unknown'), 'error');
+    } finally {
+      // reset marker dùng cho cellVal
+      window.currentRenderSection = null;
+      window.currentRenderField   = null;
     }
   }
 
@@ -730,32 +890,104 @@
 
   /* ====== Restore ====== */
   async function restore(){
-    const id = state.currentLog?.id;
-    if (!id) return;
-    if (!confirm('Khôi phục dữ liệu từ snapshot của log #' + id + ' ?')) return;
-    try{
-      const r = await apiFetch('/journal/restore/' + id, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
-      if (!r) throw new Error('Không kết nối được máy chủ.');
-      if (!r.ok){
-        let msg = 'Khôi phục thất bại.', reason='';
-        try{
-          const ct = r.headers?.get?.('content-type') || '';
-          if (ct.includes('application/json')){
-            const data = await r.json().catch(()=>null);
-            if (data){ reason=data.reason||data.code||''; if (data.message) msg=data.message; }
-          }else{
-            const t = await r.text().catch(()=> ''); if (/hard[_\s-]?deleted/i.test(t)) reason='hard_deleted';
+    const log = state.currentLog;
+    const logId = log?.id;
+    const mssv  = log?.target_id || '—';
+    if (!logId) return;
+
+    // Mở popup xác nhận
+    const box = document.getElementById('confirmRestore');
+    const yes = document.getElementById('btnConfirmRestoreYes');
+    const no  = document.getElementById('btnConfirmRestoreNo');
+    const lbl = document.getElementById('restoreMSSV');
+
+    if (lbl) lbl.textContent = String(mssv);
+    box.classList.remove('hidden');
+
+    const closeBox = ()=> box.classList.add('hidden');
+
+    const doRestore = async () => {
+      closeBox();
+      try{
+        const r = await apiFetch('/journal/restore/' + logId, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:'{}'
+        });
+        if (!r) throw new Error('Không kết nối được máy chủ.');
+        if (!r.ok){
+          let msg = 'Khôi phục thất bại.', reason='';
+          try{
+            const ct = r.headers?.get?.('content-type') || '';
+            if (ct.includes('application/json')){
+              const dataErr = await r.json().catch(()=>null);
+              if (dataErr){ reason=dataErr.reason||dataErr.code||''; if (dataErr.message) msg=dataErr.message; }
+            }else{
+              const t = await r.text().catch(()=> '');
+              if (/hard[_\s-]?deleted/i.test(t)) reason='hard_deleted';
+            }
+          }catch(_){}
+          if (r.status===410 || reason==='hard_deleted' || reason==='HARD_DELETED') msg='Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục!';
+          else if (r.status===404) msg='Không tìm thấy dữ liệu để khôi phục.';
+          throw new Error(msg);
+        }
+
+        // Đọc payload để lấy item (nếu BE trả về)
+        let data = null;
+        try {
+          const ctOk = r.headers?.get?.('content-type') || '';
+          if (ctOk.includes('application/json')) {
+            data = await r.json().catch(()=>null);
           }
-        }catch(_){}
-        if (r.status===410 || reason==='hard_deleted' || reason==='HARD_DELETED') msg='Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục!';
-        else if (r.status===404) msg='Không tìm thấy dữ liệu để khôi phục.';
-        throw new Error(msg);
+        } catch(_) {}
+
+        showNoti(`Đã khôi phục cho MSSV ${mssv} từ thùng rác!`, 'success');
+        document.getElementById('detail').style.display='none';
+
+        // 👉 Bỏ lọc thao tác nếu đang chọn Xóa… để thấy log RESTORE
+        const actionSel = document.getElementById('qActionSel');
+        if (actionSel) actionSel.value = '';
+
+        // 👉 Về trang 1 rồi đọc lại filter hiện tại trước khi load (Journal list)
+        state.page = 1;
+        grabFilters();
+        load();
+
+        // 🔔 Phát tín hiệu cho trang Danh sách hồ sơ (nếu trang kia có lắng nghe)
+        try {
+          const focusMssv = String(data?.item?.ma_so_hv || mssv || '');
+          if (focusMssv) {
+            // Broadcast realtime
+            try {
+              const bc = new BroadcastChannel('app-events');
+              bc.postMessage({ type:'APPLICANT_RESTORED', mssv: focusMssv, item: data?.item || null });
+              bc.close?.();
+            } catch(_) {}
+            // Dự phòng: localStorage
+            localStorage.setItem('restored.mssv', focusMssv);
+          }
+        } catch(_) {}
+
+      }catch(e){
+        showNoti('Lỗi khôi phục: ' + (e.message || 'unknown'), 'error');
+      }finally{
+        // cleanup listeners
+        yes.removeEventListener('click', onYes);
+        no.removeEventListener('click', onNo);
       }
-      showNoti('Đã khôi phục snapshot!','success');
-      $('#detail').style.display='none';
-      load();
-    }catch(e){ showNoti('Lỗi khôi phục: ' + (e.message || 'unknown'), 'error'); }
+    };
+
+    const onYes = () => doRestore();
+    const onNo  = () => {
+      closeBox();
+      yes.removeEventListener('click', onYes);
+      no.removeEventListener('click', onNo);
+    };
+
+    yes.addEventListener('click', onYes, { once:true });
+    no.addEventListener('click', onNo,   { once:true });
   }
+
 
   /* ====== Filters / UI ====== */
   function grabFilters(){
@@ -808,11 +1040,6 @@
   $('#btnClose').onclick = ()=> $('#detail').style.display='none';
   $('#btnCopy').onclick  = ()=>{ if(!state.currentLog) return; const text = JSON.stringify(state.currentLog, null, 2); navigator.clipboard.writeText(text).then(()=> showNoti('Đã sao chép JSON chi tiết','success')); };
   $('#btnRestore').onclick = restore;
-  $('#btnOpenApplicant').onclick = () => {
-    const d = state.currentLog || {};
-    if (!d?.target_id) { showNoti('Log không có MSSV để mở hồ sơ.', 'warning'); return; }
-    location.href = '/?mshv=' + encodeURIComponent(String(d.target_id));
-  };
 
   /* ====== ROLE ====== */
   let CURRENT_ROLE = null;
