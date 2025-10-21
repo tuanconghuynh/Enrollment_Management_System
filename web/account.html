@@ -8,75 +8,61 @@
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
+<body class="bg-gray-50 min-h-screen p-6 flex flex-col">
+  <div class="max-w-4xl mx-auto w-full space-y-6">
 
-  <!-- MAIN CONTENT -->
-  <main class="flex-1 p-6">
-    <div class="max-w-4xl mx-auto space-y-6">
-
-      <!-- Header có logo -->
-      <header class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <a href="/index_home.html" class="shrink-0" title="Trang chủ">
-            <img src="hutech.png" alt="HUTECH" class="h-10 w-10 object-contain" />
-          </a>
-          <h1 class="text-2xl md:text-3xl font-bold">Thông tin tài khoản</h1>
-        </div>
-        <a class="btn btn-outline" href="/index_home.html">← Trang chủ</a>
-      </header>
-
-      <!-- Flash -> đẩy qua toast -->
-      {% if flash %}
-      <div id="flash-data"
-          data-level="{{ flash.level or 'info' }}"
-          data-message="{{ flash.message | replace('"','&quot;') }}"></div>
-      {% endif %}
-
-      <!-- Thông tin -->
-      <section class="card">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="section-title">Thông tin của tôi</h2>
-          <div class="flex gap-2">
-            <button id="btnEditProfile" class="btn btn-outline">Chỉnh sửa hồ sơ</button>
-            <button id="btnChangePass" class="btn btn-primary">Đổi mật khẩu</button>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><div class="label">Username</div><div class="font-mono">{{ me.username }}</div></div>
-          <div><div class="label">Họ tên</div><div>{{ me.full_name or '—' }}</div></div>
-          <div><div class="label">Ngày sinh</div><div data-dateonly>{{ me.dob or '—' }}</div></div>
-          <div><div class="label">Email</div><div>{{ me.email or '—' }}</div></div>
-          <div><div class="label">Quyền</div><div>{{ me.role }}</div></div>
-          <div><div class="label">Trạng thái</div><div>{{ "Đang hoạt động" if me.is_active else "Đã khóa" }}</div></div>
-          <div><div class="label">Lần đổi mật khẩu</div><div data-datetime>{{ me.password_changed_at or '—' }}</div></div>
-          <div><div class="label">Lần đăng nhập gần nhất</div><div data-datetime>{{ me.last_login_at or '—' }}</div></div>
-        </div>
-      </section>
-    </div>
-  </main>
-
-  <!-- Footer (theo mẫu anh đưa) -->
-  <footer class="bg-[#1E50B4] text-white mt-auto">
-    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
-      <div>
-        <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
-        <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
-        <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP.HCM</p>
-        <p>
-          <b>ĐT:</b> (028) 6686 6465 · 
-          <b>Email:</b> <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">daotaotructuyen@hutech.edu.vn</a>
-        </p>
+    <!-- Header -->
+    <header class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/index_home.html" class="shrink-0" title="Trang chủ">
+          <img src="hutech.png" alt="HUTECH" class="h-10 w-10 object-contain" />
+        </a>
+        <h1 class="text-2xl md:text-3xl font-bold">Thông tin tài khoản</h1>
       </div>
-      <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
-    </div>
-  </footer>
 
-  <!-- Modal: Chỉnh sửa hồ sơ -->
-  <div class="overlay" id="profileModal">
-    <div class="modal">
-      <div class="hd">Chỉnh sửa hồ sơ</div>
-      <form class="bd grid md:grid-cols-3 gap-3" method="post" action="/account/profile" onsubmit="return lockSubmit(this)">
+      <!-- Đăng xuất: chỉ confirm 1 lần qua JS -->
+      <button id="btnLogout" class="btn btn-outline">Đăng xuất</button>
+    </header>
+
+    <!-- Flash từ BE (chỉ nguồn duy nhất để hiện toast) -->
+    {% if flash %}
+    <div id="flash-data"
+         data-level="{{ flash.level or 'info' }}"
+         data-message="{{ flash.message | replace('"','&quot;') }}"></div>
+    {% endif %}
+
+    <!-- Thông tin -->
+    <section class="card">
+      <div class="flex items-center justify-between">
+        <h2 class="section-title">Thông tin của tôi</h2>
+
+        <div class="flex items-center gap-2">
+          <a href="#profileForm" class="btn btn-outline">Chỉnh sửa hồ sơ</a>
+          <a href="#pwForm" class="btn btn-primary">Đổi mật khẩu</a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+        <div><div class="label">Username</div><div class="font-mono">{{ me.username }}</div></div>
+        <div><div class="label">Họ tên</div><div>{{ me.full_name or '—' }}</div></div>
+
+        <div>
+          <div class="label">Ngày sinh</div>
+          <div data-dateonly>{{ me.dob or '—' }}</div>
+        </div>
+
+        <div><div class="label">Email</div><div>{{ me.email or '—' }}</div></div>
+        <div><div class="label">Quyền</div><div>{{ me.role }}</div></div>
+        <div><div class="label">Trạng thái</div><div>{{ "Đang hoạt động" if me.is_active else "Đã khóa" }}</div></div>
+        <div><div class="label">Lần đổi mật khẩu</div><div data-datetime>{{ me.password_changed_at or '—' }}</div></div>
+        <div><div class="label">Lần đăng nhập gần nhất</div><div data-datetime>{{ me.last_login_at or '—' }}</div></div>
+      </div>
+    </section>
+
+    <!-- Cập nhật hồ sơ -->
+    <section id="profileForm" class="card">
+      <h2 class="section-title">Cập nhật hồ sơ</h2>
+      <form method="post" action="/account/profile" class="grid md:grid-cols-3 gap-3" onsubmit="return lockSubmit(this)">
         <div class="md:col-span-1">
           <div class="label">Họ và tên</div>
           <input class="input" name="full_name" value="{{ me.full_name or '' }}">
@@ -89,135 +75,151 @@
           <div class="label">Ngày sinh</div>
           <input class="input" type="date" name="dob" value="{{ (me.dob|string)[:10] if me.dob else '' }}">
         </div>
-        <div class="md:col-span-3 ft">
-          <button type="button" class="btn btn-outline" data-close="#profileModal">Hủy</button>
+        <div class="md:col-span-3 flex justify-end">
           <button class="btn btn-primary">Lưu thông tin</button>
         </div>
       </form>
-    </div>
-  </div>
+    </section>
 
-  <!-- Modal: Đổi mật khẩu -->
-  <div class="overlay" id="passwordModal">
-    <div class="modal">
-      <div class="hd">Đổi mật khẩu</div>
-      <form class="bd grid md:grid-cols-2 gap-3" method="post" action="/account/change-password" onsubmit="return lockSubmit(this)">
+    <!-- Đổi mật khẩu -->
+    <section id="pwForm" class="card">
+      <h2 class="section-title">Đổi mật khẩu</h2>
+      <form method="post" action="/account/change-password" class="grid gap-3 md:grid-cols-2" onsubmit="return lockSubmit(this)">
         <div class="md:col-span-2 relative">
-          <div class="label">Mật khẩu hiện tại</div>
+          <label class="label">Mật khẩu hiện tại</label>
           <input id="old" name="old_password" type="password" class="input pr-10" required autocomplete="current-password">
           <button type="button" class="absolute right-2 top-9 text-gray-500" data-toggle-eye="#old">👁️</button>
         </div>
         <div class="relative">
-          <div class="label">Mật khẩu mới (≥6 ký tự)</div>
+          <label class="label">Mật khẩu mới (≥6 ký tự)</label>
           <input id="new" name="new_password" type="password" minlength="6" class="input pr-10" required autocomplete="new-password">
           <button type="button" class="absolute right-2 top-9 text-gray-500" data-toggle-eye="#new">👁️</button>
         </div>
         <div class="relative">
-          <div class="label">Xác nhận mật khẩu mới</div>
+          <label class="label">Xác nhận mật khẩu mới</label>
           <input id="cf" name="confirm_password" type="password" minlength="6" class="input pr-10" required autocomplete="new-password">
           <button type="button" class="absolute right-2 top-9 text-gray-500" data-toggle-eye="#cf">👁️</button>
         </div>
-        <div class="md:col-span-2 ft">
-          <div class="text-muted text-sm mr-auto">
+
+        <div class="md:col-span-2 flex items-center justify-between">
+          <small class="text-muted">
             Tip: Dùng mật khẩu mạnh, không trùng nơi khác.<br>
             Quên mật khẩu? Liên hệ Admin để được reset.
-          </div>
-          <button type="button" class="btn btn-outline" data-close="#passwordModal">Hủy</button>
+          </small>
           <button class="btn btn-primary">Đổi mật khẩu</button>
         </div>
       </form>
-    </div>
+    </section>
   </div>
+
+  <!-- Footer -->
+  <footer class="bg-[#1E50B4] text-white mt-8">
+    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
+      <div>
+        <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
+        <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
+        <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP.HCM</p>
+        <p><b>ĐT:</b> (028) 6686 6465 · <b>Email:</b>
+          <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">daotaotructuyen@hutech.edu.vn</a>
+        </p>
+      </div>
+      <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
+    </div>
+  </footer>
 
   <!-- Toast -->
   <div id="toast-wrap"></div>
 
-  <script>
-   // ==== VN datetime: hh:mm:ss dd/mm/yyyy (UTC+7 cố định)
-    function formatVNTime(selector) {
+<script>
+  // ==== VN datetime: hh:mm:ss dd/mm/yyyy (UTC+7)
+  function formatVNTime(selector) {
     document.querySelectorAll(selector).forEach(el => {
-        let raw = (el.textContent || '').trim();
-        if (!raw || raw === "—") return;
-        if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(raw)) raw = raw.replace(' ', 'T');
-
-        const d = new Date(raw);
-        if (isNaN(d)) return;
-
-        // Bù thêm 7 tiếng để chuyển sang giờ Việt Nam
-        const local = new Date(d.getTime() + 7 * 60 * 60 * 1000);
-
-        const parts = {
-        hour: local.getHours().toString().padStart(2, '0'),
-        minute: local.getMinutes().toString().padStart(2, '0'),
-        second: local.getSeconds().toString().padStart(2, '0'),
-        day: local.getDate().toString().padStart(2, '0'),
-        month: (local.getMonth() + 1).toString().padStart(2, '0'),
-        year: local.getFullYear()
-        };
-
-        el.textContent = `${parts.hour}:${parts.minute}:${parts.second} ${parts.day}/${parts.month}/${parts.year}`;
+      let raw = (el.textContent || '').trim();
+      if (!raw || raw === "—") return;
+      if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(raw)) raw = raw.replace(' ', 'T');
+      const d = new Date(raw);
+      if (isNaN(d)) return;
+      const vn = new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        day: '2-digit', month: '2-digit', year: 'numeric'
+      }).format(d).replace(',', '');
+      el.textContent = vn;
     });
-    }
-
-    // VN date-only: dd/mm/yyyy
-    function formatVNDate(selector) {
-      document.querySelectorAll(selector).forEach(el => {
-        const raw=(el.textContent||'').trim();
-        if(!raw || raw==='—') return;
-        const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        let d; if(m){ d=new Date(+m[1],+m[2]-1,+m[3]); } else { const t=new Date(raw); if(isNaN(t)) return; d=t; }
-        el.textContent = new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d);
-      });
-    }
-
-    // Eye toggle
-    document.querySelectorAll('[data-toggle-eye]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const input=document.querySelector(btn.getAttribute('data-toggle-eye'));
-        if(!input) return;
-        input.type = (input.type==='password')?'text':'password';
-        btn.textContent = (input.type==='password')?'👁️':'🙈';
-      });
+  }
+  // ==== VN date-only
+  function formatVNDate(selector) {
+    document.querySelectorAll(selector).forEach(el => {
+      const raw = (el.textContent || '').trim();
+      if (!raw || raw === "—") return;
+      const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      let d = m ? new Date(+m[1], +m[2]-1, +m[3]) : new Date(raw);
+      if (isNaN(d)) return;
+      el.textContent = new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit', month: '2-digit', year: 'numeric'
+      }).format(d);
     });
+  }
 
-    // Lock submit
-    function lockSubmit(form){
-      const btn=form.querySelector('button[type=submit]');
-      if(btn){ btn.disabled=true; btn.classList.add('opacity-60'); }
-      return true;
-    }
-
-    // Toast helper
-    function showToast(message, level='info', ms=4000){
-      const wrap=document.getElementById('toast-wrap');
-      const t=document.createElement('div');
-      t.className=`toast ${level==='success'?'success':level==='error'?'error':level==='warn'?'warn':''}`;
-      t.textContent=message;
-      wrap.appendChild(t);
-      requestAnimationFrame(()=>t.classList.add('show'));
-      const hide=()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),200); };
-      t.addEventListener('click', hide); setTimeout(hide, ms);
-    }
-
-    // Modal open/close
-    function openModal(id){ document.querySelector(id)?.classList.add('show'); }
-    function closeModal(id){ document.querySelector(id)?.classList.remove('show'); }
-    document.getElementById('btnEditProfile').addEventListener('click', ()=> openModal('#profileModal'));
-    document.getElementById('btnChangePass').addEventListener('click',  ()=> openModal('#passwordModal'));
-    document.querySelectorAll('[data-close]').forEach(b=> b.addEventListener('click', ()=> closeModal(b.getAttribute('data-close'))));
-    document.querySelectorAll('.overlay').forEach(ov => ov.addEventListener('click', e => { if(e.target.classList.contains('overlay')) e.currentTarget.classList.remove('show'); }));
-
-    // Boot
-    window.addEventListener('DOMContentLoaded', ()=>{
-      formatVNTime('[data-datetime]');
-      formatVNDate('[data-dateonly]');
-      const flashEl=document.getElementById('flash-data');
-      if (flashEl) {
-        const map={success:'success', error:'error', info:'', warn:'warn'};
-        showToast(flashEl.dataset.message||'', map[flashEl.dataset.level||'info'] ?? '', 4000);
-        flashEl.remove();
-      }
+  // ==== Eye toggle
+  document.querySelectorAll('[data-toggle-eye]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const input = document.querySelector(btn.getAttribute('data-toggle-eye'));
+      if(!input) return;
+      input.type = (input.type==='password')?'text':'password';
+      btn.textContent = (input.type==='password')?'👁️':'🙈';
     });
-  </script>
+  });
+
+  // ==== Chống double-submit
+  function lockSubmit(form){
+    const btn=form.querySelector('button[type=submit]');
+    if(btn){ btn.disabled=true; btn.classList.add('opacity-60'); }
+    return true;
+  }
+
+  // ==== Toast (chỉ đọc từ flash BE)
+  function showToast(message, level='info', ms=4000){
+    const wrap = document.getElementById('toast-wrap');
+    const t = document.createElement('div');
+    t.className = 'toast ' + (level==='success'?'success':level==='error'?'error':level==='warn'?'warn':'');
+    t.textContent = message;
+    wrap.appendChild(t);
+    requestAnimationFrame(()=> t.classList.add('show'));
+    const hide = ()=>{ t.classList.remove('show'); setTimeout(()=> t.remove(), 200); };
+    t.addEventListener('click', hide);
+    setTimeout(hide, ms);
+  }
+
+  // ==== Logout (1 lần confirm)
+  document.getElementById('btnLogout')?.addEventListener('click', async ()=>{
+    if(!confirm('Bạn có chắc muốn đăng xuất không?')) return;
+    try { await fetch('/logout', { method:'POST' }); } catch(e) {}
+    location.href = '/login';
+  });
+
+  // ==== Boot
+  window.addEventListener('DOMContentLoaded', ()=>{
+    formatVNTime('[data-datetime]');
+    formatVNDate('[data-dateonly]');
+
+    // Hiển thị toast nếu có flash từ BE
+    const flashEl = document.getElementById('flash-data');
+    if (flashEl) {
+      const lvl = flashEl.dataset.level || 'info';
+      const msg = flashEl.dataset.message || '';
+      const map = { success:'success', error:'error', info:'', warn:'warn' };
+      showToast(msg, map[lvl] ?? '', 4500);
+      flashEl.remove();
+    }
+
+    // Nếu ?first=1: chỉ auto-scroll tới form đổi mật khẩu (không tạo thêm toast)
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('first') === '1') {
+      document.getElementById('pwForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+  });
+</script>
 </body>
 </html>

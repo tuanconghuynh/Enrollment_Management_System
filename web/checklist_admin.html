@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Quản lý Danh mục hồ sơ | Admission Check</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" type="image/png" href="hutech.png">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+  <div class="max-w-7xl mx-auto p-6 space-y-6 w-full">
+
+    <!-- Header -->
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="/index_home.html" title="Về trang chủ" class="flex items-center gap-2 hover:opacity-80 transition">
+          <img src="hutech.png" alt="HUTECH" class="h-8 w-8 object-contain select-none" />
+        </a>
+        <div class="min-w-0">
+          <h1 class="text-2xl font-bold leading-tight">QUẢN LÝ DANH MỤC HỒ SƠ</h1>
+          <p class="text-sm text-gray-500">Chỉ <b>Admin</b> có quyền chỉnh sửa.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500">API Base</label>
+        <input id="apiBase" class="input w-60 md:w-80" placeholder="">
+        <span class="hidden md:inline-block w-px h-6 bg-gray-200"></span>
+        <a href="/" class="btn btn-outline">Trang chính</a>
+      </div>
+    </header>
+
+    <!-- Quyền -->
+    <div id="roleBanner" class="rounded-xl border bg-white p-4 hidden">
+      <div id="roleText" class="text-sm text-gray-700"></div>
+    </div>
+
+    <!-- Versions -->
+    <section class="card space-y-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <h2 class="font-semibold">Phiên bản danh mục</h2>
+        <div class="text-sm text-gray-500">Tạo version mới (clone), xem và xóa phiên bản cũ.</div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Danh sách version -->
+        <div class="border rounded-xl overflow-hidden bg-white">
+          <div class="px-4 py-3 border-b font-semibold">Các phiên bản</div>
+          <div id="verWrap" class="divide-y"></div>
+        </div>
+
+        <!-- Tạo version -->
+        <div class="border rounded-xl overflow-hidden bg-white">
+          <div class="px-4 py-3 border-b font-semibold">Tạo phiên bản mới</div>
+          <div class="p-4 space-y-3">
+            <div>
+              <label class="label">Tên phiên bản</label>
+              <input id="verName" class="input w-full" placeholder="vd: v2 (2025)">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="label">Clone từ</label>
+                <select id="verClone" class="input w-full">
+                  <option value="active">Version đang active</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2 pt-6">
+                <input id="verActivate" type="checkbox" class="h-4 w-4">
+                <label for="verActivate" class="text-sm">Kích hoạt ngay</label>
+              </div>
+            </div>
+            <div class="flex items-center justify-end gap-2">
+              <button id="btnCreateVer" class="btn btn-primary" disabled>Tạo version</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Items -->
+    <section class="card space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="font-semibold">
+            Danh mục hồ sơ (version:
+            <span id="activeVer" class="chip-mini">—</span>)
+          </h2>
+          <p class="text-xs text-gray-500">Kéo ☰ để sắp xếp; nhớ bấm <b>Lưu thứ tự</b>.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnAdd" class="btn btn-primary" disabled>+ Thêm mục</button>
+          <button id="btnSaveOrder" class="btn btn-outline" disabled>💾 Lưu thứ tự</button>
+        </div>
+      </div>
+
+      <div class="overflow-hidden border rounded-xl bg-white">
+        <div class="overflow-auto">
+          <table class="table min-w-full text-sm">
+            <thead>
+              <tr>
+                <th class="text-center w-14">#</th>
+                <th class="text-left  w-10"> </th>
+                <th class="text-left">Mã (code)</th>
+                <th class="text-left">Tên hiển thị</th>
+                <th class="text-center w-24">Thứ tự</th>
+                <th class="text-right  w-56">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="tbody" class="divide-y"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="empty" class="text-center text-gray-500 py-6 hidden">Chưa có mục nào.</div>
+    </section>
+  </div>
+
+  <!-- Modal Add/Edit: dùng style.css (.overlay + .modal) -->
+  <div id="modal" class="overlay" aria-hidden="true">
+    <div class="modal w-[92vw] max-w-lg">
+      <div class="hd flex items-center justify-between">
+        <h3 id="modalTitle" class="text-lg">Thêm/Sửa danh mục</h3>
+        <button id="btnClose" class="btn btn-outline btn-xs">✕</button>
+      </div>
+      <div class="bd space-y-3">
+        <div id="rowCode">
+          <label class="label">Mã (code) — chữ thường, số, gạch dưới</label>
+          <input id="inpCode" class="input w-full" placeholder="vd: so_yeu_ly_lich">
+        </div>
+        <div>
+          <label class="label">Tên hiển thị</label>
+          <input id="inpName" class="input w-full" placeholder="vd: Sơ yếu lý lịch">
+        </div>
+      </div>
+      <div class="ft">
+        <button id="btnCancel" class="btn btn-outline">Hủy</button>
+        <button id="btnOk" class="btn btn-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: xem items của phiên bản bất kỳ -->
+  <div id="modalViewVer" class="overlay" aria-hidden="true">
+    <div class="modal w-[96vw] max-w-3xl">
+      <div class="hd flex items-center justify-between">
+        <h3 id="viewTitle" class="text-lg font-semibold">Phiên bản</h3>
+        <button id="btnCloseView" class="btn btn-outline btn-xs">✕</button>
+      </div>
+      <div class="bd">
+        <div id="viewMeta" class="text-sm text-gray-600 mb-3"></div>
+        <div class="overflow-auto border rounded-xl">
+          <table class="table min-w-full text-sm">
+            <thead>
+              <tr>
+                <th class="text-center w-14">#</th>
+                <th class="text-left">Mã (code)</th>
+                <th class="text-left">Tên hiển thị</th>
+                <th class="text-center w-24">Thứ tự</th>
+              </tr>
+            </thead>
+            <tbody id="viewBody" class="divide-y"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="ft">
+        <button id="btnCloseView2" class="btn btn-primary">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast-wrap"></div>
+
+  <!-- Footer -->
+  <footer class="bg-[#1E50B4] text-white mt-8">
+    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
+      <div>
+        <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
+        <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
+        <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP.HCM</p>
+        <p>
+          <b>ĐT:</b> (028) 6686 6465 ·
+          <b>Email:</b> <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">daotaotructuyen@hutech.edu.vn</a>
+        </p>
+      </div>
+      <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
+    </div>
+  </footer>
+
+<script>
+/* ===== Helpers ===== */
+const $  = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const STORAGE_KEY = 'apiBase';
+const PREFIX_CANDIDATES = ['', '/api'];
+let API_PREFIX = '';
+let IS_ADMIN = false;
+
+(function initApiBase(){
+  $('#apiBase').value = localStorage.getItem(STORAGE_KEY) || window.location.origin;
+})();
+$('#apiBase').addEventListener('change', ()=> localStorage.setItem(STORAGE_KEY, $('#apiBase').value.trim()));
+
+const apiBase = () => $('#apiBase').value.trim().replace(/\/+$/,'');
+const makeUrl = p => apiBase()+API_PREFIX+p;
+
+/* Nếu API trả 403 + force_change => ép sang /account */
+async function apiFetch(path, init={}){
+  const opts = {credentials:'include', ...init};
+  const tryFetch = async (prefix) => {
+    const r = await fetch(apiBase()+prefix+path, opts).catch(()=>null);
+    if (r && r.status === 403) {
+      try {
+        const j = await r.clone().json();
+        if (j && j.force_change) {
+          location.href = '/account?first=1';
+          return null;
+        }
+      } catch(_) {}
+    }
+    return r;
+  };
+  let r = await tryFetch(API_PREFIX);
+  if (r && r.status !== 404) return r;
+  const alt = API_PREFIX==='' ? '/api' : '';
+  if (alt !== API_PREFIX) {
+    const r2 = await tryFetch(alt);
+    if (r2 && r2.ok) API_PREFIX = alt;
+    return r2;
+  }
+  return r;
+}
+
+function toast(msg, type='info', ms=2200){
+  let wrap = $('#toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type==='success'?'success':type==='warn'?'warn':type==='error'?'error':'');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(), 220); }, ms);
+}
+async function showErrorFromResponse(r, fallback='Thao tác thất bại'){
+  try { const j = await r.json(); if (j && (j.detail||j.message)) { toast(j.detail||j.message,'error'); return; } } catch{}
+  if (r && r.status === 409) return toast('Không thể thao tác do xung đột trạng thái','error');
+  if (r && r.status === 400) return toast('Yêu cầu không hợp lệ','error');
+  toast(fallback,'error');
+}
+
+/* ===== Auth (chỉ Admin chỉnh sửa) ===== */
+async function detectPrefix(){
+  for (const p of PREFIX_CANDIDATES) {
+    try { const r = await fetch(apiBase()+p+'/health', {credentials:'include'}); if (r.ok) { API_PREFIX = p; return; } } catch(_){}
+  }
+  API_PREFIX = '';
+}
+async function ensureAdmin(){
+  await detectPrefix();
+  try {
+    const r = await apiFetch('/me');
+    if (!r || !r.ok) throw 0;
+    const me = await r.json();
+    const roles = Array.isArray(me.roles) ? me.roles : (me.role ? [me.role] : []);
+    IS_ADMIN = roles.includes('Admin');
+    const banner = $('#roleBanner'), t = $('#roleText');
+    if (IS_ADMIN) {
+      banner.classList.add('hidden'); t.textContent = '';
+      ['#btnAdd','#btnSaveOrder','#btnCreateVer'].forEach(sel => $(sel).disabled = false);
+    } else {
+      banner.classList.remove('hidden');
+      t.innerHTML = `Tài khoản <b>${me.full_name||me.username||''}</b> (<b>${me.role||roles.join(', ')||'User'}</b>) <span class="text-rose-600 font-semibold">không có quyền chỉnh sửa</span>. Bạn chỉ được xem danh mục.`;
+      ['#btnAdd','#btnSaveOrder','#btnCreateVer'].forEach(sel => $(sel).disabled = true);
+    }
+  } catch { location.href = '/login'; }
+}
+
+/* ===== Versions ===== */
+let VERSIONS = [];
+let ACTIVE_VERSION_ID = null;
+
+async function loadVersions(){
+  // active
+  {
+    const r = await apiFetch('/checklist/active');
+    if (!r || !r.ok) { toast('Không tải được version active','error'); return; }
+    const j = await r.json();
+    ACTIVE_VERSION_ID = j.version_id;
+    $('#activeVer').textContent = j.version_name || '—';
+  }
+  // list
+  {
+    const r = await apiFetch('/checklist/versions');
+    VERSIONS = (r && r.ok) ? await r.json() : [];
+    const wrap = $('#verWrap'); wrap.innerHTML = '';
+    if (!VERSIONS.length){
+      wrap.innerHTML = '<div class="p-4 text-gray-500">Chưa có dữ liệu.</div>';
+    } else {
+      VERSIONS.forEach(v=>{
+        const isActive = (v.is_active === true || v.active === true || v.id === ACTIVE_VERSION_ID);
+        const row = document.createElement('div');
+        row.className = 'px-4 py-3 flex items-center justify-between gap-2';
+        row.innerHTML = `
+          <div class="min-w-0">
+            <div class="font-semibold">${v.version_name}</div>
+            <div class="text-xs text-gray-500">ID: ${v.id} ${isActive ? '• <span class="text-green-700 font-semibold">Đang hoạt động</span>' : ''}</div>
+          </div>
+          <div class="shrink-0 flex items-center gap-2">
+            <button class="btn btn-outline btn-xs act-view" data-id="${v.id}">Xem</button>
+            <button class="btn btn-outline btn-xs act-activate" data-id="${v.id}" ${(!IS_ADMIN || isActive)?'disabled':''}>Kích hoạt</button>
+            <button class="btn btn-outline btn-xs border-rose-600 text-rose-600 hover:bg-rose-600 hover:text-white act-delver" data-id="${v.id}" ${(isActive||!IS_ADMIN)?'disabled':''}>Xóa</button>
+          </div>`;
+        wrap.appendChild(row);
+      });
+    }
+    // fill clone select
+    const sel = $('#verClone');
+    sel.innerHTML = `<option value="active">Version đang active</option>` + VERSIONS.map(v=>`<option value="${v.id}">${v.version_name} (id ${v.id})</option>`).join('');
+    // bind
+    $$('.act-activate').forEach(b=>{
+      b.onclick = async ()=>{
+        const id = Number(b.dataset.id);
+        if (!IS_ADMIN) return;
+        const r = await apiFetch(`/checklist/versions/${id}/activate`, {method:'POST'}).catch(()=>null);
+        if (!r || !r.ok){
+          if (r && r.status === 400){
+            toast("Không thể kích hoạt: thiếu cột 'active' hoặc 'is_active' trên ChecklistVersion", 'error');
+          } else {
+            await showErrorFromResponse(r,'Kích hoạt thất bại');
+          }
+          return;
+        }
+        toast('Đã kích hoạt version','success');
+        await loadVersions();
+        await loadItems();
+      };
+    });
+    $$('.act-view').forEach(b=>{
+      b.onclick = ()=> openViewModal(Number(b.dataset.id));
+    });
+    $$('.act-delver').forEach(b=>{
+      b.onclick = async ()=>{
+        const id = Number(b.dataset.id);
+        if (!IS_ADMIN) return;
+        if (!confirm(`Xóa phiên bản ID ${id}?`)) return;
+        const r = await apiFetch(`/checklist/versions/${id}`, {method:'DELETE'}).catch(()=>null);
+        if (!r || !r.ok){ await showErrorFromResponse(r,'Xóa phiên bản thất bại'); return; }
+        toast('Đã xóa phiên bản','success');
+        await loadVersions();
+        await loadItems();
+      };
+    });
+  }
+}
+$('#btnCreateVer').onclick = async ()=>{
+  if (!IS_ADMIN) return;
+  const name = $('#verName').value.trim();
+  if (!name) { toast('Nhập tên phiên bản','warn'); $('#verName').focus(); return; }
+  const clone = $('#verClone').value || 'active';
+  const activate = $('#verActivate').checked;
+  const r = await apiFetch('/checklist/versions', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ version_name: name, clone_from: clone, activate })
+  }).catch(()=>null);
+  if (!r || !r.ok){ await showErrorFromResponse(r,'Tạo version thất bại'); return; }
+  $('#verName').value = ''; $('#verActivate').checked = false; $('#verName').focus();
+  toast('Đã tạo version mới','success');
+  await loadVersions();
+  await loadItems();
+};
+
+/* ===== Items (active) ===== */
+let ITEMS = [];
+const tbody = $('#tbody');
+
+async function loadItems(){
+  const r = await apiFetch('/checklist/active');
+  if (!r || !r.ok) { tbody.innerHTML=''; $('#empty').classList.remove('hidden'); toast('Không tải được danh mục active','error'); return; }
+  const j = await r.json();
+  ITEMS = (j.items||[]).slice().sort((a,b)=>{
+    const ga = a.order_index ?? a.order_no ?? 0;
+    const gb = b.order_index ?? b.order_no ?? 0;
+    return ga - gb;
+  });
+  $('#activeVer').textContent = j.version_name || '—';
+  ACTIVE_VERSION_ID = j.version_id || ACTIVE_VERSION_ID;
+  renderItems();
+}
+
+function renderItems(){
+  tbody.innerHTML = '';
+  if (!ITEMS.length){ $('#empty').classList.remove('hidden'); return; }
+  $('#empty').classList.add('hidden');
+
+  ITEMS.forEach((it, idx)=>{
+    const tr = document.createElement('tr');
+    tr.dataset.code = it.code;
+    tr.innerHTML = `
+      <td class="text-center select-none">${idx+1}</td>
+      <td class="text-left">
+        <span class="handle inline-flex items-center justify-center w-8 h-8 rounded-lg border hover:bg-slate-50 ${IS_ADMIN?'':'opacity-40'}" title="Kéo để sắp xếp" draggable="${IS_ADMIN?'true':'false'}">☰</span>
+      </td>
+      <td class="font-mono">${it.code}</td>
+      <td>${it.display_name}</td>
+      <td class="text-center text-gray-500">${idx+1}/${ITEMS.length}</td>
+      <td class="text-right">
+        <div class="inline-flex gap-2">
+          <button class="btn btn-outline btn-xs act-up"   data-i="${idx}" ${!IS_ADMIN?'disabled':''}>↑</button>
+          <button class="btn btn-outline btn-xs act-down" data-i="${idx}" ${!IS_ADMIN?'disabled':''}>↓</button>
+          <button class="btn btn-outline btn-xs act-edit" data-code="${it.code}" ${!IS_ADMIN?'disabled':''}>Sửa</button>
+          <button class="btn btn-outline btn-xs border-rose-600 text-rose-600 hover:bg-rose-600 hover:text-white act-del" data-code="${it.code}" ${!IS_ADMIN?'disabled':''}>Xóa</button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  $$('.act-up').forEach(b=> b.onclick = ()=>{ const i=+b.dataset.i; if (i>0){ [ITEMS[i-1], ITEMS[i]] = [ITEMS[i], ITEMS[i-1]]; renderItems(); }});
+  $$('.act-down').forEach(b=> b.onclick = ()=>{ const i=+b.dataset.i; if (i<ITEMS.length-1){ [ITEMS[i+1], ITEMS[i]] = [ITEMS[i], ITEMS[i+1]]; renderItems(); }});
+
+  $$('.act-edit').forEach(b=> b.onclick = ()=> openModal('edit', b.dataset.code));
+  $$('.act-del').forEach(b=> b.onclick = ()=> onDelete(b.dataset.code));
+
+  bindDragSort();
+}
+
+function bindDragSort(){
+  if (!IS_ADMIN) return;
+  let dragEl = null;
+
+  tbody.querySelectorAll('tr').forEach(row=>{
+    const handle = row.querySelector('.handle');
+    handle.addEventListener('dragstart', (e)=>{
+      dragEl = row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', row.dataset.code || ''); } catch(_){}
+    });
+    handle.addEventListener('dragend', ()=>{
+      row.classList.remove('dragging');
+      dragEl = null;
+    });
+
+    row.addEventListener('dragover', (e)=>{
+      if (!dragEl) return;
+      e.preventDefault();
+      const target = row;
+      if (dragEl === target) return;
+      const rect = target.getBoundingClientRect();
+      const after = (e.clientY - rect.top) > rect.height/2;
+      if (after) target.after(dragEl); else target.before(dragEl);
+    });
+    row.addEventListener('drop', (e)=>{ e.preventDefault(); rebuildItemsFromDOM(); });
+  });
+}
+
+function rebuildItemsFromDOM(){
+  const codes = [...tbody.querySelectorAll('tr')].map(tr=> tr.dataset.code);
+  const map = Object.fromEntries(ITEMS.map(x=>[x.code, x]));
+  ITEMS = codes.map(c=> map[c]).filter(Boolean);
+}
+function getCodes(){ return ITEMS.map(x=>x.code); }
+
+async function onDelete(code){
+  if (!IS_ADMIN) return;
+  if (!confirm(`Xóa mục '${code}' ?`)) return;
+  const r = await apiFetch(`/checklist/items/${encodeURIComponent(code)}`, {method:'DELETE'}).catch(()=>null);
+  if (!r || !r.ok){ await showErrorFromResponse(r,'Xóa thất bại'); return; }
+  toast('Đã xóa','success');
+  await loadItems();
+}
+
+$('#btnSaveOrder').onclick = async ()=>{
+  if (!IS_ADMIN) return;
+  rebuildItemsFromDOM();
+  const codes = getCodes();
+  const r = await apiFetch('/checklist/reorder', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ codes })
+  }).catch(()=>null);
+  if (!r || !r.ok){ await showErrorFromResponse(r,'Lưu thứ tự thất bại'); return; }
+  toast('Đã lưu thứ tự','success');
+  await loadItems();
+};
+
+/* ===== Modal Add/Edit ===== */
+const modal = document.getElementById('modal');
+function openModal(mode, code=null){
+  if (!IS_ADMIN) return;
+  document.body.style.overflow = 'hidden';
+  modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
+
+  $('#modalTitle').textContent = mode==='add' ? 'Thêm mục danh mục' : 'Sửa mục danh mục';
+  $('#rowCode').style.display = (mode==='add') ? '' : 'none';
+  $('#inpCode').value = '';
+  $('#inpName').value = '';
+
+  $('#btnOk').onclick = async ()=>{
+    if (mode==='add'){
+      const c = $('#inpCode').value.trim();
+      const n = $('#inpName').value.trim();
+      if (!/^[a-z0-9_]+$/.test(c)) { toast('Mã (code) chỉ gồm chữ thường, số, gạch dưới','warn'); return; }
+      if (!n) { toast('Nhập tên hiển thị','warn'); return; }
+      const r = await apiFetch('/checklist/items', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ code:c, display_name:n })
+      }).catch(()=>null);
+      if (!r || !r.ok){ await showErrorFromResponse(r,'Thêm thất bại'); return; }
+      toast('Đã thêm','success'); closeModal(); await loadItems();
+    } else {
+      const n = $('#inpName').value.trim();
+      if (!n) { toast('Nhập tên hiển thị','warn'); return; }
+      const r = await apiFetch(`/checklist/items/${encodeURIComponent(code)}`, {
+        method:'PATCH', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ display_name:n })
+      }).catch(()=>null);
+      if (!r || !r.ok){ await showErrorFromResponse(r,'Cập nhật thất bại'); return; }
+      toast('Đã cập nhật','success'); closeModal(); await loadItems();
+    }
+  };
+
+  if (mode==='edit'){
+    const it = ITEMS.find(x=>x.code===code);
+    $('#inpName').value = it?.display_name || '';
+  }
+
+  // focus
+  setTimeout(()=> (mode==='add' ? $('#inpCode') : $('#inpName'))?.focus(), 50);
+}
+function closeModal(){
+  modal.classList.remove('show'); modal.setAttribute('aria-hidden','true');
+  document.body.style.overflow = '';
+}
+$('#btnClose').onclick = closeModal;
+$('#btnCancel').onclick = closeModal;
+$('#btnAdd').onclick = ()=> openModal('add');
+
+/* ===== Modal xem phiên bản bất kỳ ===== */
+const modalView = document.getElementById('modalViewVer');
+async function openViewModal(versionId){
+  document.body.style.overflow = 'hidden';
+  modalView.classList.add('show'); modalView.setAttribute('aria-hidden','false');
+
+  $('#viewTitle').textContent = `Phiên bản #${versionId}`;
+  $('#viewMeta').textContent = 'Đang tải...';
+  $('#viewBody').innerHTML = '';
+
+  const r = await apiFetch(`/checklist/versions/${versionId}/items`).catch(()=>null);
+  if (!r || !r.ok){ await showErrorFromResponse(r,'Không tải được phiên bản'); return; }
+  const j = await r.json();
+
+  $('#viewTitle').textContent = `Phiên bản: ${j.version_name} (ID ${j.version_id})`;
+  $('#viewMeta').innerHTML = (j.is_active ? '<span class="text-green-700 font-semibold">Đang hoạt động</span>' : '<span class="text-gray-600">Không hoạt động</span>');
+
+  const arr = (j.items||[]).slice().sort((a,b)=>{
+    const ga = a.order_index ?? a.order_no ?? 0;
+    const gb = b.order_index ?? b.order_no ?? 0;
+    return ga - gb;
+  });
+  if (!arr.length){
+    $('#viewBody').innerHTML = '<tr><td colspan="4" class="text-center text-gray-500 py-4">Trống</td></tr>';
+  } else {
+    const frag = document.createDocumentFragment();
+    arr.forEach((it, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="text-center">${idx+1}</td>
+        <td class="font-mono">${it.code}</td>
+        <td>${it.display_name}</td>
+        <td class="text-center">${(it.order_index ?? it.order_no ?? idx+1)}</td>`;
+      frag.appendChild(tr);
+    });
+    $('#viewBody').appendChild(frag);
+  }
+}
+function closeViewModal(){
+  modalView.classList.remove('show'); modalView.setAttribute('aria-hidden','true');
+  document.body.style.overflow = '';
+}
+$('#btnCloseView').onclick = closeViewModal;
+$('#btnCloseView2').onclick = closeViewModal;
+
+/* ESC để đóng modal */
+window.addEventListener('keydown', e=>{
+  if (e.key === 'Escape') {
+    if (document.getElementById('modal').classList.contains('show')) closeModal();
+    if (document.getElementById('modalViewVer').classList.contains('show')) closeViewModal();
+  }
+});
+
+/* ===== init ===== */
+window.addEventListener('load', async ()=>{
+  await ensureAdmin();
+  await loadVersions();
+  await loadItems();
+});
+
+</script>
+</body>
+</html>

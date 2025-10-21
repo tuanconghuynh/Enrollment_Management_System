@@ -21,6 +21,7 @@ class Applicant(Base):
     gioi_tinh = Column(String(10), nullable=True)
     email_hoc_vien = Column(String(255), nullable=True)
     ngay_sinh = Column(Date, nullable=True)
+    dan_toc = Column(String(64), nullable=True)
     so_dt = Column(String(32), nullable=True)
 
     nganh_nhap_hoc = Column(String(255), nullable=True)

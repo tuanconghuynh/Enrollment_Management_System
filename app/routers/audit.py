@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, Integer, String, DateTime, Text, Enum
+from sqlalchemy import Column, BigInteger, Integer, String, DateTime, Text, Enum, func, JSON
 from sqlalchemy.dialects.mysql import JSON as MyJSON
 from sqlalchemy.orm import declarative_base
 from datetime import datetime

@@ -28,10 +28,9 @@ except Exception:
 app = FastAPI()
 
 # ---------------- Session cookie ----------------
-# Cookie sống 7 ngày; idle timeout xử lý riêng (1 giờ trong auth + middleware)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "change-me-please"),  # NÊN đưa vào ENV
+    secret_key=os.getenv("SESSION_SECRET", "change-me-please"),
     max_age=60 * 60 * 24 * 7,  # 7 ngày
     same_site="lax",
 )
@@ -49,16 +48,16 @@ async def add_correlation_id(request: Request, call_next):
 MAX_IDLE_SECONDS = AUTH_IDLE_TIMEOUT_SEC  # 1h từ auth.py
 
 WHITELIST_PREFIXES = (
-    # KHÔNG để "/" ở đây kẻo bypass mọi route
     "/index.html",
-    "/login", "/api/login",              # login
-    "/logout", "/api/logout",            # logout (cho phép thoát khi hết hạn)
-    "/health", "/api/health",            # health
-    "/auth_login.html",                  # file login tĩnh
-    "/hutech.png", "/favicon",           # assets phổ biến
-    "/static", "/assets",                # mount assets
+    "/index_home.html",                     # 👈 Thêm để cho phép vào trang chủ mới
+    "/login", "/api/login",
+    "/logout", "/api/logout",
+    "/health", "/api/health",
+    "/auth_login.html",
+    "/hutech.png", "/favicon",
+    "/static", "/assets",
     "/journal.html",
-    "/account", "/account/change-password",  # cho phép vào trang đổi mật khẩu
+    "/account", "/account/change-password",
 )
 
 STATIC_EXTS = (
@@ -70,11 +69,9 @@ STATIC_EXTS = (
 async def idle_timeout_middleware(request: Request, call_next):
     path = request.url.path
 
-    # Bỏ qua đường whitelist & file tĩnh
     if path.startswith(WHITELIST_PREFIXES) or path.lower().endswith(STATIC_EXTS):
         return await call_next(request)
 
-    # Một số path (nhất là static mount) có thể không có session trong scope -> bỏ qua an toàn
     if "session" not in request.scope:
         return await call_next(request)
 
@@ -83,29 +80,22 @@ async def idle_timeout_middleware(request: Request, call_next):
 
     if uid:
         now = int(_now())
-        # DÙNG CÙNG KEY VỚI auth.py
         last = int(sess.get("_last_seen") or 0)
-
-        # Hết hạn do không hoạt động
         if last and now - last > MAX_IDLE_SECONDS:
             request.session.clear()
-            # API -> 401 JSON ; Web -> redirect /login
             if path.startswith("/api"):
                 return JSONResponse(
                     {"detail": "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!"},
                     status_code=401
                 )
             return RedirectResponse(url="/login?expired=1", status_code=302)
-
-        # Còn hạn -> cập nhật mốc hoạt động (đồng bộ với auth.py)
         sess["_last_seen"] = now
 
     return await call_next(request)
 
-# ------------- Ép đổi mật khẩu lần đầu -------------
-# Middleware này nên đặt SAU idle_timeout_middleware
+# ---------------- Ép đổi mật khẩu lần đầu ----------------
 ENFORCE_CHANGE_WHITELIST = (
-    "/account", "/account/change-password",
+    "/account", "/account/change-password", "/api/account/change-password",  # cho phép trang + API đổi pass
     "/login", "/api/login", "/logout", "/api/logout",
     "/health", "/api/health",
     "/auth_login.html",
@@ -114,35 +104,47 @@ ENFORCE_CHANGE_WHITELIST = (
     "/journal.html",
 )
 
+from starlette.status import HTTP_403_FORBIDDEN
+
 @app.middleware("http")
 async def enforce_first_change_password(request: Request, call_next):
     path = request.url.path
 
-    # Bỏ qua path tĩnh, auth, account
+    # file tĩnh & đường cho phép
     if path.startswith(ENFORCE_CHANGE_WHITELIST) or path.lower().endswith(STATIC_EXTS):
         return await call_next(request)
 
-    if "session" in request.scope:
-        uid = request.session.get("uid")
-        if uid:
-            # Lấy cờ từ session cho nhanh, fallback DB
-            must_change = request.session.get("must_change_password")
-            if must_change is None:
-                try:
-                    db = next(get_db())
-                    from app.models.user import User
-                    u = db.get(User, uid)
-                    must_change = bool(u.must_change_password) if u else False
-                except Exception:
-                    must_change = False
-                request.session["must_change_password"] = must_change
+    # chưa đăng nhập thì thôi
+    sess = request.session if "session" in request.scope else None
+    uid = sess.get("uid") if sess else None
+    if not uid:
+        return await call_next(request)
 
-            if must_change:
-                return RedirectResponse(url="/account?first=1", status_code=302)
+    must_change = sess.get("must_change_password")
+    if must_change is None:
+        # nạp 1 lần rồi cache vào session
+        try:
+            db = next(get_db())
+            from app.models.user import User
+            u = db.get(User, uid)
+            must_change = bool(u.must_change_password) if u else False
+        except Exception:
+            must_change = False
+        sess["must_change_password"] = must_change
+
+    if must_change:
+        # API → trả JSON 403
+        if path.startswith("/api"):
+            return JSONResponse(
+                {"detail": "Vui lòng đổi mật khẩu trước khi tiếp tục.", "force_change": True},
+                status_code=HTTP_403_FORBIDDEN
+            )
+        # Web → ép về trang account
+        return RedirectResponse(url="/account?first=1", status_code=302)
 
     return await call_next(request)
 
-# ------------- Exception handler tổng -------------
+# ---------------- Global exception handler ----------------
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     try:
@@ -165,9 +167,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ---------------- Mount routers ----------------
 app.include_router(auth.router,    tags=["Auth"])
 app.include_router(admin.router,   tags=["Admin"])
-app.include_router(account.router, tags=["Account"])  # NEW
+app.include_router(account.router, tags=["Account"])
 
-# API chuẩn /api/...
+# API chuẩn
 app.include_router(health.router,     prefix="/api", tags=["Health"])
 app.include_router(checklist.router,  prefix="/api", tags=["Checklist"])
 app.include_router(applicants.router, prefix="/api", tags=["Applicants"])
@@ -175,7 +177,7 @@ app.include_router(batch.router,      prefix="/api", tags=["Batch"])
 app.include_router(export.router,     prefix="/api", tags=["Export"])
 app.include_router(journal.router,    prefix="/api", tags=["Journal"])
 
-# Alias không /api (ẩn khỏi docs) để web cũ vẫn chạy
+# Alias không /api (ẩn khỏi docs)
 for r in (health.router, checklist.router, applicants.router, batch.router, export.router, journal.router):
     app.include_router(r, prefix="", include_in_schema=False)
 
@@ -184,7 +186,6 @@ for r in (health.router, checklist.router, applicants.router, batch.router, expo
 def startup():
     Base.metadata.create_all(bind=engine)
 
-# (tuỳ chọn) log routes để debug
 @app.on_event("startup")
 def _log_routes():
     for r in app.routes:
@@ -193,7 +194,12 @@ def _log_routes():
         except Exception:
             pass
 
-# ---------------- Static web/ (ĐẶT CUỐI CÙNG) ----------------
+# ---------------- Redirect "/" → index_home.html ----------------
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/index_home.html", status_code=307)
+
+# ---------------- Static web/ ----------------
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 WEB_DIR  = os.path.join(BASE_DIR, "web")
 app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="webroot")

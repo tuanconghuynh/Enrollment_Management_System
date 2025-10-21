@@ -102,11 +102,12 @@ def _build_excel_bytes(apps: List[Applicant], docs: List[ApplicantDoc], items_al
     ws = wb.active
     ws.title = "Ho so"
 
-    # Header cố định
+    # Header cố định (+ Dân tộc)
     base_headers = [
         "STT", "Mã hồ sơ", "Ngày nhận", "Email học viên", "Họ tên",
         "MSHV", "Ngày sinh", "Số ĐT", "Ngành nhập học", "Đợt", "Khóa",
-        "Đã TN trước đó", "Ghi chú", "Người nhận (ký tên)"
+        "Đã TN trước đó", "Ghi chú", "Người nhận (ký tên)",
+        "Dân tộc",  # ✅ thêm cột Dân tộc
     ]
     # Thêm cột checklist
     item_headers = [getattr(it, "display_name", None) or it.code for it in items_all]
@@ -126,12 +127,13 @@ def _build_excel_bytes(apps: List[Applicant], docs: List[ApplicantDoc], items_al
             a.ma_so_hv or "",
             _fmt_date_excel(getattr(a, "ngay_sinh", None)),
             a.so_dt or "",
-            a.nganh_nhap_hoc or "",
+            getattr(a, "nganh_nhap_hoc", None) or getattr(a, "nganh", None) or "",
             a.dot or "",
             getattr(a, "khoa", "") or "",
             a.da_tn_truoc_do or "",
             a.ghi_chu or "",
             a.nguoi_nhan_ky_ten or "",
+            getattr(a, "dan_toc", None) or "",  # ✅ giá trị Dân tộc
         ]
         dm = docs_by_mssv.get(a.ma_so_hv, {})
         doc_row = [int(dm.get(it.code, 0)) for it in items_all]

@@ -186,6 +186,8 @@ def snapshot_applicant(a: Applicant) -> dict:
         "deleted_reason": getattr(a, "deleted_reason", None),
         # 🆕 giới tính
         "gioi_tinh": getattr(a, "gioi_tinh", None),
+        # 🆕 dân tộc
+        "dan_toc": getattr(a, "dan_toc", None),
     }
 
 
@@ -277,6 +279,8 @@ def get_by_code(
         "checklist_version_id": getattr(a, "checklist_version_id", None),
         # 🆕 giới tính
         "gioi_tinh": getattr(a, "gioi_tinh", None),
+        # 🆕 dân tộc
+        "dan_toc": getattr(a, "dan_toc", None),
     }
 
     write_audit(db, action="READ", target_type="Applicant", target_id=a.ma_so_hv, status="SUCCESS", request=request)
@@ -373,6 +377,8 @@ def get_by_mshv(
         "email_hoc_vien": getattr(a, "email_hoc_vien", None),
         # 🆕 giới tính
         "gioi_tinh": getattr(a, "gioi_tinh", None),
+        # 🆕 dân tộc
+        "dan_toc": getattr(a, "dan_toc", None),
     }
 
     write_audit(db, action="READ", target_type="Applicant", target_id=a.ma_so_hv, status="SUCCESS", request=request)
@@ -449,6 +455,8 @@ def create_applicant(
         printed=False,
         # 🆕 giới tính
         gioi_tinh=_normalize_gender(payload.get("gioi_tinh")),
+        # 🆕 dân tộc (nếu model/DB có cột)
+        **({"dan_toc": payload.get("dan_toc")} if hasattr(Applicant, "dan_toc") else {}),
     )
     # ✅ ghi vào đúng cột hiện có trong model
     if hasattr(Applicant, "nganh_nhap_hoc"):
@@ -557,6 +565,8 @@ def search_applicants(
                 "nguoi_nhan_ky_ten": getattr(a, "nguoi_nhan_ky_ten", None),
                 # 🆕 giới tính
                 "gioi_tinh": getattr(a, "gioi_tinh", None),
+                # 🆕 dân tộc
+                "dan_toc": getattr(a, "dan_toc", None),
             }
             for a in rows
         ],
@@ -618,6 +628,8 @@ def find_by_ma_ho_so(
         ],
         # 🆕 giới tính
         "gioi_tinh": getattr(a, "gioi_tinh", None),
+        # 🆕 dân tộc
+        "dan_toc": getattr(a, "dan_toc", None),
     }
 
 
@@ -700,6 +712,10 @@ def update_applicant(
     # 🆕 cập nhật giới tính (normalize)
     if "gioi_tinh" in body:
         a.gioi_tinh = _normalize_gender(body.get("gioi_tinh"))
+
+    # 🆕 cập nhật dân tộc
+    if "dan_toc" in body and hasattr(Applicant, "dan_toc"):
+        a.dan_toc = str_or_none(body.get("dan_toc"))
 
     # Lưu người cập nhật gần nhất
     a.nguoi_nhan_ky_ten = getattr(me, "full_name", None) or getattr(me, "username", None)

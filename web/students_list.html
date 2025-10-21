@@ -154,32 +154,8 @@
     </section>
   </div>
 
-  <!-- Modal Edit -->
-  <div id="editModal" class="modal-backdrop" aria-hidden="true">
-    <div class="modal p-6" role="dialog" aria-modal="true" aria-labelledby="editTitle">
-      <div class="flex items-center justify-between mb-4">
-        <h3 id="editTitle" class="text-lg font-semibold">Chỉnh sửa hồ sơ</h3>
-        <button id="btnCloseModal" class="btn btn-outline btn-xs" aria-label="Đóng">✕</button>
-      </div>
-      <form id="editForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div><label class="text-sm text-gray-600">MSHV (khóa)</label><input id="e_mshv" class="input bg-gray-100" readonly></div>
-        <div><label class="text-sm text-gray-600">Mã hồ sơ</label><input id="e_ma_ho_so" class="input"></div>
-        <div><label class="text-sm text-gray-600">Họ tên</label><input id="e_ho_ten" class="input"></div>
-        <div><label class="text-sm text-gray-600">Email học viên</label><input id="e_email" class="input" type="email"></div>
-        <div><label class="text-sm text-gray-600">Số ĐT</label><input id="e_so_dt" class="input"></div>
-        <div><label class="text-sm text-gray-600">Ngành nhập học</label><input id="e_nganh" class="input"></div>
-        <div><label class="text-sm text-gray-600">Đợt</label><input id="e_dot" class="input"></div>
-        <div><label class="text-sm text-gray-600">Khóa</label><input id="e_khoa" class="input"></div>
-        <div><label class="text-sm text-gray-600">Ngày nhận HS</label><input id="e_ngay_nhan" class="input" type="date"></div>
-        <div><label class="text-sm text-gray-600">Ngày sinh</label><input id="e_ngay_sinh" class="input" type="date"></div>
-        <div class="md:col-span-2"><label class="text-sm text-gray-600">Ghi chú</label><input id="e_ghi_chu" class="input"></div>
-        <div class="md:col-span-2 flex items-center justify-end gap-2 pt-2">
-          <button type="button" id="btnCancelEdit" class="btn btn-outline">Hủy</button>
-          <button type="submit" id="btnSaveEdit" class="btn btn-primary">Lưu thay đổi</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <!-- Modal Edit (đÃ bỏ - phần HTML giữ comment để tham khảo)
+  <div id="editModal" class="modal-backdrop" aria-hidden="true">...</div> -->
 
   <!-- Modal nhập lý do xoá -->
   <div id="delModal" class="overlay" aria-modal="true" role="dialog">
@@ -217,6 +193,27 @@
     const STORAGE_KEY = "apiBase";
     const PREFIX_CANDIDATES = ["", "/api"];
     let API_PREFIX = "";
+
+    // ===== Compose / Editor detection =====
+    const COMPOSE_CANDIDATES = ["/index.html", "/compose.html", "/editor.html", "/"];
+    let COMPOSE_BASE = "/index.html"; // mặc định an toàn
+
+    async function detectComposePage(){
+      for (const p of COMPOSE_CANDIDATES) {
+        try {
+          const r = await fetch(p, { method: "GET", credentials: "include" });
+          if (r.ok) {
+            if (p !== "/index_home.html") { // tránh nhầm trang chủ
+              COMPOSE_BASE = p;
+              break;
+            }
+          }
+        } catch(_) {}
+      }
+      // Cập nhật link "Soạn Hồ Sơ" trên header
+      const soan = document.querySelector('a[title="Biên soạn Hồ Sơ"]');
+      if (soan) soan.href = COMPOSE_BASE;
+    }
 
     const debounce = (fn, ms=300) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
 
@@ -301,14 +298,13 @@
       size: 10,
       total: 0,
       cachedAllForFilter: [],
-      sort: { key: null, dir: 'asc' }, // 'ma_so_hv' | 'dot' | 'khoa' | 'nganh' | 'ngay_nhan_hs' | 'nguoi_nhan'
-      cacheAll: [] // cache toàn bộ dataset cho truy vấn hiện tại (để sort trên toàn tập)
+      sort: { key: null, dir: 'asc' },
+      cacheAll: []
     };
     function pagesTotal(){ return Math.max(1, Math.ceil(state.total / state.size)); }
 
     // ===== Xoá mềm (client blacklist theo session) =====
     function isDeletedFlag(it){
-      // Server có cờ nào thì liệt kê ở đây
       return !!(it?.deleted || it?.is_deleted || it?.deleted_at || it?.status === 'deleted');
     }
     const deletedMshv = new Set(JSON.parse(sessionStorage.getItem('deletedMshv') || '[]'));
@@ -318,7 +314,6 @@
 
     function notDeleted(it){
       const id = String(it?.ma_so_hv || '');
-      // ẩn nếu: (1) bị chặn bởi blacklist client trong phiên, hoặc (2) server báo đã xoá
       return id && !deletedMshv.has(id) && !isDeletedFlag(it);
     }
 
@@ -349,7 +344,7 @@
           </td>
           <td class="border-b text-center whitespace-nowrap">
             <div class="inline-flex gap-2">
-              <a class="btn btn-outline btn-xs btn-pill" href="/?mshv=${encodeURIComponent(mshv)}">Sửa</a>
+              <button class="btn btn-outline btn-xs btn-pill btn-edit" data-mshv="${encodeURIComponent(mshv)}">Sửa</button>
               <button class="btn btn-outline btn-xs btn-pill btn-del"  data-mshv="${encodeURIComponent(mshv)}">Xóa</button>
             </div>
           </td>`;
@@ -357,16 +352,14 @@
       });
     }
 
-    // ===== Toast helper (tương thích cả 2 kiểu gọi & tự tạo DOM nếu thiếu) =====
+    // ===== Toast helper =====
     function showToast(msg, maybeOpts){
-      // Chuẩn hóa tham số
       let type = 'danger', timeout = 2200;
       if (typeof maybeOpts === 'object' && maybeOpts !== null) {
         type = maybeOpts.type || 'danger';
         timeout = Number(maybeOpts.timeout || 2200);
       } else if (typeof maybeOpts === 'string') {
         type = maybeOpts;
-        // nếu còn đối số thứ 3 (kiểu cũ), đọc từ arguments[2]
         if (typeof arguments[2] !== 'undefined') {
           const t = Number(arguments[2]);
           if (!Number.isNaN(t)) timeout = t;
@@ -376,7 +369,6 @@
       let toast = document.getElementById('toast');
       let inner = document.getElementById('toastInner');
 
-      // Tự tạo nếu thiếu
       if (!toast) {
         toast = document.createElement('div');
         toast.id = 'toast';
@@ -432,7 +424,7 @@
       txt.focus();
 
       return new Promise(resolve=>{
-        const done = (val)=>{ 
+        const done = (val)=>{
           overlay.classList.remove('show');
           ok.removeEventListener('click', onOk);
           cancel.removeEventListener('click', onCancel);
@@ -440,7 +432,7 @@
           document.removeEventListener('keydown', onEsc);
           resolve(val);
         };
-        const onOk = ()=>{ 
+        const onOk = ()=>{
           const v = (txt.value||'').trim();
           if(!v){ err.classList.remove('hidden'); txt.focus(); return; }
           done(v);
@@ -456,23 +448,34 @@
       });
     }
 
-    // bind delete (xóa tạm + ẩn dòng ngay)
+    // ===== Bắt sự kiện trong bảng (In / Sửa / Xoá) =====
     document.addEventListener('DOMContentLoaded', () => {
       const tbody = document.getElementById('tbody');
       if (!tbody) return;
 
       tbody.addEventListener('click', async (e) => {
-        // In A5/A4: gọi API và alert nếu hồ sơ bị xoá (410)
+        // --- Sửa: điều hướng sang trang biên soạn ---
+        const editBtn = e.target.closest('.btn-edit');
+        if (editBtn) {
+          const mshv = decodeURIComponent(editBtn.dataset.mshv || '');
+          if (!mshv) return;
+          location.href = `${COMPOSE_BASE}?mshv=${encodeURIComponent(mshv)}&action=edit`;
+          return;
+        }
+
+        // In A5/A4
         const a5 = e.target.closest('.btn-print-a5');
         const a4 = e.target.closest('.btn-print-a4');
         if (a5 || a4) {
           const mshv = decodeURIComponent((a5 || a4).dataset.mshv || '');
           if (!mshv) return;
           const url = a5 ? `/print/a5/${encodeURIComponent(mshv)}`
-                        : `/print/a4/${encodeURIComponent(mshv)}`;
+                         : `/print/a4/${encodeURIComponent(mshv)}`;
           await openPdfOrAlert(url);
           return;
         }
+
+        // Xoá mềm
         const btn = e.target.closest('.btn-del');
         if (!btn) return;
 
@@ -500,15 +503,12 @@
         if (!resp) {
           showToast('Không kết nối được máy chủ.', {type:'error', timeout:2200});
         } else if (resp.status === 204 || resp.status === 410) {
-          // Đánh dấu đã xoá để không hiện lại ở mọi lần tìm tiếp theo (trong phiên)
           deletedMshv.add(String(mshv));
           persistDeletedMshv();
 
-          // Ẩn dòng ngay cho mượt
           const tr = btn.closest('tr'); if (tr) tr.remove();
           showToast(`Đã xóa MSHV ${mshv}`, {type:'danger'});
 
-          // Render lại dựa trên cache hiện tại để đồng bộ tổng/trang
           await runSearch();
         } else {
           let msg = `Xóa thất bại (HTTP ${resp.status})`;
@@ -531,9 +531,7 @@
             'hover:bg-rose-600', 'hover:text-white',
             'focus:ring-2','focus:ring-rose-400','focus:outline-none'
           );
-          // nếu đang có màu xanh/gray thì bỏ
           b.classList.remove('btn-primary','text-gray-700','border-gray-300');
-          // bo góc mềm tí
           b.classList.add('rounded-lg');
         }
       });
@@ -584,7 +582,6 @@
         state.sort.key = key; state.sort.dir = 'asc';
       }
       setAriaSort();
-      // Luôn sort trên toàn tập hiện tại (cacheAll) rồi mới phân trang
       await runSearch();
     }
 
@@ -644,7 +641,7 @@
         const j = await tryJson(`/applicants/search?${k}=${encodeURIComponent(q)}&page=${page}&size=${size}`);
         if (j) {
           const norm = normalizePaged(j);
-          norm.items = (norm.items || []).filter(notDeleted); // lọc xoá mềm
+          norm.items = (norm.items || []).filter(notDeleted);
           return norm;
         }
       }
@@ -683,27 +680,22 @@
     }
 
     async function buildSourceFull(){
-      // Lấy toàn bộ theo truy vấn hiện tại, lọc xoá mềm, SORT TRƯỚC, rồi paginate
       state.cacheAll = (await fetchUpTo(5000)).filter(notDeleted);
-      // Lọc theo đợt/khóa nếu có
       const wantFilter = $("filterDot").value.trim() !== "" || $("filterKhoa").value.trim() !== "";
       let list = wantFilter ? applyClientFilters(state.cacheAll) : state.cacheAll.slice();
-      list = applySort(list); // luôn sort trên toàn tập
+      list = applySort(list);
       return list;
     }
 
     async function runSearch(){
       setState({loading:true});
       try{
-        // Luôn dựa vào toàn bộ dataset hiện tại để đảm bảo sort trên full set
         const full = await buildSourceFull();
         state.total = full.length;
 
-        // Tính trang hợp lệ
         const totalPages = Math.max(1, Math.ceil(state.total / state.size));
         if (state.page > totalPages) state.page = totalPages;
 
-        // Cắt trang và render
         const start = (state.page - 1) * state.size;
         renderRows(full.slice(start, start + state.size));
         updatePagerUI(state.total, state.page, state.size);
@@ -721,10 +713,10 @@
           if (ev?.data?.type === 'APPLICANT_RESTORED') {
             const id = String(ev.data?.mssv || '');
             if (id) {
-              deletedMshv.delete(id);   // gỡ khỏi blacklist phiên hiện tại
+              deletedMshv.delete(id);
               persistDeletedMshv();
-              state.page = 1;           // về trang 1 cho chắc
-              runSearch();              // nạp lại danh sách
+              state.page = 1;
+              runSearch();
             }
           }
         };
@@ -821,7 +813,7 @@
     }
     document.querySelectorAll('.pager').forEach(bindPager);
 
-    // Lọc client theo đợt/khóa (debounce): render lại dựa trên cacheAll đã build
+    // Lọc client theo đợt/khóa (debounce)
     ["filterDot","filterKhoa"].forEach(id=>{
       $(id).addEventListener("input", debounce(async ()=>{
         state.page = 1;
@@ -829,39 +821,10 @@
       }, 250));
     });
 
-    // ===== Modal Edit logic =====
-    const modal = $("editModal");
-    const openModal = ()=>{ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); };
-    const closeModal = ()=>{ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); };
-    $("btnCloseModal").onclick = closeModal;
-    $("btnCancelEdit").onclick = closeModal;
-
-    async function openEditModal(mshv){
-      const r = await apiFetch(`/applicants/by-mshv/${encodeURIComponent(mshv)}`).catch(()=>null);
-      if (!r || !r.ok){ alert(`Không tải được hồ sơ (HTTP ${r ? r.status : '???'})`); return; }
-      const data = await r.json();
-      const a = data.applicant || data;
-
-      // nếu đã nằm trong danh sách xoá thì chặn sửa
-      if (!notDeleted(a)) { alert('Hồ sơ này đã bị xoá.'); return; }
-
-      $("e_mshv").value    = a.ma_so_hv || mshv;
-      $("e_ma_ho_so").value= a.ma_ho_so || "";
-      $("e_ho_ten").value  = a.ho_ten || "";
-      $("e_email").value   = a.email_hoc_vien || "";
-      $("e_so_dt").value   = a.so_dt || "";
-      $("e_nganh").value   = a.nganh_nhap_hoc || a.nganh || "";
-      $("e_dot").value     = a.dot || a.dot_tuyen || "";
-      $("e_khoa").value    = a.khoa || a.khoa_hoc || a.khoahoc || "";
-      $("e_ngay_nhan").value = (a.ngay_nhan_hs_iso || a.ngay_nhan_hs || "").slice(0,10);
-      $("e_ngay_sinh").value  = (a.ngay_sinh_iso || a.ngay_sinh || "").slice(0,10);
-      $("e_ghi_chu").value    = a.ghi_chu || "";
-      openModal();
-    }
-
     // ===== init =====
     window.addEventListener('load', async () => {
       await ensureLoggedIn();
+      await detectComposePage();
       (function checkRestoredFallback(){
         try {
           const id = localStorage.getItem('restored.mssv');
@@ -876,15 +839,13 @@
       })();
       $("q").focus();
 
-      // Luôn mặc định 10 dòng/trang, không đọc localStorage nữa
       const defaultSize = 10;
       $("pageSize").value = String(defaultSize);
       state.size = defaultSize;
 
       bindSortHandlers();
-      // Render lại dựa trên cache hiện tại để đồng bộ tổng/trang
       if (state.page > 1 && (state.total - 1) % state.size === 0) {
-        state.page--; // tự lùi 1 trang nếu xóa hết dòng cuối
+        state.page--;
       }
       await runSearch();
     });
@@ -903,21 +864,7 @@
       bindEnter(dotInput); bindEnter(khoaInput);
     })();
 
-    // Notification Toast (dành cho vài nơi cần popup ngắn)
-    function showNoti(msg, type="info", timeout=2500){
-      let box = document.getElementById("notiBox");
-      let inner = document.getElementById("notiInner");
-      if (!box){
-        box = document.createElement('div'); box.id = 'notiBox'; box.className = 'fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none hidden';
-        inner = document.createElement('div'); inner.id = 'notiInner'; box.appendChild(inner); document.body.appendChild(box);
-      }
-      const colors = { info: "bg-blue-500", success: "bg-green-500", warning: "bg-amber-500", error: "bg-rose-500" };
-      inner.className = `px-6 py-3 rounded-xl shadow-xl text-white font-semibold text-center transition-all duration-300 scale-95 opacity-0 ${colors[type]||colors.info}`;
-      inner.textContent = msg; box.classList.remove("hidden");
-      requestAnimationFrame(()=>{ inner.classList.replace("scale-95","scale-100"); inner.classList.replace("opacity-0","opacity-100"); });
-      setTimeout(()=>{ inner.classList.replace("scale-100","scale-95"); inner.classList.replace("opacity-100","opacity-0"); setTimeout(()=> box.classList.add("hidden"), 300); }, timeout);
-    }
-
+    // Nút vào Journal theo quyền
     (async function controlJournalButton(){
       await detectPrefix();
       const link = document.getElementById('journalLink');
@@ -943,13 +890,13 @@
         });
       }
     })();
-    // Bắt buộc vào /journal.html (không kèm query)
+
+    // Ép link Journal sạch
     (function forceCleanJournalLink(){
       const link = document.getElementById('journalLink');
       if (!link) return;
-      link.href = '/journal.html';                 // href sạch
-      link.addEventListener('click', (e)=>{        // ép điều hướng sạch
-        // nếu đã check quyền ở chỗ khác thì không cần preventDefault
+      link.href = '/journal.html';
+      link.addEventListener('click', (e)=>{
         e.preventDefault();
         window.location.assign('/journal.html');
       });
@@ -966,32 +913,32 @@
     </div>
   </div>
 
-<!-- Modal chọn lý do cập nhật -->
-<div id="reasonModal" class="overlay" aria-modal="true" role="dialog">
-  <div class="modal max-w-lg">
-    <div class="hd">Thông tin cập nhật</div>
-    <div class="bd space-y-2">
-      <label class="text-sm font-medium text-gray-700 block">Vui lòng chọn lý do:</label>
-      <select id="reasonSelect" class="input w-full">
-        <option value="">-- Chọn lệnh bổ sung --</option>
-        <option value="capnhat_thongtin">Cập nhật thông tin học viên</option>
-        <option value="capnhat_hoso_moi">Cập nhật hồ sơ mới</option>
-        <option value="bosung_hoso">Bổ sung hồ sơ</option>
-        <option value="capnhat_chungchi">Cập nhật chứng chỉ</option>
-        <option value="chinhsua_hoso">Chỉnh sửa hồ sơ</option>
-        <option value="khac">Lý do khác (nhập thêm)</option>
-      </select>
-      <div id="reasonOtherWrap" class="hidden">
-        <label class="text-sm font-medium text-gray-700 block mt-2">Nhập lý do khác:</label>
-        <input id="reasonOther" class="input w-full" placeholder="Nhập lý do cụ thể..." />
+  <!-- Modal chọn lý do cập nhật -->
+  <div id="reasonModal" class="overlay" aria-modal="true" role="dialog">
+    <div class="modal max-w-lg">
+      <div class="hd">Thông tin cập nhật</div>
+      <div class="bd space-y-2">
+        <label class="text-sm font-medium text-gray-700 block">Vui lòng chọn lý do:</label>
+        <select id="reasonSelect" class="input w-full">
+          <option value="">-- Chọn lệnh bổ sung --</option>
+          <option value="capnhat_thongtin">Cập nhật thông tin học viên</option>
+          <option value="capnhat_hoso_moi">Cập nhật hồ sơ mới</option>
+          <option value="bosung_hoso">Bổ sung hồ sơ</option>
+          <option value="capnhat_chungchi">Cập nhật chứng chỉ</option>
+          <option value="chinhsua_hoso">Chỉnh sửa hồ sơ</option>
+          <option value="khac">Lý do khác (nhập thêm)</option>
+        </select>
+        <div id="reasonOtherWrap" class="hidden">
+          <label class="text-sm font-medium text-gray-700 block mt-2">Nhập lý do khác:</label>
+          <input id="reasonOther" class="input w-full" placeholder="Nhập lý do cụ thể..." />
+        </div>
+      </div>
+      <div class="ft">
+        <button id="reasonCancel" class="btn btn-outline">Hủy</button>
+        <button id="reasonOK" class="btn btn-primary">Xác nhận</button>
       </div>
     </div>
-    <div class="ft">
-      <button id="reasonCancel" class="btn btn-outline">Hủy</button>
-      <button id="reasonOK" class="btn btn-primary">Xác nhận</button>
-    </div>
   </div>
-</div>
 
 </body>
 </html>

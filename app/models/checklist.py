@@ -1,15 +1,17 @@
+#app/models/checklist.py
 from sqlalchemy import (
-    Column, Integer, String, DateTime, Boolean, ForeignKey, Index, func
+    Column, Integer, String, DateTime, Boolean, ForeignKey, Index, UniqueConstraint, func
 )
 from sqlalchemy.orm import relationship
 from ..db.base import Base
+
 
 class ChecklistVersion(Base):
     __tablename__ = "checklist_versions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     version_name = Column(String(64), unique=True, index=True)
-    active = Column(Boolean, default=True)
+    active = Column(Boolean, default=False, server_default="false")
     created_at = Column(DateTime, server_default=func.now())
 
     items = relationship("ChecklistItem", back_populates="version", cascade="all, delete-orphan")
@@ -32,6 +34,8 @@ class ChecklistItem(Base):
 
     __table_args__ = (
         Index("ix_checklist_items_code", "code"),
+        UniqueConstraint("version_id", "code", name="uq_checklist_item_ver_code"),
+        Index("ix_checklist_items_ver_order", "version_id", "order_no"),
     )
 
     def __repr__(self) -> str:

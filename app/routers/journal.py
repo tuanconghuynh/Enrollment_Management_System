@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body
-from fastapi.encoders import jsonable_encoder  # ✅ thêm dòng này
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
@@ -210,7 +210,7 @@ def restore_from_log(
     db.commit()
     db.refresh(obj)
 
-    # ✅ Trả về item đã được encode JSON an toàn (thay cho obj.to_dict())
+    # ✅ Trả về item đã được encode JSON an toàn
     return {"ok": True, "item": jsonable_encoder(obj)}
 
 # ===================== (OPTIONAL) Deletion Requests =====================
@@ -287,7 +287,7 @@ def hard_delete(
     if not a:
         raise HTTPException(404, "Không tìm thấy bản ghi")
 
-    # snapshot trước khi xoá để ghi audit
+    # snapshot trước khi xoá để ghi audit (kèm dan_toc)
     def iso(v):
         if not v:
             return None
@@ -305,12 +305,13 @@ def hard_delete(
         "ngay_nhan_hs": iso(getattr(a, "ngay_nhan_hs", None)),
         "ngay_sinh": iso(getattr(a, "ngay_sinh", None)),
         "so_dt": a.so_dt,
-        "nganh_nhap_hoc": getattr(a, "nganh_nhap_hoc", None),
+        "nganh_nhap_hoc": getattr(a, "nganh_nhap_hoc", None) if hasattr(a, "nganh_nhap_hoc") else getattr(a, "nganh", None),
         "dot": getattr(a, "dot", None),
         "khoa": getattr(a, "khoa", None),
         "status": getattr(a, "status", None),
         "printed": getattr(a, "printed", None),
         "gioi_tinh": getattr(a, "gioi_tinh", None),
+        "dan_toc": getattr(a, "dan_toc", None),  # ✅ thêm dân tộc vào snapshot
     }
 
     # Xoá chi tiết trước (nếu DB không ON DELETE CASCADE)

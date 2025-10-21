@@ -314,6 +314,7 @@
     status:"Trạng thái",
     so_dt:"Số điện thoại",
     gioi_tinh:"Giới tính",
+    dan_toc:"Dân tộc",  
     update_reason: "Lý do cập nhật",
   };
   const getFieldLabel = (k) => FIELD_LABELS[k] || k;
@@ -809,6 +810,7 @@ async function openDetail(id) {
         ["Họ tên","ho_ten"],
         ["Ngày sinh","ngay_sinh"],
         ["Giới tính","gioi_tinh"],
+        ["Dân tộc","dan_toc"],
         ["Số điện thoại","so_dt"],
         ["Email học viên","email_hoc_vien"],
         ["Ngành nhập học","nganh_nhap_hoc"],
@@ -824,6 +826,8 @@ async function openDetail(id) {
       ];
 
       const snapshotTitle = isDeleteAction ? 'Dữ liệu trước khi xóa' : 'Dữ liệu hiện tại';
+      console.log('dan_toc snapshot', snapshotForView?.dan_toc, 'prev', prev?.dan_toc, 'next', next?.dan_toc);
+
 
       window.currentRenderSection = 'snapshot';
       window.currentRenderField   = null;

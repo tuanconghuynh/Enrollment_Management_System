@@ -3,6 +3,7 @@ from sqlalchemy import (
 )
 from ..db.base import Base
 
+
 class Student(Base):
     __tablename__ = "students"
 
@@ -15,13 +16,20 @@ class Student(Base):
     email = Column(String(128))
     id_number = Column(String(64))
     address = Column(String(255))
+
+    # ✅ Thêm trường "Dân tộc"
+    dan_toc = Column(String(64), nullable=True)
+
     note = Column(Text)
     created_by_user_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     def __repr__(self) -> str:
-        return f"<Student(id={self.id}, code='{self.student_code}', name='{self.full_name}')>"
+        return (
+            f"<Student(id={self.id}, code='{self.student_code}', "
+            f"name='{self.full_name}', dan_toc='{self.dan_toc}')>"
+        )
 
 
 class Application(Base):

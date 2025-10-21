@@ -82,7 +82,7 @@
           </div>
           <div id="mappings" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
           <p class="text-xs text-gray-500">
-            Bắt buộc phải map: <b>Họ và tên</b>, <b>Mã số học viên</b>.
+            Bắt buộc phải map: <b>Họ và Tên</b>, <b>Mã số học viên</b>.
             <br><i>mã hồ sơ</i> có thể bỏ trống — hệ thống sẽ tự sinh.
           </p>
         </section>
@@ -269,22 +269,24 @@
       $('stats').textContent = total ? `Đã gửi ${done}/${total}` : "Chưa chạy.";
     }
 
-    // ===== Field defs (đã thêm giới_tính) =====
+    // ===== Field defs (đã mở rộng alias cho Đã TN trước đó) =====
     const FIELD_DEFS = [
       {key:"ma_ho_so",       label:"Mã hồ sơ",        aliases:["ma ho so","ma_hs","ma_hoso","hoso","code"]},
-      {key:"ho_ten",         label:"Họ tên",          aliases:["ho va ten","hovaten","hoten","ten_hv","tenhv","ten"]},
+      {key:"ho_ten",         label:"Họ và Tên",       aliases:["ho va ten","hovaten","hoten","ten_hv","tenhv","ten"]},
       {key:"ma_so_hv",       label:"Mã số HV",        aliases:["mshv","ma so","ma hoc vien","ma_hv","mahv"]},
       {key:"gioi_tinh",      label:"Giới tính",       aliases:["gioi tinh","sex","gender","gt"]},
+      {key:"dan_toc",        label:"Dân tộc",         aliases:["dan toc","dantoc","ethnicity","dan-toc"]},
       {key:"ngay_sinh",      label:"Ngày sinh",       aliases:["dob","date of birth","ns"]},
       {key:"so_dt",          label:"Số ĐT",           aliases:["sdt","so dien thoai","dien thoai","so lien he"]},
       {key:"email_hoc_vien", label:"Email học viên",  aliases:["email","email hoc vien","mail","gmail"]},
       {key:"nganh_nhap_hoc", label:"Ngành nhập học",  aliases:["nganh","nganh hoc"]},
       {key:"dot",            label:"Đợt",             aliases:["dot nhap hoc","dot tuyen"]},
       {key:"khoa",           label:"Khóa",            aliases:["nien khoa","khoa hoc","nk"]},
-      {key:"da_tn_truoc_do", label:"Đã TN trước đó",  aliases:["doi tuong","da tn","trinh do"]},
+      {key:"da_tn_truoc_do", label:"Đối tượng TN",  aliases:["doi tuong","doi tuong tn","doi tuong tot nghiep","da tn","trinh do"]},
       {key:"ghi_chu",        label:"Ghi chú",         aliases:["note","ghi chu"]},
     ];
     const LABEL_BY_KEY = Object.fromEntries(FIELD_DEFS.map(f=>[f.key,f.label]));
+    const KEY_BY_LABEL = Object.fromEntries(FIELD_DEFS.map(f=>[f.label,f.key]));
     const norm = s => String(s||"").toLowerCase().trim().replace(/\s+/g,' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
     function guessMappings(headers){
@@ -424,23 +426,18 @@
       return "";
     }
 
-    // ===== Giới tính normalize =====
-    function normalizeGender(v){
-      const s = String(v||"").trim().toLowerCase();
+    // ===== Giới tính normalize (giữ 1 hàm duy nhất) =====
+    function normalizeGender(raw) {
+      const s = String(raw || "").trim().toLowerCase();
       if (!s) return null;
-      if (["nam","male","m","1","true","nam "," n","n am"].includes(s) || s === "xn") return "Nam";
+      if (["nam","male","m","1"].includes(s)) return "Nam";
       if (["nu","nữ","female","f","0"].includes(s)) return "Nữ";
-      if (["khac","other","o","x"].includes(s)) return "Khác";
-      // Chuẩn thử heuristics
-      if (s.startsWith("n")) return "Nam";
-      if (s.startsWith("f")) return "Nữ";
       return "Khác";
     }
 
     // --- Tạo mã hồ sơ tiếp theo: HS-[A..Z][0001..9999]
     async function generateNextMaHoSo() {
       try {
-        // dùng API đã có sẵn trong BE
         const r = await apiFetch("/applicants/recent?limit=1");
         if (r && r.ok) {
           const arr = await r.json();
@@ -457,8 +454,6 @@
           }
         }
       } catch (_) {}
-
-      // Fallback: theo ngày + random để không chặn luồng import
       const now = new Date();
       const y = String(now.getFullYear()).slice(-2);
       const m = String(now.getMonth() + 1).padStart(2, "0");
@@ -467,46 +462,38 @@
       return `HS-${y}${m}${d}-${rnd}`;
     }
 
-    // Chuẩn hoá giới tính → "Nam" | "Nữ" | "Khác" | null
-    function normalizeGender(raw) {
-      const s = String(raw || "").trim().toLowerCase();
-      if (!s) return null;
-      if (["nam","male","m","1"].includes(s)) return "Nam";
-      if (["nu","nữ","female","f","0"].includes(s)) return "Nữ";
-      return "Khác";
-    }
-
     // ===== Build payload & call API =====
     async function makeApplicantPayload(src, map){
-    const pick = (key, d="") => (map[key] ? String(src[map[key]] ?? "").trim() : d);
+      const pick = (key, d="") => (map[key] ? String(src[map[key]] ?? "").trim() : d);
 
-    let ma_ho_so = pick("ma_ho_so", "");
-    if (!ma_ho_so) ma_ho_so = await generateNextMaHoSo();
+      let ma_ho_so = pick("ma_ho_so", "");
+      if (!ma_ho_so) ma_ho_so = await generateNextMaHoSo();
 
-    const ngay_nhan_form = $('defaultNgayNhan').value; // YYYY-MM-DD
-    const ngay_nhan_iso  = parseDateFlexible(ngay_nhan_form) || ngay_nhan_form;
-    const ngay_sinh_iso  = parseDateFlexible(pick("ngay_sinh")) || null;
-    const gioi_tinh      = normalizeGender(pick("gioi_tinh")) || null;
+      const ngay_nhan_form = $('defaultNgayNhan').value; // YYYY-MM-DD
+      const ngay_nhan_iso  = parseDateFlexible(ngay_nhan_form) || ngay_nhan_form;
+      const ngay_sinh_iso  = parseDateFlexible(pick("ngay_sinh")) || null;
+      const gioi_tinh      = normalizeGender(pick("gioi_tinh")) || null;
 
-    return {
-      ma_ho_so,
-      ngay_nhan_hs: ngay_nhan_iso,
-      ho_ten: pick("ho_ten"),
-      ma_so_hv: pick("ma_so_hv"),
-      gioi_tinh,
-      ngay_sinh: ngay_sinh_iso,
-      so_dt: pick("so_dt") || null,
-      email_hoc_vien: pick("email_hoc_vien") || null,
-      nganh_nhap_hoc: pick("nganh_nhap_hoc") || null,
-      dot: pick("dot") || null,
-      khoa: pick("khoa") || null,
-      da_tn_truoc_do: pick("da_tn_truoc_do") || null,
-      ghi_chu: pick("ghi_chu") || null,
-      nguoi_nhan_ky_ten: $('nguoiNhan').value.trim() || null,
-      docs: [],
-      checklist_version_name: "v1",
-    };
-  }
+      return {
+        ma_ho_so,
+        ngay_nhan_hs: ngay_nhan_iso,
+        ho_ten: pick("ho_ten"),
+        ma_so_hv: pick("ma_so_hv"),
+        gioi_tinh,
+        dan_toc: pick("dan_toc") || null,
+        ngay_sinh: ngay_sinh_iso,
+        so_dt: pick("so_dt") || null,
+        email_hoc_vien: pick("email_hoc_vien") || null,
+        nganh_nhap_hoc: pick("nganh_nhap_hoc") || null,
+        dot: pick("dot") || null,
+        khoa: pick("khoa") || null,
+        da_tn_truoc_do: pick("da_tn_truoc_do") || null,
+        ghi_chu: pick("ghi_chu") || null,
+        nguoi_nhan_ky_ten: $('nguoiNhan').value.trim() || null,
+        docs: [],
+        checklist_version_name: "v1",
+      };
+    }
 
     function requireMappings(m){
       const need = ["ho_ten","ma_so_hv"];
@@ -540,7 +527,7 @@
         const body = await makeApplicantPayload(parsedRows[i], m);
         if (!body.ho_ten || !body.ma_so_hv){
           fail++; done++; setBar(done,total);
-          addResult('SKIP', i+1, body, 'Thiếu bắt buộc (ho_ten/ma_so_hv)');
+          addResult('SKIP', i+1, body, 'Thiếu bắt buộc (Họ và tên hoặc Mã số HV)');
           continue;
         }
         try{
@@ -597,17 +584,16 @@
     }
     window.addEventListener("load", ensureNguoiNhanFromSession);
 
-    // ===== Template (đã thêm gioi_tinh) =====
+    // ===== Template (headers theo FIELD_DEFS + sample theo key nội bộ) =====
     function buildTemplateHeaders(){
-      return ["Mã HS","Họ và Tên","Mã số HV","Giới tính","Ngày sinh","Số ĐT","Email học viên",
-              "Ngành nhập học","Đợt","Khóa","Đối tượng TN","ghi chú"];
+      return FIELD_DEFS.map(f=>f.label);
     }
     function sampleRows(){
       return [
-        { ma_ho_so:"", ho_ten:"Nguyễn Văn A", ma_so_hv:"1234567890", gioi_tinh:"Nam",
+        { ma_ho_so:"", ho_ten:"Nguyễn Văn A", ma_so_hv:"1234567890", gioi_tinh:"Nam", dan_toc:"Kinh",
           ngay_sinh:"15/01/2005", so_dt:"0901234567", email_hoc_vien:"vana@example.com",
           nganh_nhap_hoc:"Công nghệ thông tin", dot:"1", khoa:"25", da_tn_truoc_do:"THPT", ghi_chu:"" },
-        { ma_ho_so:"", ho_ten:"Trần Thị B",   ma_so_hv:"0987654321", gioi_tinh:"Nữ",
+        { ma_ho_so:"", ho_ten:"Trần Thị B",   ma_so_hv:"0987654321", gioi_tinh:"Nữ",  dan_toc:"Hoa",
           ngay_sinh:"20/12/2004", so_dt:"0912345678", email_hoc_vien:"tran@example.com",
           nganh_nhap_hoc:"Quản trị kinh doanh", dot:"1", khoa:"25", da_tn_truoc_do:"Cao đẳng", ghi_chu:"" }
       ];
@@ -616,26 +602,27 @@
     $('btnTplXlsx').onclick = ()=>{
       const wb = XLSX.utils.book_new();
       const headers = buildTemplateHeaders();
-      const data = [headers, ...sampleRows().map(r=>headers.map(h=>r[h]??""))];
+      const rows = sampleRows();
+      const data = [headers, ...rows.map(r=>headers.map(h=>String(r[KEY_BY_LABEL[h]] ?? "")))];
       const ws = XLSX.utils.aoa_to_sheet(data);
       XLSX.utils.book_append_sheet(wb, ws, "HocVien");
       const guide = [
         ["Hướng dẫn"],
-        ["- Cột bắt buộc: ho_ten | ma_so_hv"],
+        ["- Cột bắt buộc: Họ và Tên | Mã số HV"],
         ["- Ngày nhận HS được chọn ở giao diện, KHÔNG cần có trong file."],
         ["- Định dạng ngày sinh gợi ý: DD/MM/YYYY (ví dụ: 01/10/2005)."],
-        ["- Giới tính chấp nhận: Nam | Nữ | Khác (hoặc m/f, male/female, 1/0)."]
+        ["- Giới tính chấp nhận: Nam | Nữ | Khác (hoặc m/f, male/female, 1/0)."],
+        ["- 'Đã TN trước đó' có thể điền: THPT / Trung cấp / Cao đẳng / Đại học ..."]
       ];
-      const rand = Math.floor(10000 + Math.random() * 90000);
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(guide), "HuongDan");
-      XLSX.writeFile(wb, `template_hoc_vien_${rand}.xlsx`);
+      XLSX.writeFile(wb, `template_hoc_vien_${Date.now()}.xlsx`);
     };
 
     $('btnTplCsv').onclick = ()=>{
       const headers = buildTemplateHeaders();
       const rows = sampleRows();
       const csv = [headers.join(",")]
-        .concat(rows.map(r=>headers.map(h=>String(r[h]??"").replace(/,/g," ")).join(",")))
+        .concat(rows.map(r=>headers.map(h=>String(r[KEY_BY_LABEL[h]] ?? "").replace(/,/g," ")).join(",")))
         .join("\n");
       const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
       const a = document.createElement("a");
@@ -645,15 +632,16 @@
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
     };
 
-    // ===== Export XLSX (thêm cột Giới tính) =====
+    // ===== Export XLSX (đã sửa đầy đủ) =====
     function toAoAFull(list){
       const header = [
-        "MaHS","Họ tên","MSSV","Giới tính","Ngày sinh","Số ĐT","Email",
-        "Ngành nhập học","Đợt","Khóa","Đã TN trước đó","Ngày nhận",
+        "MaHS","Họ tên","MSSV","Giới tính","Dân tộc","Ngày sinh","Số ĐT","Email",
+        "Ngành nhập học","Đợt","Khóa","Đối tượng TN","Ngày nhận",
         "Kết quả","Ghi chú kết quả"
       ];
       const aoa = [header];
-      list.forEach(r=>{
+
+      for (const r of list){
         const d = r.data || {};
         const label = r.type==='OK' ? 'THÀNH CÔNG' : (r.type==='SKIP' ? 'BỎ QUA' : 'LỖI');
         aoa.push([
@@ -661,6 +649,7 @@
           d.ho_ten || "",
           d.ma_so_hv || "",
           d.gioi_tinh || "",
+          d.dan_toc || "",
           d.ngay_sinh || "",
           d.so_dt || "",
           d.email_hoc_vien || "",
@@ -672,7 +661,7 @@
           label,
           (r.msg ? translateMessage(r.msg) : "")
         ]);
-      });
+      }
       return aoa;
     }
     function nowTag(){
@@ -686,7 +675,8 @@
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(toAoAFull(data));
       ws['!cols'] = [
-        {wch:12},{wch:22},{wch:14},{wch:10},{wch:12},{wch:12},{wch:26},
+        {wch:12},{wch:22},{wch:14},{wch:10},{wch:12},
+        {wch:12},{wch:12},{wch:26},
         {wch:22},{wch:10},{wch:8},{wch:16},{wch:12},{wch:12},{wch:60}
       ];
       XLSX.utils.book_append_sheet(wb, ws, "KetQuaImport");

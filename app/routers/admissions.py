@@ -40,7 +40,6 @@ def import_students(
         if fname.endswith(".csv"):
             df = pd.read_csv(file.file, dtype=str).fillna("")
         elif fname.endswith(".xlsx") or fname.endswith(".xls"):
-            # một số môi trường cần engine openpyxl
             df = pd.read_excel(file.file, dtype=str, engine="openpyxl").fillna("")
         else:
             raise HTTPException(status_code=400, detail="Định dạng file không hỗ trợ. Hãy dùng .csv hoặc .xlsx")
@@ -60,18 +59,24 @@ def import_students(
         if not code or not name:
             continue
 
+        # bỏ qua nếu đã có
         if db.query(Student).filter(Student.student_code == code).first():
             skipped += 1
             continue
 
+        # ✅ thêm dân tộc nếu có trong file
+        dan_toc_val = (row.get("dan_toc") or row.get("Dân tộc") or "").strip()
+
         s = Student(
-            student_code=code, full_name=name,
+            student_code=code,
+            full_name=name,
             dob=(row.get("dob") or "").strip(),
             gender=(row.get("gender") or "").strip(),
             phone=(row.get("phone") or "").strip(),
             email=(row.get("email") or "").strip(),
             id_number=(row.get("id_number") or "").strip(),
             address=(row.get("address") or "").strip(),
+            dan_toc=dan_toc_val,
             note=(row.get("note") or "").strip(),
             created_by_user_id=me.id,
         )
@@ -79,7 +84,7 @@ def import_students(
         created += 1
 
     db.commit()
-    msg = f"Tạo {created}, bỏ qua {skipped}."
+    msg = f"Tạo {created} học viên mới, bỏ qua {skipped} (đã tồn tại)."
     return templates.TemplateResponse("import_students.html", {"request": request, "me": me, "msg": msg})
 
 # =====================
@@ -93,7 +98,11 @@ def students_list(
     db: Session = Depends(get_db),
 ):
     students = db.query(Student).order_by(Student.created_at.desc()).all()
-    return templates.TemplateResponse("students_list.html", {"request": request, "me": me, "students": students})
+    # ✅ truyền thêm trường dan_toc sang template
+    return templates.TemplateResponse(
+        "students_list.html",
+        {"request": request, "me": me, "students": students},
+    )
 
 # =====================
 # Tạo hồ sơ nộp (Application) cho học viên
@@ -105,7 +114,6 @@ def create_application(
     me: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # kiểm tra tồn tại
     student = db.get(Student, student_id)
     if not student:
         raise HTTPException(status_code=404, detail="Không tìm thấy học viên")

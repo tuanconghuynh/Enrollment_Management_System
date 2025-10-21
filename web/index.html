@@ -101,6 +101,10 @@
             </select>
           </div>
           <div>
+            <label class="label">Dân tộc</label>
+            <input class="input" id="dan_toc" placeholder="VD: Kinh, Hoa, Khmer..." />
+          </div>
+          <div>
             <label class="label">Ngày sinh</label>
             <input class="input" id="ngay_sinh" type="date" />
           </div>
@@ -489,6 +493,7 @@
       ngay_nhan_hs: ymdKeep(today),
       ho_ten: $("ho_ten").value.trim(),
       gioi_tinh: $("gioi_tinh").value || null,
+      dan_toc: $("dan_toc").value.trim() || null,
       ma_so_hv: $("ma_so_hv").value.trim(),
       ngay_sinh: ymdKeep($("ngay_sinh").value) || null,
       so_dt: $("so_dt").value.trim() || null,
@@ -511,6 +516,7 @@
       ngay_nhan_hs: ymdKeep(currentDate),
       ho_ten: $("ho_ten").value.trim(),
       gioi_tinh: $("gioi_tinh").value || null,
+      dan_toc: $("dan_toc").value.trim() || null, 
       ma_so_hv: $("ma_so_hv").value.trim(),
       ngay_sinh: ymdKeep($("ngay_sinh").value) || null,
       so_dt: $("so_dt").value.trim() || null,
@@ -547,6 +553,7 @@
     $('ma_so_hv').value = a.ma_so_hv || "";
     $('ngay_sinh').value = fmtDateToInput(a.ngay_sinh);
     $('gioi_tinh').value = a.gioi_tinh || "";
+    $('dan_toc').value = a.dan_toc || "";
     $('so_dt').value = a.so_dt || "";
     $('email_hoc_vien').value = a.email_hoc_vien || "";
     $('nganh_nhap_hoc').value = a.nganh_nhap_hoc || "";
