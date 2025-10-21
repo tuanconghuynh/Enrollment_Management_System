@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>HUTECH - Quản lý người dùng</title>
+  <title>V-HT&PTĐT - Quản lý người dùng</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
   <link rel="apple-touch-icon" href="hutech.png">
@@ -24,112 +24,180 @@
 
     <div class="flex items-center gap-2 text-sm text-gray-700">
       <span>✌️ Xin chào: <b>{{ me.full_name or me.username }}</b> (<span class="text-gray-500">{{ me.role }}</span>)</span>
-      <!-- <button id="btnLogout" class="btn btn-outline">LogOut</button> -->
       <a class="btn btn-outline" href="/index_home.html" title="Trang chủ">← Trang chủ</a>
     </div>
   </header>
 
-  <style>
-    /* hiệu ứng nhẹ cho logo */
-    a:hover img {
-      transform: scale(1.05);
-      transition: transform 0.2s ease;
-    }
-  </style>
-
-    <!-- Tạo tài khoản -->
-    <section class="card">
-      <h2 class="font-semibold mb-3">Tạo tài khoản</h2>
-      <form class="grid md:grid-cols-6 gap-3" method="post" action="/admin/users/create">
-        <input class="input md:col-span-2" name="username" placeholder="username/email" required>
-        <input class="input md:col-span-2" name="full_name" placeholder="Họ tên">
-        <input class="input md:col-span-2" type="email" name="email" placeholder="Email">
-        <div class="relative md:col-span-2">
-          <input id="admin-create-pass"
-                type="password"
-                class="input pr-10"
-                name="password"
-                placeholder="Mật khẩu (tối thiểu 6 ký tự)"
-                minlength="6"
-                autocomplete="new-password"
-                required>
-          <button type="button" class="absolute inset-y-0 right-2 flex items-center text-gray-500"
-                  aria-label="Hiện/ẩn mật khẩu" data-toggle-eye="#admin-create-pass">👁️</button>
-        </div>
-        <select class="input md:col-span-2" name="role">
-          <option>Admin</option><option>NhanVien</option><option>CongTacVien</option>
+  <!-- Tạo tài khoản -->
+  <section class="card">
+    <h2 class="font-semibold mb-3">Tạo tài khoản</h2>
+    <form class="grid md:grid-cols-6 gap-3" method="post" action="/admin/users/create">
+      <div class="md:col-span-2">
+        <div class="label">Username</div>
+        <input class="input" name="username" placeholder="Mã Nhân viên" required>
+      </div>
+      <div class="md:col-span-2">
+        <div class="label">Họ và tên</div>
+        <input class="input" name="full_name" placeholder="Họ tên đầy đủ">
+      </div>
+      <div class="md:col-span-2">
+        <div class="label">Ngày sinh</div>
+        <input class="input" type="date" name="dob" placeholder="dd/mm/yyyy">
+      </div>
+      <div class="md:col-span-2">
+        <div class="label">Email liên hệ</div>
+        <input class="input" type="email" name="email" placeholder="Email nội bộ hoặc cá nhân">
+      </div>
+      <div class="relative md:col-span-2">
+        <div class="label">Mật khẩu (tối thiểu 6 ký tự)</div>
+        <input id="admin-create-pass" type="password" class="input pr-10" name="password" minlength="6" autocomplete="new-password" required>
+        <button type="button" class="absolute inset-y-0 right-2 flex items-center text-gray-500"
+                aria-label="Hiện/ẩn mật khẩu" data-toggle-eye="#admin-create-pass">👁️</button>
+      </div>
+      <div class="md:col-span-2">
+        <div class="label">Phân quyền</div>
+        <select class="input" name="role">
+          <option value="Admin">Admin</option>
+          <option value="NhanVien">Nhân viên</option>
+          <option value="CongTacVien">Cộng tác viên</option>
         </select>
-        <button class="btn btn-primary md:col-span-2">Tạo tài khoản</button>
-      </form>
-    </section>
-
-    <!-- Danh sách người dùng -->
-    <section class="card space-y-3">
-      <h2 class="font-semibold">Danh sách người dùng</h2>
-      <div class="overflow-auto">
-        <table class="table min-w-full border rounded-xl overflow-hidden">
-          <thead>
-            <tr>
-              <th class="text-center">ID</th>
-              <th class="text-left">Username</th>
-              <th class="text-left">Họ tên</th>
-              <th class="text-center">Role</th>
-              <th class="text-center">Active</th>
-              <th class="text-center">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for u in users %}
-            <tr class="odd:bg-gray-50">
-              <td class="p-2 border-b text-center">{{u.id}}</td>
-              <td class="p-2 border-b">{{u.username}}</td>
-              <td class="p-2 border-b">{{u.full_name or ""}}</td>
-              <td class="p-2 border-b text-center">{{u.role}}</td>
-              <td class="p-2 border-b text-center">{{ "✅" if u.is_active else "⛔" }}</td>
-              <td class="p-2 border-b text-center space-x-1">
-                <!-- Bật / Tắt -->
-                <form class="inline" method="post" action="/admin/users/toggle" onsubmit="return confirm('Xác nhận đổi trạng thái tài khoản này?');">
-                  <input type="hidden" name="user_id" value="{{u.id}}">
-                  <button
-                    class="btn btn-outline btn-xs"
-                    {% if u.id == me.id %}disabled title="Không thể tự khóa tài khoản của bạn"{% endif %}
-                  >
-                    Bật/Tắt
-                  </button>
-                </form>
-
-                <!-- Reset pass -->
-                <form class="inline"
-                      method="post"
-                      action="/admin/users/reset-pass"
-                      onsubmit="return confirm('Xác nhận đặt lại mật khẩu người dùng này?');">
-                  <input type="hidden" name="user_id" value="{{u.id}}">
-                  <div class="relative inline-block">
-                    <input id="np-{{u.id}}"
-                          type="password"
-                          class="input py-1 pr-8 text-sm"
-                          name="new_password"
-                          placeholder="Mật khẩu mới (≥6 ký tự)"
-                          minlength="6"
-                          autocomplete="new-password"
-                          required>
-                    <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
-                            data-toggle-eye="#np-{{u.id}}">👁️</button>
-                  </div>
-                  <button class="btn btn-primary btn-xs">Reset-pass</button>
-                </form>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
       </div>
-
-      <div class="text-right">
-        <a class="btn btn-outline inline-block" href="/" title="Trang chính">← Trở về trang chủ</a>
+      <div class="md:col-span-6 flex justify-end">
+        <button class="btn btn-primary">Tạo tài khoản</button>
       </div>
-    </section>
+    </form>
+  </section>
+
+  <!-- Danh sách người dùng -->
+  <section class="card space-y-3">
+    <h2 class="font-semibold">Danh sách người dùng</h2>
+    <div class="overflow-auto">
+      <table class="table min-w-full border rounded-xl overflow-hidden">
+        <thead>
+          <tr>
+            <th class="text-center">ID</th>
+            <th class="text-left">Username</th>
+            <th class="text-left">Họ tên</th>
+            <th class="text-left">Ngày sinh</th>
+            <th class="text-center">Role</th>
+            <th class="text-center">Active</th>
+            <th class="text-center">Hành động</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr class="odd:bg-gray-50">
+            <td class="p-2 border-b text-center">{{u.id}}</td>
+            <td class="p-2 border-b">{{u.username}}</td>
+            <td class="p-2 border-b">{{u.full_name or ""}}</td>
+            <td class="p-2 border-b" data-dateonly>{{ u.dob or "—" }}</td>
+            <td class="p-2 border-b text-center">{{u.role}}</td>
+            <td class="p-2 border-b text-center">{{ "✅" if u.is_active else "⛔" }}</td>
+            <td class="p-2 border-b text-center space-x-1">
+              <!-- Bật / Tắt -->
+              <form class="inline" method="post" action="/admin/users/toggle" onsubmit="return confirm('Xác nhận đổi trạng thái tài khoản này?');">
+                <input type="hidden" name="user_id" value="{{u.id}}">
+                <button class="btn btn-outline btn-xs"
+                        {% if u.id == me.id %}disabled title="Không thể tự khóa tài khoản của bạn"{% endif %}>
+                  Bật/Tắt
+                </button>
+              </form>
+
+              <!-- Sửa -->
+              <button type="button"
+                      class="btn btn-outline btn-xs"
+                      data-edit='{
+                        "id": "{{u.id}}",
+                        "username": "{{u.username}}",
+                        "full_name": "{{u.full_name or ""}}",
+                        "email": "{{u.email or ""}}",
+                        "dob": "{{ (u.dob|string)[:10] if u.dob else "" }}",
+                        "role": "{{u.role}}",
+                        "is_active": "{{ "1" if u.is_active else "0" }}"
+                      }'>
+                Sửa
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
   </div>
+
+  <!-- Modal sửa user (kèm Reset mật khẩu bên trong) -->
+  <div class="overlay" id="editUserModal">
+    <div class="modal">
+      <div class="hd">Sửa tài khoản</div>
+
+      <!-- Cập nhật thông tin cơ bản -->
+      <form class="bd grid md:grid-cols-6 gap-3" method="post" action="/admin/users/update" id="updateForm">
+        <input type="hidden" name="user_id" id="e_id">
+
+        <div class="md:col-span-3">
+          <div class="label">Username</div>
+          <input class="input" id="e_username" readonly>
+        </div>
+        <div class="md:col-span-3">
+          <div class="label">Họ và tên</div>
+          <input class="input" name="full_name" id="e_full_name">
+        </div>
+        <div class="md:col-span-3">
+          <div class="label">Email</div>
+          <input class="input" type="email" name="email" id="e_email">
+        </div>
+        <div class="md:col-span-3">
+          <div class="label">Ngày sinh</div>
+          <input class="input" type="date" name="dob" id="e_dob">
+        </div>
+        <div class="md:col-span-3">
+          <div class="label">Quyền</div>
+          <select class="input" name="role" id="e_role">
+            <option value="Admin">Admin</option>
+            <option value="NhanVien">Nhân viên</option>
+            <option value="CongTacVien">Cộng tác viên</option>
+          </select>
+        </div>
+        <div class="md:col-span-3">
+          <div class="label">Trạng thái</div>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="is_active" id="e_is_active">
+            <span>Kích hoạt</span>
+          </label>
+        </div>
+
+        <div class="md:col-span-6 flex justify-end gap-2">
+          <button type="button" class="btn btn-outline" id="e_cancel">Đóng</button>
+          <button class="btn btn-primary">Lưu thay đổi</button>
+        </div>
+      </form>
+
+      <!-- Ngăn cách -->
+      <div class="bd" style="padding-top:0">
+        <hr style="border-color:#e5e7eb;margin:8px 0 14px;">
+        <h4 class="section-h4">Đặt lại mật khẩu</h4>
+        <form class="grid md:grid-cols-6 gap-3" method="post" action="/admin/users/reset-pass" id="resetForm"
+              onsubmit="return confirm('Xác nhận đặt lại mật khẩu người dùng này?');">
+          <input type="hidden" name="user_id" id="rp_id">
+          <div class="md:col-span-4 relative">
+            <input id="rp_new" type="password" class="input pr-10"
+                   name="new_password" placeholder="Mật khẩu mới (≥6 ký tự)"
+                   minlength="6" autocomplete="new-password" required>
+            <button type="button" class="absolute inset-y-0 right-2 flex items-center text-gray-500"
+                    data-toggle-eye="#rp_new">👁️</button>
+          </div>
+          <div class="md:col-span-2">
+            <button class="btn btn-primary w-full">Reset mật khẩu</button>
+          </div>
+          <div class="md:col-span-6 text-muted text-sm">
+            Sau khi reset, tài khoản sẽ được yêu cầu đổi mật khẩu ở lần đăng nhập tiếp theo.
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
 <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
   © <span class="font-semibold">
     <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">
@@ -144,26 +212,61 @@
   </span>
 </footer>
 
-  <script>
-    // Toggle mắt cho mọi nút có data-toggle-eye
-    document.querySelectorAll('[data-toggle-eye]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const sel = btn.getAttribute('data-toggle-eye');
-        const input = document.querySelector(sel);
-        if (!input) return;
-        input.type = (input.type === 'password') ? 'text' : 'password';
-        btn.textContent = (input.type === 'password') ? '👁️' : '🙈';
-      });
+<script>
+  // Toggle mắt
+  document.querySelectorAll('[data-toggle-eye]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const input=document.querySelector(btn.getAttribute('data-toggle-eye'));
+      if(!input) return;
+      input.type=(input.type==='password')?'text':'password';
+      btn.textContent=(input.type==='password')?'👁️':'🙈';
     });
+  });
 
-    // Logout
-    const btnLogout = document.getElementById('btnLogout');
-    if (btnLogout) {
-      btnLogout.addEventListener('click', async () => {
-        try { await fetch('/api/logout', { method: 'POST' }); } catch(e) {}
-        location.href = '/login';
-      });
-    }
-  </script>
+  // Định dạng ngày sinh dd/mm/yyyy (VN)
+  function formatVNDate(selector) {
+    document.querySelectorAll(selector).forEach(el=>{
+      const raw=(el.textContent||'').trim();
+      if(!raw || raw==='—') return;
+      const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      let d;
+      if(m){ d=new Date(+m[1],+m[2]-1,+m[3]); }
+      else { const t=new Date(raw); if(isNaN(t)) return; d=t; }
+      el.textContent=new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d);
+    });
+  }
+  window.addEventListener('DOMContentLoaded', ()=>{ formatVNDate('[data-dateonly]'); });
+
+  // Modal: mở/đóng + fill dữ liệu
+  const modal = document.getElementById('editUserModal');
+  document.querySelectorAll('[data-edit]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const data = JSON.parse(btn.getAttribute('data-edit'));
+      modal.classList.add('show');
+      // Update form
+      document.getElementById('e_id').value = data.id || '';
+      document.getElementById('e_username').value = data.username || '';
+      document.getElementById('e_full_name').value = data.full_name || '';
+      document.getElementById('e_email').value = data.email || '';
+      document.getElementById('e_dob').value = (data.dob || '').substring(0,10);
+      document.getElementById('e_role').value = data.role || 'CongTacVien';
+      document.getElementById('e_is_active').checked = data.is_active === "1";
+      // Reset form (sync user_id)
+      document.getElementById('rp_id').value = data.id || '';
+      document.getElementById('rp_new').value = '';
+    });
+  });
+  document.getElementById('e_cancel').addEventListener('click', ()=> modal.classList.remove('show'));
+  modal.addEventListener('click', (e)=>{ if(e.target.id==='editUserModal') modal.classList.remove('show'); });
+
+  // Logout (nếu có nút)
+  const btnLogout = document.getElementById('btnLogout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      try { await fetch('/api/logout', { method: 'POST' }); } catch(e) {}
+      location.href = '/login';
+    });
+  }
+</script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 # app/main.py
 import os
 import uuid
+from time import time as _now
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
@@ -10,12 +11,10 @@ from starlette.responses import JSONResponse, RedirectResponse
 from app.db.base import Base
 from app.db.session import engine, get_db
 
-# --- sửa import: journal (không phải journa)
-from app.routers import journal
-
 # Routers
 from app.routers import health, applicants, checklist, export, batch
-from app.routers import auth, admin
+from app.routers import auth, admin, journal
+from app.routers import account  # NEW: trang thông tin tài khoản
 
 # Dùng chung hằng số timeout với auth.py để không lệch
 from app.routers.auth import IDLE_TIMEOUT_SEC as AUTH_IDLE_TIMEOUT_SEC
@@ -28,15 +27,16 @@ except Exception:
 
 app = FastAPI()
 
+# ---------------- Session cookie ----------------
 # Cookie sống 7 ngày; idle timeout xử lý riêng (1 giờ trong auth + middleware)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "change-me-please"),  # nên đưa vào ENV
-    max_age=60 * 60 * 24 * 7,        # 7 ngày
+    secret_key=os.getenv("SESSION_SECRET", "change-me-please"),  # NÊN đưa vào ENV
+    max_age=60 * 60 * 24 * 7,  # 7 ngày
     same_site="lax",
 )
 
-# ===== Correlation-ID cho audit =====
+# ---------------- Correlation-ID ----------------
 @app.middleware("http")
 async def add_correlation_id(request: Request, call_next):
     cid = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
@@ -45,24 +45,29 @@ async def add_correlation_id(request: Request, call_next):
     resp.headers["X-Correlation-ID"] = cid
     return resp
 
-# ===== Idle timeout =====
+# ---------------- Idle timeout ----------------
 MAX_IDLE_SECONDS = AUTH_IDLE_TIMEOUT_SEC  # 1h từ auth.py
 
 WHITELIST_PREFIXES = (
     # KHÔNG để "/" ở đây kẻo bypass mọi route
     "/index.html",
-    "/login", "/api/login",          # login
-    "/health", "/api/health",        # health
-    "/auth_login.html",              # file login tĩnh
-    "/hutech.png", "/favicon",       # assets phổ biến
-    "/static", "/assets",            # mount assets
+    "/login", "/api/login",              # login
+    "/logout", "/api/logout",            # logout (cho phép thoát khi hết hạn)
+    "/health", "/api/health",            # health
+    "/auth_login.html",                  # file login tĩnh
+    "/hutech.png", "/favicon",           # assets phổ biến
+    "/static", "/assets",                # mount assets
     "/journal.html",
+    "/account", "/account/change-password",  # cho phép vào trang đổi mật khẩu
 )
 
-STATIC_EXTS = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".map", ".woff", ".woff2", ".ttf", ".html")
+STATIC_EXTS = (
+    ".css", ".js", ".png", ".jpg", ".jpeg", ".svg",
+    ".ico", ".map", ".woff", ".woff2", ".ttf", ".html"
+)
 
 @app.middleware("http")
-async def idle_timeout_middleware(request, call_next):
+async def idle_timeout_middleware(request: Request, call_next):
     path = request.url.path
 
     # Bỏ qua đường whitelist & file tĩnh
@@ -77,7 +82,6 @@ async def idle_timeout_middleware(request, call_next):
     uid = sess.get("uid")
 
     if uid:
-        from time import time as _now
         now = int(_now())
         # DÙNG CÙNG KEY VỚI auth.py
         last = int(sess.get("_last_seen") or 0)
@@ -98,7 +102,47 @@ async def idle_timeout_middleware(request, call_next):
 
     return await call_next(request)
 
-# ===== Exception handler tổng: ghi audit khi lỗi chưa bắt =====
+# ------------- Ép đổi mật khẩu lần đầu -------------
+# Middleware này nên đặt SAU idle_timeout_middleware
+ENFORCE_CHANGE_WHITELIST = (
+    "/account", "/account/change-password",
+    "/login", "/api/login", "/logout", "/api/logout",
+    "/health", "/api/health",
+    "/auth_login.html",
+    "/hutech.png", "/favicon",
+    "/static", "/assets",
+    "/journal.html",
+)
+
+@app.middleware("http")
+async def enforce_first_change_password(request: Request, call_next):
+    path = request.url.path
+
+    # Bỏ qua path tĩnh, auth, account
+    if path.startswith(ENFORCE_CHANGE_WHITELIST) or path.lower().endswith(STATIC_EXTS):
+        return await call_next(request)
+
+    if "session" in request.scope:
+        uid = request.session.get("uid")
+        if uid:
+            # Lấy cờ từ session cho nhanh, fallback DB
+            must_change = request.session.get("must_change_password")
+            if must_change is None:
+                try:
+                    db = next(get_db())
+                    from app.models.user import User
+                    u = db.get(User, uid)
+                    must_change = bool(u.must_change_password) if u else False
+                except Exception:
+                    must_change = False
+                request.session["must_change_password"] = must_change
+
+            if must_change:
+                return RedirectResponse(url="/account?first=1", status_code=302)
+
+    return await call_next(request)
+
+# ------------- Exception handler tổng -------------
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     try:
@@ -118,9 +162,10 @@ async def global_exception_handler(request: Request, exc: Exception):
         pass
     return JSONResponse(status_code=500, content={"detail": "Đã xảy ra lỗi không xác định. Vui lòng thử lại."})
 
-# ================== Mount routers ==================
-app.include_router(auth.router,  tags=["Auth"])
-app.include_router(admin.router, tags=["Admin"])
+# ---------------- Mount routers ----------------
+app.include_router(auth.router,    tags=["Auth"])
+app.include_router(admin.router,   tags=["Admin"])
+app.include_router(account.router, tags=["Account"])  # NEW
 
 # API chuẩn /api/...
 app.include_router(health.router,     prefix="/api", tags=["Health"])
@@ -128,14 +173,13 @@ app.include_router(checklist.router,  prefix="/api", tags=["Checklist"])
 app.include_router(applicants.router, prefix="/api", tags=["Applicants"])
 app.include_router(batch.router,      prefix="/api", tags=["Batch"])
 app.include_router(export.router,     prefix="/api", tags=["Export"])
-# >>> thêm journal vào /api
 app.include_router(journal.router,    prefix="/api", tags=["Journal"])
 
 # Alias không /api (ẩn khỏi docs) để web cũ vẫn chạy
 for r in (health.router, checklist.router, applicants.router, batch.router, export.router, journal.router):
     app.include_router(r, prefix="", include_in_schema=False)
 
-# ================== Startup ==================
+# ---------------- Startup ----------------
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
@@ -149,7 +193,7 @@ def _log_routes():
         except Exception:
             pass
 
-# ================== Static web/ (ĐẶT CUỐI CÙNG) ==================
+# ---------------- Static web/ (ĐẶT CUỐI CÙNG) ----------------
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 WEB_DIR  = os.path.join(BASE_DIR, "web")
 app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="webroot")

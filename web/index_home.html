@@ -48,8 +48,26 @@
       </div>
     </div>
 
-    <div class="mt-4 sm:mt-0 flex items-center gap-3">
-      <p id="hello" class="text-base text-gray-700"></p>
+    <div class="mt-4 sm:mt-0 flex items-center gap-3 relative">
+      <!-- Nút tên + menu -->
+      <button id="userMenuBtn"
+        class="text-base text-gray-700 bg-white/70 hover:bg-white px-3 py-2 rounded-lg shadow border flex items-center gap-2"
+        aria-haspopup="true" aria-expanded="false">
+        <span id="hello">Xin chào, <b>—</b> <span class="text-gray-500">(—)</span></span>
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" class="text-gray-500">
+          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.187l3.71-3.956a.75.75 0 011.08 1.04l-4.24 4.52a.75.75 0 01-1.08 0l-4.24-4.52a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+
+      <!-- Dropdown -->
+      <div id="userMenu"
+           class="hidden absolute right-0 top-[calc(100%+6px)] w-56 bg-white border rounded-xl shadow-lg overflow-hidden z-20">
+        <a href="/account" class="block px-4 py-2 hover:bg-gray-50">🔎 Thông tin tài khoản</a>
+        <a href="/account" class="block px-4 py-2 hover:bg-gray-50">🔐 Đổi mật khẩu</a>
+        <button id="btnMenuLogout" class="w-full text-left px-4 py-2 hover:bg-gray-50 text-red-600">↩️ Đăng xuất</button>
+      </div>
+
+      <!-- Nút logout cũ vẫn giữ -->
       <button id="btnLogout"
         class="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg text-sm shadow">
         Đăng xuất
@@ -115,29 +133,20 @@
   </main>
 
   <!-- Footer -->
-    <footer class="bg-[#1E50B4] text-white mt-auto">
+  <footer class="bg-[#1E50B4] text-white mt-auto">
     <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
-        
-        <!-- Bên trái -->
-        <div>
+      <div>
         <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
         <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
+        <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP.HCM</p>
         <p>
-            <b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP.HCM
+          <b>ĐT:</b> (028) 6686 6465 · 
+          <b>Email:</b> <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">daotaotructuyen@hutech.edu.vn</a>
         </p>
-        <p>
-            <b>ĐT:</b> (028) 6686 6465 · 
-            <b>Email:</b> 
-            <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">
-            daotaotructuyen@hutech.edu.vn
-            </a>
-        </p>
-        </div>
-        <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
-        </div>
+      </div>
+      <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
     </div>
-    </footer>
-
+  </footer>
 
   <script>
     async function api(path, opt={}) {
@@ -146,6 +155,34 @@
     }
     function show(id){ document.getElementById(id)?.classList.remove('hidden'); }
 
+    // Toggle dropdown
+    (function menuSetup(){
+      const btn = document.getElementById('userMenuBtn');
+      const menu = document.getElementById('userMenu');
+      if(!btn || !menu) return;
+
+      function openMenu(open){
+        menu.classList.toggle('hidden', !open);
+        btn.setAttribute('aria-expanded', String(open));
+      }
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        openMenu(menu.classList.contains('hidden'));
+      });
+      document.addEventListener('click', ()=>{
+        if(!menu.classList.contains('hidden')) openMenu(false);
+      });
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === 'Escape') openMenu(false);
+      });
+
+      // Menu logout
+      document.getElementById('btnMenuLogout')?.addEventListener('click', async ()=>{
+        await api('/logout', { method:'POST' });
+        location.href = '/auth_login.html';
+      });
+    })();
+
     async function boot(){
       const r = await api('/me');
       if (!r || !r.ok) { location.href = '/auth_login.html'; return; }
@@ -153,6 +190,12 @@
       const role = me.role || '';
       const name = me.full_name || me.username || 'Người dùng';
       document.getElementById('hello').innerHTML = `Xin chào, <b>${name}</b> <span class="text-gray-500">(${role})</span>`;
+
+      // Nếu bắt đổi mật khẩu lần đầu → đưa thẳng sang account (phòng trường hợp bypass)
+      if (me.must_change_password) {
+        location.href = '/account?first=1';
+        return;
+      }
 
       // Phân quyền
       if (role === 'Admin') {
@@ -164,6 +207,7 @@
       }
     }
 
+    // Nút logout cũ
     document.getElementById('btnLogout').addEventListener('click', async ()=>{
       await api('/logout', { method:'POST' });
       location.href = '/auth_login.html';
