@@ -231,3 +231,21 @@ body{
 #reasonModal input { font-size: 16px; } /* tăng size => dropdown to hơn */
 
 #resBody td, #resBody th { text-align: center; }
+/* ====== Labels ====== */
+.label{
+  font-size:.85rem;
+  font-weight:600;   /* đậm hơn */
+  color:#111827;     /* tối màu hơn */
+}
+
+/* Kết quả import — căn giữa toàn bộ */
+#resBody th,
+#resBody td{
+  text-align:center;
+  vertical-align:middle;
+}
+
+/* Cột Mã HS (4 số) dùng tabular-nums để thẳng hàng */
+#resBody td:nth-child(2){
+  font-variant-numeric: tabular-nums;
+}

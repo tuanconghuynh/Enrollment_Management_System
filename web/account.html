@@ -200,7 +200,10 @@ function formatVNDate(selector) {
     const raw = (el.textContent || '').trim();
     if (!raw || raw === '—') return;
 
-    // date-only: giữ nguyên như trước
+    // đã format sẵn dd/MM/yyyy thì bỏ qua
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return;
+
+    // date-only chuẩn YYYY-MM-DD -> format
     const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     let d = m ? new Date(Date.UTC(+m[1], +m[2]-1, +m[3])) : parseToDate(raw);
     if (!d) return;
