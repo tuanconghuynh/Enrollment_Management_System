@@ -19,26 +19,29 @@
         </a>
         <h1 class="text-2xl md:text-3xl font-bold">Thông tin tài khoản</h1>
       </div>
-
-      <!-- Đăng xuất: chỉ confirm 1 lần qua JS -->
       <button id="btnLogout" class="btn btn-outline">Đăng xuất</button>
     </header>
 
-    <!-- Flash từ BE (chỉ nguồn duy nhất để hiện toast) -->
+    <!-- Flash từ BE -->
     {% if flash %}
     <div id="flash-data"
          data-level="{{ flash.level or 'info' }}"
          data-message="{{ flash.message | replace('"','&quot;') }}"></div>
     {% endif %}
 
+    <!-- (tùy chọn) cờ từ BE -->
+    <div id="acct-flags"
+         data-first="{{ '1' if first_login else '0' }}"
+         data-must-change="{{ '1' if (me.must_change_password or not me.password_changed_at) else '0' }}">
+    </div>
+
     <!-- Thông tin -->
     <section class="card">
       <div class="flex items-center justify-between">
         <h2 class="section-title">Thông tin của tôi</h2>
-
         <div class="flex items-center gap-2">
-          <a href="#profileForm" class="btn btn-outline">Chỉnh sửa hồ sơ</a>
-          <a href="#pwForm" class="btn btn-primary">Đổi mật khẩu</a>
+          <button id="btnToggleProfile" type="button" class="btn btn-outline">Chỉnh sửa hồ sơ</button>
+          <button id="btnTogglePw" type="button" class="btn btn-primary">Đổi mật khẩu</button>
         </div>
       </div>
 
@@ -60,7 +63,7 @@
     </section>
 
     <!-- Cập nhật hồ sơ -->
-    <section id="profileForm" class="card">
+    <section id="profileForm" class="card hidden">
       <h2 class="section-title">Cập nhật hồ sơ</h2>
       <form method="post" action="/account/profile" class="grid md:grid-cols-3 gap-3" onsubmit="return lockSubmit(this)">
         <div class="md:col-span-1">
@@ -82,7 +85,7 @@
     </section>
 
     <!-- Đổi mật khẩu -->
-    <section id="pwForm" class="card">
+    <section id="pwForm" class="card hidden">
       <h2 class="section-title">Đổi mật khẩu</h2>
       <form method="post" action="/account/change-password" class="grid gap-3 md:grid-cols-2" onsubmit="return lockSubmit(this)">
         <div class="md:col-span-2 relative">
@@ -113,113 +116,247 @@
   </div>
 
   <!-- Footer -->
-  <footer class="bg-[#1E50B4] text-white mt-8">
-    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
-      <div>
-        <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
-        <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
-        <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP.HCM</p>
-        <p><b>ĐT:</b> (028) 6686 6465 · <b>Email:</b>
-          <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">daotaotructuyen@hutech.edu.vn</a>
-        </p>
-      </div>
-      <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
+<footer class="bg-[#1E50B4] text-white mt-auto">
+  <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
+    <div>
+      <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
+      <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
+      <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP.HCM</p>
+      <p><b>ĐT:</b> (028) 6686 6465 · <b>Email:</b>
+        <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">daotaotructuyen@hutech.edu.vn</a>
+      </p>
     </div>
-  </footer>
+    <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
+  </div>
+</footer>
 
   <!-- Toast -->
   <div id="toast-wrap"></div>
+  <!-- Modal xác nhận đăng xuất -->
+  <div id="logoutModal"
+      class="fixed inset-0 hidden z-[1000] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-[92vw] max-w-md transform transition-all scale-95 opacity-0"
+        id="logoutBox">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <div class="font-semibold text-gray-800">Xác nhận</div>
+        <button id="lgClose" class="btn btn-outline btn-xs" aria-label="Đóng">✕</button>
+      </div>
+
+      <div class="px-6 py-5">
+        <p class="text-gray-700">Bạn có chắc muốn đăng xuất không?</p>
+      </div>
+
+      <div class="px-6 py-4 border-t flex justify-end gap-2 bg-gray-50 rounded-b-2xl">
+        <button id="lgCancel" class="btn btn-outline">Hủy</button>
+        <button id="lgOK" class="btn btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
 
 <script>
-  // ==== VN datetime: hh:mm:ss dd/mm/yyyy (UTC+7)
-  function formatVNTime(selector) {
-    document.querySelectorAll(selector).forEach(el => {
-      let raw = (el.textContent || '').trim();
-      if (!raw || raw === "—") return;
-      if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(raw)) raw = raw.replace(' ', 'T');
-      const d = new Date(raw);
-      if (isNaN(d)) return;
-      const vn = new Intl.DateTimeFormat('vi-VN', {
-        timeZone: 'Asia/Ho_Chi_Minh',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        day: '2-digit', month: '2-digit', year: 'numeric'
-      }).format(d).replace(',', '');
-      el.textContent = vn;
-    });
-  }
-  // ==== VN date-only
-  function formatVNDate(selector) {
-    document.querySelectorAll(selector).forEach(el => {
-      const raw = (el.textContent || '').trim();
-      if (!raw || raw === "—") return;
-      const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      let d = m ? new Date(+m[1], +m[2]-1, +m[3]) : new Date(raw);
-      if (isNaN(d)) return;
-      el.textContent = new Intl.DateTimeFormat('vi-VN', {
-        timeZone: 'Asia/Ho_Chi_Minh',
-        day: '2-digit', month: '2-digit', year: 'numeric'
-      }).format(d);
-    });
-  }
+/* ====== Định dạng thời gian VN ====== */
+// --- Parse an toàn: nếu không có offset thì coi là UTC ---
+function parseToDate(raw) {
+  if (!raw) return null;
+  let s = String(raw).trim();
+  // nếu có khoảng trắng giữa ngày và giờ -> đổi thành T cho chắc
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(s)) s = s.replace(' ', 'T');
 
-  // ==== Eye toggle
-  document.querySelectorAll('[data-toggle-eye]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const input = document.querySelector(btn.getAttribute('data-toggle-eye'));
-      if(!input) return;
-      input.type = (input.type==='password')?'text':'password';
-      btn.textContent = (input.type==='password')?'👁️':'🙈';
-    });
-  });
-
-  // ==== Chống double-submit
-  function lockSubmit(form){
-    const btn=form.querySelector('button[type=submit]');
-    if(btn){ btn.disabled=true; btn.classList.add('opacity-60'); }
-    return true;
-  }
-
-  // ==== Toast (chỉ đọc từ flash BE)
-  function showToast(message, level='info', ms=4000){
-    const wrap = document.getElementById('toast-wrap');
-    const t = document.createElement('div');
-    t.className = 'toast ' + (level==='success'?'success':level==='error'?'error':level==='warn'?'warn':'');
-    t.textContent = message;
-    wrap.appendChild(t);
-    requestAnimationFrame(()=> t.classList.add('show'));
-    const hide = ()=>{ t.classList.remove('show'); setTimeout(()=> t.remove(), 200); };
-    t.addEventListener('click', hide);
-    setTimeout(hide, ms);
-  }
-
-  // ==== Logout (1 lần confirm)
-  document.getElementById('btnLogout')?.addEventListener('click', async ()=>{
-    if(!confirm('Bạn có chắc muốn đăng xuất không?')) return;
-    try { await fetch('/logout', { method:'POST' }); } catch(e) {}
-    location.href = '/login';
-  });
-
-  // ==== Boot
-  window.addEventListener('DOMContentLoaded', ()=>{
-    formatVNTime('[data-datetime]');
-    formatVNDate('[data-dateonly]');
-
-    // Hiển thị toast nếu có flash từ BE
-    const flashEl = document.getElementById('flash-data');
-    if (flashEl) {
-      const lvl = flashEl.dataset.level || 'info';
-      const msg = flashEl.dataset.message || '';
-      const map = { success:'success', error:'error', info:'', warn:'warn' };
-      showToast(msg, map[lvl] ?? '', 4500);
-      flashEl.remove();
+  // match ISO basic + optional offset
+  const m = s.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+\-]\d{2}:?\d{2})?$/
+  );
+  if (m) {
+    const [_, Y, M, D, h, mnt, sec, ms, tz] = m;
+    if (!tz) {
+      // KHÔNG có timezone -> coi là UTC
+      return new Date(Date.UTC(+Y, +M - 1, +D, +h, +mnt, +sec, +(ms || 0)));
     }
+    // có timezone -> để JS parse
+    return new Date(s);
+  }
 
-    // Nếu ?first=1: chỉ auto-scroll tới form đổi mật khẩu (không tạo thêm toast)
-    const url = new URL(window.location.href);
-    if (url.searchParams.get('first') === '1') {
-      document.getElementById('pwForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
-    }
+  // fallback: để JS tự hiểu (chuẩn ISO có Z/offset sẽ OK)
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+function formatVNTime(selector) {
+  document.querySelectorAll(selector).forEach(el => {
+    const raw = (el.textContent || '').trim();
+    if (!raw || raw === '—') return;
+    const d = parseToDate(raw);
+    if (!d) return;
+    el.textContent = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh', // UTC+7
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    }).format(d).replace(',', '');
   });
+}
+
+function formatVNDate(selector) {
+  document.querySelectorAll(selector).forEach(el => {
+    const raw = (el.textContent || '').trim();
+    if (!raw || raw === '—') return;
+
+    // date-only: giữ nguyên như trước
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    let d = m ? new Date(Date.UTC(+m[1], +m[2]-1, +m[3])) : parseToDate(raw);
+    if (!d) return;
+
+    el.textContent = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    }).format(d);
+  });
+}
+
+/* ====== Eye toggle ====== */
+document.querySelectorAll('[data-toggle-eye]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const input=document.querySelector(btn.getAttribute('data-toggle-eye'));
+    if(!input) return;
+    input.type = (input.type==='password')?'text':'password';
+    btn.textContent = (input.type==='password')?'👁️':'🙈';
+  });
+});
+
+/* ====== Chống double submit ====== */
+function lockSubmit(form){
+  const btn=form.querySelector('button[type=submit]');
+  if(btn){ btn.disabled=true; btn.classList.add('opacity-60'); }
+  return true;
+}
+
+/* ====== Toast đơn giản ====== */
+function showToast(message, level='info', ms=4000){
+  const wrap=document.getElementById('toast-wrap');
+  const t=document.createElement('div');
+  t.className='toast '+(level==='success'?'success':level==='error'?'error':level==='warn'?'warn':'');
+  t.textContent=message;
+  wrap.appendChild(t);
+  requestAnimationFrame(()=> t.classList.add('show'));
+  const hide=()=>{ t.classList.remove('show'); setTimeout(()=> t.remove(),200); };
+  t.addEventListener('click', hide);
+  setTimeout(hide, ms);
+}
+
+// === Modal Confirm Logout ===
+function askConfirmLogout() {
+  const wrap = document.getElementById('logoutModal');
+  const box = document.getElementById('logoutBox');
+  const okBtn = document.getElementById('lgOK');
+  const cancel = document.getElementById('lgCancel');
+  const closeX = document.getElementById('lgClose');
+
+  return new Promise(resolve => {
+    const done = (val) => {
+      box.classList.replace('scale-100', 'scale-95');
+      box.classList.replace('opacity-100', 'opacity-0');
+      setTimeout(() => wrap.classList.add('hidden'), 200);
+      document.body.classList.remove('overflow-hidden');
+      cleanup();
+      resolve(val);
+    };
+
+    const cleanup = () => {
+      okBtn.removeEventListener('click', onOK);
+      cancel.removeEventListener('click', onCancel);
+      closeX.removeEventListener('click', onCancel);
+      wrap.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+    };
+
+    const onOK = () => done(true);
+    const onCancel = () => done(false);
+    const onBackdrop = (e) => { if (e.target === wrap) done(false); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') done(false);
+      if (e.key === 'Enter') done(true);
+    };
+
+    okBtn.addEventListener('click', onOK);
+    cancel.addEventListener('click', onCancel);
+    closeX.addEventListener('click', onCancel);
+    wrap.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+
+    // Hiển thị modal
+    wrap.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+    requestAnimationFrame(() => {
+      box.classList.replace('scale-95', 'scale-100');
+      box.classList.replace('opacity-0', 'opacity-100');
+    });
+    okBtn.focus();
+  });
+}
+
+// Gắn vào nút Đăng xuất
+document.getElementById('btnLogout')?.addEventListener('click', async () => {
+  const ok = await askConfirmLogout();
+  if (!ok) return;
+  try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
+  location.href = '/login';
+});
+
+/* ====== Boot ====== */
+window.addEventListener('DOMContentLoaded', ()=>{
+  // format giờ VN ban đầu
+  formatVNTime('[data-datetime]');
+  formatVNDate('[data-dateonly]');
+
+  // flash từ BE
+  const flashEl=document.getElementById('flash-data');
+  if(flashEl){
+    const lvl=flashEl.dataset.level||'info';
+    const msg=flashEl.dataset.message||'';
+    const map={success:'success', error:'error', info:'', warn:'warn'};
+    showToast(msg, map[lvl] ?? '', 4500);
+    flashEl.remove();
+  }
+
+  // Tự mở đổi mật khẩu khi lần đầu
+  const url=new URL(window.location.href);
+  const qFirst = url.searchParams.get('first')==='1';
+  const flagsEl=document.getElementById('acct-flags');
+  const mustChange = qFirst ||
+    (flagsEl && (flagsEl.dataset.mustChange==='1' || flagsEl.dataset.first==='1'));
+
+  if(mustChange){
+    showSection('pwForm', true);
+    document.getElementById('old')?.focus();
+    showToast('Lần đầu đăng nhập hoặc vừa được ResetPassword. Vui lòng đổi mật khẩu!','warn',5000);
+  }
+});
+
+/* ====== Toggle ẩn/hiện 2 form ====== */
+function showSection(id,on=true){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.classList.toggle('hidden', !on);
+  if(on) el.scrollIntoView({behavior:'smooth', block:'start'});
+  // re-format (phòng khi nội dung động)
+  formatVNTime('[data-datetime]');
+  formatVNDate('[data-dateonly]');
+}
+
+(function bindAccountToggles(){
+  const btnProfile=document.getElementById('btnToggleProfile');
+  const btnPw=document.getElementById('btnTogglePw');
+
+  btnProfile?.addEventListener('click', ()=>{
+    const on = document.getElementById('profileForm').classList.contains('hidden');
+    showSection('profileForm', on);
+  });
+
+  btnPw?.addEventListener('click', ()=>{
+    const on = document.getElementById('pwForm').classList.contains('hidden');
+    showSection('pwForm', on);
+    if(on) document.getElementById('old')?.focus();
+  });
+})();
 </script>
 </body>
 </html>

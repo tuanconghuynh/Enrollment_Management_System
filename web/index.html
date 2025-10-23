@@ -56,7 +56,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="label">Mã hồ sơ</label>
-            <input class="input" id="ma_ho_so" placeholder="HS-XXXXX" readonly />
+            <input class="input" id="ma_ho_so" placeholder="0000" readonly />
           </div>
           <div>
             <label class="label">Ngày nhận HS (Mặc định)</label>
@@ -109,7 +109,7 @@
             <input class="input" id="ngay_sinh" type="date" />
           </div>
           <div>
-            <label class="label">Số ĐT</label>
+            <label class="label">Số điện thoại</label>
             <input class="input" id="so_dt" />
           </div>
           <div>
@@ -450,64 +450,115 @@
     });
   }
 
-  /* ===== Generator mã hồ sơ (GLOBAL) ===== */
-  async function generateNextMaHoSo() {
-    try {
-      // Lấy hồ sơ mới nhất rồi tăng
-      const r = await apiFetch(`/applicants/recent?limit=1`);
-      if (!r || !r.ok) throw new Error("API /applicants/recent lỗi");
-      const arr = await r.json();
-      const last = (Array.isArray(arr) && arr.length) ? (arr[0].ma_ho_so || "HS-A0000") : "HS-A0000";
+// ===== Mã HS theo NHÓM (Khóa, Đợt) + helper hiển thị 4 số =====
+function composeMaHoSoByGroup(khoa, dot, seq) {
+  return `HS-${String(khoa).trim()}-${String(dot).trim()}-${String(seq).padStart(4,'0')}`;
+}
 
-      const m = String(last).match(/^HS-([A-Z])(\d{4})$/i);
-      if (!m) return "HS-A0001";
+function extractSeq4(code) {
+  const m = String(code || '').match(/(\d{4})$/);
+  return m ? m[1] : '';
+}
 
-      const ch = m[1].toUpperCase();
-      let num = parseInt(m[2] || "0", 10);
-      num += 1;
-      if (num > 9999) {
-        const nextChar = String.fromCharCode(ch.charCodeAt(0) + 1);
-        return `HS-${nextChar}0001`;
-      }
-      return `HS-${ch}${String(num).padStart(4,"0")}`;
-    } catch (e) {
-      console.warn("generateNextMaHoSo() fallback:", e);
-      return "HS-A0001";
+async function getMaxSeqInGroup(khoa, dot) {
+  const q = String(khoa).trim(); // query rộng theo khóa
+  let page = 1, size = 500, max = 0;
+  for (;;) {
+    const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(q)}&page=${page}&size=${size}`);
+    if (!r || !r.ok) break;
+    const j = await (r.json().catch(()=>({})));
+    const arr = Array.isArray(j?.items) ? j.items : [];
+    for (const it of arr) {
+      if (String(it.khoa).trim() !== String(khoa).trim()) continue;
+      if (String(it.dot).trim()  !== String(dot).trim())  continue;
+      const m = String(it.ma_ho_so || '').match(/(\d{4})$/); // lấy 4 số cuối
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (Number.isFinite(n) && n > max) max = n;
+     }
     }
+    if (arr.length < size) break;
+    page += 1;
+  }
+  return max;
+}
+
+async function generateNextSeq4(khoa, dot) {
+  if (!khoa || !dot) return "";
+  const cur = await getMaxSeqInGroup(khoa, dot);
+  return String(cur + 1).padStart(4, '0');
+}
+
+async function generateNextMaHoSoByGroup(khoa, dot) {
+  const max = await getMaxSeqInGroup(khoa, dot);
+  return composeMaHoSoByGroup(khoa, dot, max + 1);
+}
+
+async function payloadForCreate() {
+  const k = ($('khoa')?.value || '').trim();
+  const d = ($('dot')?.value  || '').trim();
+  if (!k || !d) {
+    showToast("Vui lòng chọn Niên khoá và Đợt trước khi lưu.", "warn");
+    return null;
   }
 
-  /* ===== Payloads ===== */
-  async function payloadForCreate() {
-    let maHoSo = $("ma_ho_so").value.trim();
-    if (!maHoSo) {
-      maHoSo = await generateNextMaHoSo();
-      $("ma_ho_so").value = maHoSo;
-    }
-
-    // 🗓️ Tự động set ngày nhận hồ sơ (ngày hiện tại)
-    const today = new Date().toISOString().split("T")[0];
-    $("ngay_nhan_hs").value = today;
-
-    return {
-      ma_ho_so: maHoSo,
-      ngay_nhan_hs: ymdKeep(today),
-      ho_ten: $("ho_ten").value.trim(),
-      gioi_tinh: $("gioi_tinh").value || null,
-      dan_toc: $("dan_toc").value.trim() || null,
-      ma_so_hv: $("ma_so_hv").value.trim(),
-      ngay_sinh: ymdKeep($("ngay_sinh").value) || null,
-      so_dt: $("so_dt").value.trim() || null,
-      email_hoc_vien: $("email_hoc_vien").value.trim() || null,
-      nganh_nhap_hoc: $("nganh_nhap_hoc").value.trim() || null,
-      dot: $("dot").value.trim() || null,
-      khoa: $("khoa").value.trim() || null,
-      da_tn_truoc_do: $("da_tn_truoc_do").value || null,
-      ghi_chu: $("ghi_chu").value.trim() || null,
-      nguoi_nhan_ky_ten: $("nguoi_nhan_ky_ten").value.trim() || null,
-      docs: collectDocs(),
-      checklist_version_name: window.__CHECKLIST_VERSION_NAME__ || "v1",
-    };
+  // ô input chỉ hiển thị 4 số
+  let seq4 = ($('ma_ho_so')?.value || '').trim();
+  if (!/^\d{4}$/.test(seq4)) {
+    // nếu chưa có số thì hỏi API để lấy số tiếp theo
+    const seq = await generateNextSeq4(k, d) || '0001';
+    $('ma_ho_so').value = seq4;
+    $('ma_ho_so').placeholder = seq4;
   }
+
+  // 🗓️ Ngày nhận mặc định hôm nay
+  const today = new Date().toISOString().slice(0,10);
+  $('ngay_nhan_hs').value = today;
+
+  return {
+    ma_ho_so: seq4,           // << chỉ 4 số
+    ngay_nhan_hs: ymdKeep(today),
+    ho_ten: $('ho_ten').value.trim(),
+    gioi_tinh: $('gioi_tinh').value || null,
+    dan_toc: $('dan_toc').value.trim() || null,
+    ma_so_hv: $('ma_so_hv').value.trim(),
+    ngay_sinh: ymdKeep($('ngay_sinh').value) || null,
+    so_dt: $('so_dt').value.trim() || null,
+    email_hoc_vien: $('email_hoc_vien').value.trim() || null,
+    nganh_nhap_hoc: $('nganh_nhap_hoc').value.trim() || null,
+    dot: d,
+    khoa: k,
+    da_tn_truoc_do: $('da_tn_truoc_do').value || null,
+    ghi_chu: $('ghi_chu').value.trim() || null,
+    nguoi_nhan_ky_ten: $('nguoi_nhan_ky_ten').value.trim() || null,
+    docs: collectDocs(),
+    checklist_version_name: window.__CHECKLIST_VERSION_NAME__ || 'v1',
+  };
+}
+
+/* Hiển thị trước: chỉ 4 số */
+/* ✅ GIỮ hàm này */
+async function tryPreviewMaHoSo(force = false) {
+  if (!force && window.loadedApplicant?.ma_so_hv) return;
+  const k = ($('khoa')?.value || '').trim();
+  const d = ($('dot')?.value  || '').trim();
+  const el = $('ma_ho_so');
+  if (!el) return;
+  if (!k || !d) { el.value = ''; el.placeholder = '0000'; return; }
+
+  try {
+    const full = await generateNextMaHoSoByGroup(k, d);
+    const m = /(\d{4})$/.exec(full);
+    const seq = (m ? m[1] : '0001');
+    el.value = seq;
+    el.placeholder = seq;
+  } catch {
+    el.value = ''; el.placeholder = '0000';
+  }
+}
+
+$('khoa').addEventListener('change', () => tryPreviewMaHoSo(true));
+$('dot').addEventListener('change',  () => tryPreviewMaHoSo(true));
 
   function payloadForUpdate() {
     const currentDate = $("ngay_nhan_hs").value || new Date().toISOString().split("T")[0];
@@ -545,22 +596,22 @@
     $('btnPrintLoadedA4').disabled = !on;
   }
 
-  function populateFormFromApplicant(a={}, docs){
-    $('ma_ho_so').value = a.ma_ho_so || "";
-    $('ngay_nhan_hs').value = fmtDateToInput(a.ngay_nhan_hs);
-    $('khoa').value = a.khoa || "";
-    $('ho_ten').value = a.ho_ten || "";
-    $('ma_so_hv').value = a.ma_so_hv || "";
-    $('ngay_sinh').value = fmtDateToInput(a.ngay_sinh);
-    $('gioi_tinh').value = a.gioi_tinh || "";
-    $('dan_toc').value = a.dan_toc || "";
-    $('so_dt').value = a.so_dt || "";
-    $('email_hoc_vien').value = a.email_hoc_vien || "";
-    $('nganh_nhap_hoc').value = a.nganh_nhap_hoc || "";
-    $('dot').value = a.dot || "";
-    $('da_tn_truoc_do').value = a.da_tn_truoc_do || "";
-    $('ghi_chu').value = a.ghi_chu || "";
-    $('nguoi_nhan_ky_ten').value = a.nguoi_nhan_ky_ten || $('nguoi_nhan_ky_ten').value || "";
+function populateFormFromApplicant(a={}, docs){
+  $('ma_ho_so').value = extractSeq4(a.ma_ho_so) || "";   // <-- chỉ 4 số
+  $('ngay_nhan_hs').value = fmtDateToInput(a.ngay_nhan_hs);
+  $('khoa').value = a.khoa || "";
+  $('ho_ten').value = a.ho_ten || "";
+  $('ma_so_hv').value = a.ma_so_hv || "";
+  $('ngay_sinh').value = fmtDateToInput(a.ngay_sinh);
+  $('gioi_tinh').value = a.gioi_tinh || "";
+  $('dan_toc').value = a.dan_toc || "";
+  $('so_dt').value = a.so_dt || "";
+  $('email_hoc_vien').value = a.email_hoc_vien || "";
+  $('nganh_nhap_hoc').value = a.nganh_nhap_hoc || "";
+  $('dot').value = a.dot || "";
+  $('da_tn_truoc_do').value = a.da_tn_truoc_do || "";
+  $('ghi_chu').value = a.ghi_chu || "";
+  $('nguoi_nhan_ky_ten').value = a.nguoi_nhan_ky_ten || $('nguoi_nhan_ky_ten').value || "";
 
     loadedDocsByCode = {}; (docs||[]).forEach(d => loadedDocsByCode[d.code] = d.so_luong || 0);
     const applyDocsToTable = () => {
@@ -694,6 +745,7 @@
     $('msg').textContent = "";
     $('nameResults')?.classList.add('hidden');
     $('gioi_tinh').value = "";
+    tryPreviewMaHoSo(true);
   }
 
   // Lưu
@@ -760,7 +812,12 @@
     // validate bắt buộc
     if (!hoTen) { markError('ho_ten', 'Vui lòng nhập Họ tên.'); return null; }
     if (!msHv)  { markError('ma_so_hv','Vui lòng nhập MSHV.');   return null; }
-    // if (!/^\d{10}$/.test(msHv)) { markError('ma_so_hv','MSHV phải gồm 10 số.'); return null; }
+
+    // validate KHÓA/ĐỢT (bắt buộc)
+    const khoa = ($('khoa')?.value || '').trim();
+    const dot  = ($('dot')?.value  || '').trim();
+    if (!khoa) { markError('khoa', 'Chọn Niên khoá.'); return null; }
+    if (!dot)  { markError('dot',  'Chọn Đợt.');      return null; }
 
     // validate định dạng mềm
     const email = ($('email_hoc_vien')?.value || '').trim();
@@ -768,12 +825,16 @@
     const phone = ($('so_dt')?.value || '').trim();
     if (phone && !/^[0-9 +().-]{8,20}$/.test(phone)) { markError('so_dt','Số điện thoại chưa đúng.'); return null; }
 
-    // build payload
-    const body = await payloadForCreate();
 
-    // đảm bảo 2 trường bắt buộc đã gán đúng
+    // build payload (có thể tự set ngày + cố gắng gợi ý mã)
+    // let body = await payloadForCreate();
+    const body = await payloadForCreate();
+    if (!body) return null; // thiếu khóa/đợt thì dừng
+    // đảm bảo các trường bắt buộc đúng giá trị vừa nhập
     body.ho_ten   = hoTen;
     body.ma_so_hv = msHv;
+    body.khoa     = khoa;
+    body.dot      = dot;
 
     // bù ngày nhận nếu trống + đồng bộ UI
     if (!body.ngay_nhan_hs) {
@@ -781,12 +842,10 @@
       const ngayNhan = $('ngay_nhan_hs'); if (ngayNhan) ngayNhan.value = body.ngay_nhan_hs;
     }
 
-    // bù mã hồ sơ nếu trống (dùng generator mới)
     if (!body.ma_ho_so) {
-      try {
-        body.ma_ho_so = await generateNextMaHoSo();
-        const mhs = $('ma_ho_so'); if (mhs) mhs.value = body.ma_ho_so;
-      } catch(_) {}
+      const seq = await generateNextSeq4(khoa, dot);
+      body.ma_ho_so = seq;                              // gửi 4 số
+      const mhs = $('ma_ho_so'); if (mhs) mhs.value = seq;
     }
 
     // gửi API
@@ -918,6 +977,204 @@
     box.classList.remove('hidden');
   }
 
+  // === Autocomplete: HỌ TÊN (live, không cần Enter) ===
+const liveSearchName = debounce(async () => {
+  const name = $('q_ho_ten').value.trim();
+  if (name.length < 2) {
+    $('nameResults')?.classList.add('hidden');
+    return;
+  }
+  $('lookupMsg').textContent = 'Đang tìm...';
+  let list = await searchByName(name);
+  list = filterAndSortByName(list, name, 25);
+  renderNameResults(list);
+  $('lookupMsg').textContent = list.length ? `Tìm thấy ${list.length} kết quả.` : 'Không tìm thấy.';
+}, 300);
+
+$('q_ho_ten').addEventListener('input', liveSearchName);
+$('q_ho_ten').addEventListener('focus', liveSearchName);
+
+// Ẩn list khi click ngoài
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#nameResults') && !e.target.closest('#q_ho_ten')) {
+    $('nameResults')?.classList.add('hidden');
+  }
+});
+
+// Điều hướng bằng phím ↑ ↓ Enter Esc
+(function () {
+  const input = $('q_ho_ten');
+  const box = $('nameResults');
+  const ul  = $('nameResultsList');
+  let idx = -1;
+
+  input.addEventListener('keydown', (e) => {
+    if (box.classList.contains('hidden')) return;
+    const items = ul.querySelectorAll('li[data-mshv]');
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      idx = (idx + 1) % items.length;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      idx = (idx - 1 + items.length) % items.length;
+    } else if (e.key === 'Enter' && idx >= 0) {
+      e.preventDefault();
+      items[idx].click();
+      idx = -1;
+      return;
+    } else if (e.key === 'Escape') {
+      box.classList.add('hidden');
+      idx = -1;
+      return;
+    }
+
+    items.forEach((el, i) => el.classList.toggle('bg-blue-50', i === idx));
+    if (idx >= 0) items[idx].scrollIntoView({ block: 'nearest' });
+  });
+})();
+
+// === Autocomplete: MSHV (live, không cần Enter) ===
+function ensureMshvBox() {
+  let box = $('mshvResults');
+  if (!box) {
+    // Lấy đúng wrapper chứa input + nút
+    const fld = $('q_ma_so_hv').parentElement; // <div class="flex gap-2">
+    // Đảm bảo relative để dropdown bám theo
+    fld.classList.add('relative'); // thay vì fld.style.position = 'relative';
+
+    box = document.createElement('div');
+    box.id = 'mshvResults';
+    box.className = [
+      // ➜ Đặt dưới input: left-0 top-full mt-1
+      'absolute', 'left-0', 'top-full', 'mt-1',
+      // Kích thước & hiển thị
+      'z-50', 'w-full', 'max-h-64', 'overflow-auto',
+      'rounded-md', 'border', 'bg-white', 'shadow',
+      // Ẩn mặc định
+      'hidden'
+    ].join(' ');
+    box.innerHTML = '<ul id="mshvResultsList" class="divide-y"></ul>';
+
+    fld.appendChild(box);
+  }
+  return box;
+}
+
+async function searchMSHVPartial(q) {
+  const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(q)}`);
+  if (r && r.ok) {
+    const j = await safeJson(r);
+    let raw = Array.isArray(j?.items) ? j.items : (Array.isArray(j) ? j : []);
+    raw = (raw || []).filter((it) => !isSoftDeleted(it));
+    return raw
+      .map((it) => ({
+        ho_ten: it.ho_ten || it.full_name || '',
+        ma_so_hv: it.ma_so_hv || it.mssv || it.mshv || '',
+        ma_ho_so: it.ma_ho_so || it.code || '',
+        ngay_nhan_hs: it.ngay_nhan_hs || it.created_at || null,
+      }))
+      .filter((x) => String(x.ma_so_hv || '').toLowerCase().includes(q.toLowerCase()))
+      .slice(0, 20);
+  }
+  return [];
+}
+
+function renderMshvResults(list) {
+  const box = ensureMshvBox();
+  const ul  = $('mshvResultsList');
+
+  if (!list.length) {
+    box.classList.remove('hidden');
+    ul.innerHTML = '<li class="p-2 text-sm text-gray-500">Không tìm thấy.</li>';
+    return;
+  }
+
+  ul.innerHTML = list
+    .map(
+      (it) => `
+    <li class="p-2 hover:bg-gray-50 cursor-pointer" data-mshv="${it.ma_so_hv}">
+      <div class="flex justify-between">
+        <div class="font-medium">${it.ma_so_hv}</div>
+        <div class="text-xs text-gray-500">${(it.ngay_nhan_hs || '').toString().slice(0, 10)}</div>
+      </div>
+      <div class="text-xs text-gray-600">
+        ${it.ho_ten} • Mã HS: <span class="font-semibold">${it.ma_ho_so}</span>
+      </div>
+    </li>`
+    )
+    .join('');
+
+  if (!ul._boundClick) {
+    ul.addEventListener('click', (e) => {
+      const li = e.target.closest('li[data-mshv]');
+      if (!li) return;
+      $('q_ma_so_hv').value = li.dataset.mshv || '';
+      box.classList.add('hidden');
+      $('btnLoadApplicantMSHV')?.click();
+    });
+    ul._boundClick = true;
+  }
+
+  box.classList.remove('hidden');
+}
+
+const liveSearchMSHV = debounce(async () => {
+  const v = $('q_ma_so_hv').value.trim();
+  if (v.length < 3) {
+    $('mshvResults')?.classList.add('hidden');
+    return;
+  }
+  $('lookupMsg').textContent = 'Đang gợi ý MSHV...';
+  const list = await searchMSHVPartial(v);
+  renderMshvResults(list);
+  $('lookupMsg').textContent = '';
+}, 250);
+
+$('q_ma_so_hv').addEventListener('input', liveSearchMSHV);
+$('q_ma_so_hv').addEventListener('focus', liveSearchMSHV);
+
+// Ẩn khi click ngoài
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#mshvResults') && !e.target.closest('#q_ma_so_hv')) {
+    $('mshvResults')?.classList.add('hidden');
+  }
+});
+
+// Điều hướng bằng phím cho MSHV
+$('q_ma_so_hv').addEventListener('keydown', (e) => {
+  const box = $('mshvResults');
+  const ul  = $('mshvResultsList');
+  if (!box || box.classList.contains('hidden')) return;
+
+  const items = ul.querySelectorAll('li[data-mshv]');
+  if (!items.length) return;
+
+  let idx = ul._idx ?? -1;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    idx = (idx + 1) % items.length;
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    idx = (idx - 1 + items.length) % items.length;
+  } else if (e.key === 'Enter' && idx >= 0) {
+    e.preventDefault();
+    items[idx].click();
+    ul._idx = -1;
+    return;
+  } else if (e.key === 'Escape') {
+    box.classList.add('hidden');
+    ul._idx = -1;
+    return;
+  }
+
+  items.forEach((el, i) => el.classList.toggle('bg-blue-50', i === idx));
+  if (idx >= 0) items[idx].scrollIntoView({ block: 'nearest' });
+  ul._idx = idx;
+});
+
   /* ===== In PDF (khớp BE) ===== */
   function openPdf(url){ const w = window.open(url, "_blank"); if (!w) window.location.href = url; }
   $("btnPrintLoadedA5").onclick = () => {
@@ -1016,6 +1273,7 @@
     await ensureApiBaseAndPrefix();
     await refreshAuthUI();
     await loadChecklist();
+    await tryPreviewMaHoSo(true);
     setPrintButtonsEnabled(false);
 
     const url = new URL(window.location.href);
@@ -1028,14 +1286,6 @@
       const today = new Date().toISOString().split("T")[0];
       const ngayNhan = document.getElementById("ngay_nhan_hs");
       if (ngayNhan) ngayNhan.value = today;
-
-      const maHoSo = document.getElementById("ma_ho_so");
-      if (maHoSo && !maHoSo.value) {
-        const nextCode = await generateNextMaHoSo();
-        maHoSo.value = nextCode || "HS-A0001";
-        maHoSo.placeholder = nextCode || "HS-A0001";
-        console.log("✅ Mã hồ sơ tự sinh:", nextCode);
-      }
     } catch (err) {
       console.error("⚠️ Lỗi khi sinh mã hồ sơ tự động:", err);
     }

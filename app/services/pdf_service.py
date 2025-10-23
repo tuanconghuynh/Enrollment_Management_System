@@ -21,6 +21,19 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet
 
+# === Giờ Việt Nam (Asia/Ho_Chi_Minh) ===
+from datetime import datetime, date, timedelta
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+    _VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+    def _now_vn() -> datetime:
+        return datetime.now(_VN_TZ)
+except Exception:
+    # Fallback khi không có zoneinfo (hiếm): cộng tay +7h
+    def _now_vn() -> datetime:
+        return datetime.utcnow() + timedelta(hours=7)
+
+
 # ================== cấu hình chữ & lề ==================
 TITLE_SIZE = 13
 TEXT_SIZE  = 12
@@ -242,8 +255,13 @@ def _draw_signature_block(c: rl_canvas.Canvas, y, W, receiver_name: str):
 
 
 def _vn_date_line(d: date | datetime | None, location: str = "TP.HCM") -> str:
+    """
+    Trả về chuỗi: 'TP.HCM, ngày dd tháng mm năm yyyy'
+    - Nếu d=None -> dùng ngày hiện tại theo múi giờ Việt Nam.
+    - Nếu d là date -> nâng lên datetime để format đồng nhất.
+    """
     if not d:
-        d = datetime.today()
+        d = _now_vn()
     if isinstance(d, date) and not isinstance(d, datetime):
         d = datetime(d.year, d.month, d.day)
     return f"{location}, ngày {d.day:02d} tháng {d.month:02d} năm {d.year}"
@@ -551,9 +569,8 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
     c.drawRightString(
         W - rm,
         bm_footer + sign_h + 2*mm,
-        _vn_date_line(getattr(a, "ngay_nhan_hs", None), "__________")
+        _vn_date_line(None, "__________")
     )
-
     # Bảng chữ ký: Người nộp (HV) — Người nhận (NV)
     content_w = W - lm - rm
     sign_w    = content_w / 2.0

@@ -112,9 +112,9 @@
 
       <div class="overflow-hidden border rounded-xl">
         <div id="emptyState" class="p-10 text-center text-gray-500 hidden">
-          <div class="text-4xl mb-2">📄</div>
-          <div class="font-semibold">Chưa có dữ liệu</div>
-          <div class="text-sm">Nhập điều kiện và bấm <b>Tìm</b>.</div>
+          <div class="text-4xl mb-2">❌🧾</div>
+          <div class="font-semibold">Không tìm thấy trong danh sách</div>
+          <div class="text-sm">Nhập từ khóa khác để tìm kiếm!</div>
         </div>
 
         <div id="tableWrap" class="overflow-auto hidden">
@@ -723,6 +723,8 @@
       } catch(_) {}
     })();
 
+    
+
     // ===== File helpers =====
     async function fetchFileOrAlert(url, filename, type = "excel"){
       const resp = await fetch(makeUrl(url), { credentials: "include" });
@@ -901,6 +903,24 @@
         window.location.assign('/journal.html');
       });
     })();
+
+    // Live-search cho ô #q (Họ tên / MSHV) — không cần bấm Tìm
+    $('q').addEventListener('input', debounce(async () => {
+      const v = $('q').value.trim();
+
+      // (tuỳ chọn) chỉ chạy khi >= 2 ký tự, còn <2 thì xoá kết quả
+      if (v.length < 2) {
+        state.q = '';
+        state.page = 1;
+        await runSearch();      // sẽ trả về danh sách theo bộ lọc khác (hoặc rỗng)
+        return;
+      }
+
+      state.q = v;
+      state.page = 1;
+      await runSearch();
+    }, 250));
+
   </script>
 
   <!-- Toast -->

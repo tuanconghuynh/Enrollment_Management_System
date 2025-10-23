@@ -229,3 +229,5 @@ body{
 #reasonModal .bd { padding-top: 6px; }
 #reasonModal select, 
 #reasonModal input { font-size: 16px; } /* tăng size => dropdown to hơn */
+
+#resBody td, #resBody th { text-align: center; }

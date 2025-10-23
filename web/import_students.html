@@ -22,7 +22,7 @@
         </a>
         <div>
           <h1 class="text-2xl font-bold leading-tight">Import danh sách học viên</h1>
-          <p class="text-sm text-gray-500">Nạp .xlsx/.csv → map cột → gửi tạo hồ sơ (docs để trống).</p>
+          <p class="text-sm text-gray-500">Nạp .xlsx/.csv → map cột → gửi tạo hồ sơ (docs để trống). Mã HS: 4 số theo Khóa/Đợt.</p>
         </div>
       </div>
 
@@ -82,8 +82,8 @@
           </div>
           <div id="mappings" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
           <p class="text-xs text-gray-500">
-            Bắt buộc phải map: <b>Họ và Tên</b>, <b>Mã số học viên</b>.
-            <br><i>mã hồ sơ</i> có thể bỏ trống — hệ thống sẽ tự sinh.
+            Bắt buộc phải map: <b>Họ và Tên</b>, <b>Mã số học viên</b>.<br>
+            Nếu <b>không có</b> cột <i>Mã hồ sơ</i> thì <b>bắt buộc</b> map thêm <b>Khóa</b> và <b>Đợt</b> để hệ thống tự sinh 4 số theo từng nhóm.
           </p>
         </section>
 
@@ -146,7 +146,7 @@
                 <thead>
                   <tr>
                     <th class="text-center w-16">STT</th>
-                    <th class="text-center w-36">Mã HS</th>
+                    <th class="text-center w-36">Mã Hồ sơ</th>
                     <th class="text-center w-40">Trạng thái</th>
                     <th class="text-center">Thông điệp</th>
                   </tr>
@@ -205,7 +205,6 @@
     // ===== Log & progress =====
     let parsedRows = [];
     let stopFlag = false;
-
     const results = [];
 
     function translateMessage(msg){
@@ -215,24 +214,20 @@
       if (msg.includes("HTTP 500")) return "💥 Lỗi hệ thống (Internal Server Error).";
       return msg.replace(/\(id=(\d+)\)/, "(MSSV: $1)");
     }
-
     function badge(type){
       if (type==='OK')   return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">THÀNH CÔNG</span>';
       if (type==='SKIP') return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700" title="Thiếu dữ liệu bắt buộc">BỎ QUA</span>';
       return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">LỖI</span>';
     }
-
     function rowClass(type){
       return type==='OK' ? 'bg-green-50/50' : (type==='SKIP' ? 'bg-amber-50/50' : 'bg-red-50/50');
     }
-
     function refreshExportButtons(){
       const any = results.length > 0;
       const hasErr = results.some(r => r.type !== 'OK');
       $("btnExportAll").disabled = !any;
       $("btnExportErr").disabled = !hasErr;
     }
-
     function renderResults(){
       const tbody = $('resBody');
       const ok   = results.filter(r=>r.type==='OK').length;
@@ -245,21 +240,18 @@
       tbody.innerHTML = results.map(r => `
         <tr class="${rowClass(r.type)}">
           <td class="text-center border-b">${r.idx}</td>
-          <td class="border-b whitespace-nowrap font-medium">${r.data?.ma_ho_so || '—'}</td>
-          <td class="border-b">${badge(r.type)}</td>
-          <td class="border-b">${translateMessage(r.msg || '')}</td>
+          <td class="text-center border-b whitespace-nowrap font-medium">${r.data?.ma_ho_so || '—'}</td>
+          <td class="text-center border-b">${badge(r.type)}</td>
+          <td class="text-center border-b">${translateMessage(r.msg || '')}</td>
         </tr>
       `).join('');
 
       refreshExportButtons();
     }
-
     function addResult(type, idx, data, msg){
       results.push({type, idx, data, msg});
       renderResults();
     }
-    function log(){ /* no-op */ }
-
     $('btnClearLog')?.addEventListener('click', ()=>{ results.splice(0, results.length); renderResults(); });
 
     function setBar(done, total){
@@ -269,7 +261,7 @@
       $('stats').textContent = total ? `Đã gửi ${done}/${total}` : "Chưa chạy.";
     }
 
-    // ===== Field defs (đã mở rộng alias cho Đã TN trước đó) =====
+    // ===== Field defs (đã mở rộng alias) =====
     const FIELD_DEFS = [
       {key:"ma_ho_so",       label:"Mã hồ sơ",        aliases:["ma ho so","ma_hs","ma_hoso","hoso","code"]},
       {key:"ho_ten",         label:"Họ và Tên",       aliases:["ho va ten","hovaten","hoten","ten_hv","tenhv","ten"]},
@@ -282,7 +274,7 @@
       {key:"nganh_nhap_hoc", label:"Ngành nhập học",  aliases:["nganh","nganh hoc"]},
       {key:"dot",            label:"Đợt",             aliases:["dot nhap hoc","dot tuyen"]},
       {key:"khoa",           label:"Khóa",            aliases:["nien khoa","khoa hoc","nk"]},
-      {key:"da_tn_truoc_do", label:"Đối tượng TN",  aliases:["doi tuong","doi tuong tn","doi tuong tot nghiep","da tn","trinh do"]},
+      {key:"da_tn_truoc_do", label:"Đối tượng TN",    aliases:["doi tuong","doi tuong tn","doi tuong tot nghiep","da tn","trinh do"]},
       {key:"ghi_chu",        label:"Ghi chú",         aliases:["note","ghi chu"]},
     ];
     const LABEL_BY_KEY = Object.fromEntries(FIELD_DEFS.map(f=>[f.key,f.label]));
@@ -302,7 +294,6 @@
       });
       return map;
     }
-
     function renderMappingUI(headers){
       const container = $('mappings');
       container.innerHTML = "";
@@ -318,7 +309,6 @@
         container.appendChild(wrap);
       });
     }
-
     function getMappingFromUI(){
       const selects = Array.from(document.querySelectorAll('#mappings select'));
       const m = {}; selects.forEach(sel=>{ if(sel.value) m[sel.dataset.field] = sel.value; });
@@ -376,19 +366,16 @@
       }catch(err){ alert("Không đọc được file: "+err.message); }
     });
 
-    // Tiêu đề xem trước: chuyển sang TV nếu khớp key chuẩn
+    // Tiêu đề xem trước
     function labelForPreview(h){
       const k = String(h||"").trim();
       return LABEL_BY_KEY[k] || k;
     }
-
-    // === Xem trước (toàn bộ, auto height) ===
     function preview(headers, rows){
       $('thead').innerHTML = `<tr>${headers.map(h=>`<th class="text-left">${labelForPreview(h)}</th>`).join("")}</tr>`;
-      $('tbody').innerHTML = rows.map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
+      $('tbody').innerHTML = rows.slice(0,50).map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
       requestAnimationFrame(adjustPreviewHeight);
     }
-
     function adjustPreviewHeight() {
       const box = document.getElementById('previewBox');
       if (!box) return;
@@ -426,7 +413,7 @@
       return "";
     }
 
-    // ===== Giới tính normalize (giữ 1 hàm duy nhất) =====
+    // ===== Giới tính normalize
     function normalizeGender(raw) {
       const s = String(raw || "").trim().toLowerCase();
       if (!s) return null;
@@ -435,39 +422,49 @@
       return "Khác";
     }
 
-    // --- Tạo mã hồ sơ tiếp theo: HS-[A..Z][0001..9999]
-    async function generateNextMaHoSo() {
-      try {
-        const r = await apiFetch("/applicants/recent?limit=1");
-        if (r && r.ok) {
-          const arr = await r.json();
-          const last = Array.isArray(arr) && arr.length ? String(arr[0].ma_ho_so || "") : "";
-          const m = last.match(/^HS-([A-Z])(\d{4})$/i);
-          if (m) {
-            const letter = m[1].toUpperCase();
-            const num = parseInt(m[2], 10);
-            if (num >= 9999) {
-              const nextLetter = String.fromCharCode(letter.charCodeAt(0) + 1);
-              return `HS-${nextLetter}0001`;
-            }
-            return `HS-${letter}${String(num + 1).toString().padStart(4, "0")}`;
-          }
+    // ===== MÃ HS 4 SỐ THEO (KHÓA, ĐỢT)
+    function extractSeq4(code){ const m = String(code||'').match(/(\d{4})$/); return m?m[1]:''; }
+
+    async function getMaxSeqInGroup(khoa, dot){
+      let page=1, size=500, max=0;
+      for(;;){
+        const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(String(khoa))}&page=${page}&size=${size}`);
+        if(!r || !r.ok) break;
+        const j = await r.json().catch(()=>({}));
+        const arr = Array.isArray(j?.items) ? j.items : [];
+        for (const it of arr){
+          if (String(it.khoa).trim() !== String(khoa).trim()) continue;
+          if (String(it.dot).trim()  !== String(dot).trim())  continue;
+          const m = String(it.ma_ho_so||'').match(/(\d{4})$/);
+          if (m){ const n = parseInt(m[1],10); if(Number.isFinite(n) && n>max) max=n; }
         }
-      } catch (_) {}
-      const now = new Date();
-      const y = String(now.getFullYear()).slice(-2);
-      const m = String(now.getMonth() + 1).padStart(2, "0");
-      const d = String(now.getDate()).padStart(2, "0");
-      const rnd = Math.floor(Math.random() * 9000 + 1000);
-      return `HS-${y}${m}${d}-${rnd}`;
+        if (arr.length < size) break;
+        page += 1;
+      }
+      return max;
     }
 
-    // ===== Build payload & call API =====
-    async function makeApplicantPayload(src, map){
+    // ===== Build payload (trả về 4 số) =====
+    async function makeApplicantPayload(src, map, seqCache){
       const pick = (key, d="") => (map[key] ? String(src[map[key]] ?? "").trim() : d);
 
-      let ma_ho_so = pick("ma_ho_so", "");
-      if (!ma_ho_so) ma_ho_so = await generateNextMaHoSo();
+      // 1) Nếu file có Mã HS -> lấy 4 số cuối
+      let seq4 = extractSeq4(pick("ma_ho_so", ""));
+
+      // 2) Nếu không có -> sinh từ cache theo (Khóa, Đợt)
+      if (!seq4) {
+        const k = pick("khoa");
+        const d = pick("dot");
+        if (k && d && seqCache){
+          const key = `${k}|${d}`;
+          if (seqCache[key] == null) {
+            const max = await getMaxSeqInGroup(k, d);
+            seqCache[key] = max + 1;
+          }
+          seq4 = String(seqCache[key]).padStart(4,'0');
+          seqCache[key] += 1;
+        }
+      }
 
       const ngay_nhan_form = $('defaultNgayNhan').value; // YYYY-MM-DD
       const ngay_nhan_iso  = parseDateFlexible(ngay_nhan_form) || ngay_nhan_form;
@@ -475,7 +472,7 @@
       const gioi_tinh      = normalizeGender(pick("gioi_tinh")) || null;
 
       return {
-        ma_ho_so,
+        ma_ho_so: seq4 || "",                    // << CHỈ 4 SỐ
         ngay_nhan_hs: ngay_nhan_iso,
         ho_ten: pick("ho_ten"),
         ma_so_hv: pick("ma_so_hv"),
@@ -502,11 +499,27 @@
       return true;
     }
 
-    $('btnPreview').onclick = () => {
+    $('btnPreview').onclick = async () => {
       const m = getMappingFromUI();
       if (!requireMappings(m)) return;
-      const test = parsedRows.slice(0,5).map(row=> makeApplicantPayload(row, m));
+
+      // Chuẩn bị seqCache giống lúc upload (preview 5 dòng đầu)
+      const needGroup = !m['ma_ho_so'];
+      const seqCache = {};
+      if (needGroup){
+        const k = String((parsedRows[0]||{})[m['khoa']]||'').trim();
+        const d = String((parsedRows[0]||{})[m['dot']] ||'').trim();
+        if (k && d){
+          const max = await getMaxSeqInGroup(k,d);
+          seqCache[`${k}|${d}`] = max + 1;
+        }
+      }
+      const test = [];
+      for (let i=0;i<Math.min(5, parsedRows.length); i++){
+        test.push(await makeApplicantPayload(parsedRows[i], m, seqCache));
+      }
       console.log("Preview payloads:", test);
+      alert("Đã log 5 payload xem trước (Console).");
     };
 
     $('btnUpload').onclick = async ()=>{
@@ -519,12 +532,35 @@
       const m = getMappingFromUI();
       if (!requireMappings(m)) { $('btnUpload').disabled=false; return; }
 
+      // Nếu không có cột Mã HS -> bắt buộc có Khóa & Đợt
+      const needGroup = !m['ma_ho_so'];
+      if (needGroup && (!m['khoa'] || !m['dot'])) {
+        alert("File không có cột 'Mã hồ sơ'. Vui lòng map thêm 'Khóa' và 'Đợt' để sinh số tự động.");
+        $('btnUpload').disabled = false; return;
+      }
+
+      // Preload next sequence cho từng (khoa|dot)
+      const seqCache = {};
+      if (needGroup){
+        const groups = new Set();
+        for (const row of parsedRows){
+          const k = String(row[m['khoa']]||'').trim();
+          const d = String(row[m['dot']] ||'').trim();
+          if (k && d) groups.add(`${k}|${d}`);
+        }
+        for (const key of groups){
+          const [k,d] = key.split('|');
+          const max = await getMaxSeqInGroup(k, d);
+          seqCache[key] = max + 1;
+        }
+      }
+
       const total = parsedRows.length; let done=0, ok=0, fail=0;
       setBar(0,total);
 
       for (let i=0;i<parsedRows.length;i++){
         if (stopFlag) break;
-        const body = await makeApplicantPayload(parsedRows[i], m);
+        const body = await makeApplicantPayload(parsedRows[i], m, seqCache);
         if (!body.ho_ten || !body.ma_so_hv){
           fail++; done++; setBar(done,total);
           addResult('SKIP', i+1, body, 'Thiếu bắt buộc (Họ và tên hoặc Mã số HV)');
@@ -584,7 +620,7 @@
     }
     window.addEventListener("load", ensureNguoiNhanFromSession);
 
-    // ===== Template (headers theo FIELD_DEFS + sample theo key nội bộ) =====
+    // ===== Template (headers theo FIELD_DEFS + sample)
     function buildTemplateHeaders(){
       return FIELD_DEFS.map(f=>f.label);
     }
@@ -598,7 +634,6 @@
           nganh_nhap_hoc:"Quản trị kinh doanh", dot:"1", khoa:"25", da_tn_truoc_do:"Cao đẳng", ghi_chu:"" }
       ];
     }
-
     $('btnTplXlsx').onclick = ()=>{
       const wb = XLSX.utils.book_new();
       const headers = buildTemplateHeaders();
@@ -612,12 +647,11 @@
         ["- Ngày nhận HS được chọn ở giao diện, KHÔNG cần có trong file."],
         ["- Định dạng ngày sinh gợi ý: DD/MM/YYYY (ví dụ: 01/10/2005)."],
         ["- Giới tính chấp nhận: Nam | Nữ | Khác (hoặc m/f, male/female, 1/0)."],
-        ["- 'Đã TN trước đó' có thể điền: THPT / Trung cấp / Cao đẳng / Đại học ..."]
+        ["- Nếu không có 'Mã hồ sơ', bắt buộc có 'Khóa' & 'Đợt' để sinh số 4 chữ số theo nhóm."]
       ];
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(guide), "HuongDan");
       XLSX.writeFile(wb, `template_hoc_vien_${Date.now()}.xlsx`);
     };
-
     $('btnTplCsv').onclick = ()=>{
       const headers = buildTemplateHeaders();
       const rows = sampleRows();
@@ -632,15 +666,14 @@
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
     };
 
-    // ===== Export XLSX (đã sửa đầy đủ) =====
+    // ===== Export XLSX =====
     function toAoAFull(list){
       const header = [
-        "MaHS","Họ tên","MSSV","Giới tính","Dân tộc","Ngày sinh","Số ĐT","Email",
+        "MaHS(4so)","Họ tên","MSSV","Giới tính","Dân tộc","Ngày sinh","Số ĐT","Email",
         "Ngành nhập học","Đợt","Khóa","Đối tượng TN","Ngày nhận",
         "Kết quả","Ghi chú kết quả"
       ];
       const aoa = [header];
-
       for (const r of list){
         const d = r.data || {};
         const label = r.type==='OK' ? 'THÀNH CÔNG' : (r.type==='SKIP' ? 'BỎ QUA' : 'LỖI');
