@@ -48,7 +48,7 @@ async def add_correlation_id(request: Request, call_next):
 MAX_IDLE_SECONDS = AUTH_IDLE_TIMEOUT_SEC  # 1h từ auth.py
 
 WHITELIST_PREFIXES = (
-    "/ams.html",
+    "/compilation.html",
     "/ams_home.html",                     
     "/login", "/api/login",
     "/logout", "/api/logout",

@@ -195,8 +195,8 @@
     let API_PREFIX = "";
 
     // ===== Compose / Editor detection =====
-    const COMPOSE_CANDIDATES = ["/ams.html", "/compose.html", "/editor.html", "/"];
-    let COMPOSE_BASE = "/ams.html"; // mặc định an toàn
+    const COMPOSE_CANDIDATES = ["/compilation.html", "/compose.html", "/editor.html", "/"];
+    let COMPOSE_BASE = "/compilation.html"; // mặc định an toàn
 
     async function detectComposePage(){
       for (const p of COMPOSE_CANDIDATES) {

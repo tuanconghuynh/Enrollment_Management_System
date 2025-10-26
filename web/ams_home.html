@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Trang chủ | EMS</title>
+  <title>Trang chủ | AMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css" />
   <link rel="icon" href="hutech.png" type="image/png" />
   <style>
     /* Hình nền và hiệu ứng mờ */
@@ -64,18 +65,13 @@
       </button>
 
       <!-- Dropdown -->
-      <div id="userMenu"
-           class="hidden absolute right-0 top-[calc(100%+6px)] w-56 bg-white border rounded-xl shadow-lg overflow-hidden z-20">
-        <a href="/account" class="block px-4 py-2 hover:bg-gray-50">🔎 Thông tin tài khoản</a>
-        <a href="/account" class="block px-4 py-2 hover:bg-gray-50">🔐 Đổi mật khẩu</a>
-        <button id="btnMenuLogout" class="w-full text-left px-4 py-2 hover:bg-gray-50 text-red-600">↩️ Đăng xuất</button>
-      </div>
+    <div id="userMenu"
+      class="hidden absolute right-0 top-[calc(100%+6px)] w-56 bg-white border rounded-xl shadow-lg overflow-hidden z-20">
+      <a href="/account" class="block px-4 py-2 hover:bg-gray-50">🔎 Thông tin tài khoản</a>
+      <a href="/account" class="block px-4 py-2 hover:bg-gray-50">🔐 Đổi mật khẩu</a>
+      <button id="btnMenuLogout" class="w-full text-left px-4 py-2 hover:bg-gray-50 text-red-600">↩️ Đăng xuất</button>
+    </div>
 
-      <!-- Nút logout cũ vẫn giữ -->
-      <button id="btnLogout"
-        class="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg text-sm shadow">
-        Đăng xuất
-      </button>
     </div>
   </header>
 
@@ -83,7 +79,7 @@
   <main class="flex-1 flex items-center justify-center">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-8 py-12 text-left">
 
-      <a id="cardNhap" href="/ams.html" class="card p-6 hidden">
+      <a id="cardNhap" href="/compilation.html" class="card p-6 hidden">
         <div class="flex items-start gap-4">
           <div class="text-4xl">📝</div>
           <div>
@@ -190,11 +186,13 @@
         if(e.key === 'Escape') openMenu(false);
       });
 
-      // Menu logout
-      document.getElementById('btnMenuLogout')?.addEventListener('click', async ()=>{
-        await api('/logout', { method:'POST' });
-        location.href = '/auth_login.html';
-      });
+    // Menu logout (có xác nhận)
+    document.getElementById('btnMenuLogout')?.addEventListener('click', async ()=>{
+      const confirmLogout = confirm("Bạn có chắc chắn muốn đăng xuất không?");
+      if (!confirmLogout) return;
+      await api('/logout', { method:'POST' });
+      location.href = '/auth_login.html';
+    });
     })();
 
     async function boot(){
@@ -203,14 +201,12 @@
       const me = await r.json();
       const role = me.role || '';
       const name = me.full_name || me.username || 'Người dùng';
-      document.getElementById('hello').innerHTML = `Xin chào, <b>${name}</b> <span class="text-gray-500">(${role})</span>`;
-
+      document.getElementById('hello').innerHTML = `Hi, <b>${name}</b> <span class="text-gray-500">(${role})</span>`;
       // Nếu bắt đổi mật khẩu lần đầu → đưa thẳng sang account (phòng trường hợp bypass)
       if (me.must_change_password) {
         location.href = '/account?first=1';
         return;
       }
-
       // Phân quyền
       if (role === 'Admin') {
         ['cardNhap','cardDSHS','cardImport','cardJournal','cardAdmin','cardChecklist'].forEach(show);
@@ -220,13 +216,6 @@
         ['cardNhap','cardDSHS'].forEach(show);
       }
     }
-
-    // Nút logout cũ
-    document.getElementById('btnLogout').addEventListener('click', async ()=>{
-      await api('/logout', { method:'POST' });
-      location.href = '/auth_login.html';
-    });
-
     boot();
   </script>
 </body>
