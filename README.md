@@ -1,3 +1,4 @@
+> _Formerly known as **Project_AdmissionCheck**._
 # Project AdmissionCheck
 
 Quản trị & kiểm tra hồ sơ tuyển sinh (AdmissionCheck) — nền tảng nội bộ giúp nhập liệu hàng loạt từ Excel/CSV, kiểm tra điều kiện/thiếu sót, sinh mã QR phục vụ xác thực tại quầy, và xuất báo cáo nhanh.
