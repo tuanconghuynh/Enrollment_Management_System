@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Danh sách hồ sơ | Admission Check</title>
+  <title>Danh sách hồ sơ | Admission_Management_System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
   <link rel="apple-touch-icon" href="hutech.png">
@@ -15,7 +15,7 @@
     <!-- Header -->
     <header class="flex flex-wrap gap-3 items-center justify-between">
       <div class="flex items-center gap-3 min-w-0">
-        <a href="/index_home.html" title="Về trang chủ" class="flex items-center gap-3 hover:opacity-80 transition">
+        <a href="/ams_home.html" title="Về trang chủ" class="flex items-center gap-3 hover:opacity-80 transition">
           <img src="hutech.png" alt="HUTECH" class="h-8 w-8 object-contain select-none" />
         </a>
         <div>
@@ -38,9 +38,9 @@
           <button id="btnLogout" class="btn btn-outline hidden">LogOut</button>
         </div>
 
-        <a class="btn btn-outline" href="/" title="Biên soạn Hồ Sơ">Soạn Hồ Sơ</a>
-        <a id="journalLink" class="btn btn-outline" href="/journal.html" title="Nhật ký" hidden>🧾Nhật ký</a>
-        <a class="btn btn-outline" href="/index_home.html" title="Trang chủ">← Trang chủ</a>
+        <!-- <a class="btn btn-outline" href="/" title="Biên soạn Hồ Sơ">Soạn Hồ Sơ</a>
+        <a id="journalLink" class="btn btn-outline" href="/journal.html" title="Nhật ký" hidden>🧾Nhật ký</a> -->
+        <a class="btn btn-outline" href="/ams_home.html" title="Trang chủ">← Trang chủ</a>
       </div>
     </header>
 
@@ -195,15 +195,15 @@
     let API_PREFIX = "";
 
     // ===== Compose / Editor detection =====
-    const COMPOSE_CANDIDATES = ["/index.html", "/compose.html", "/editor.html", "/"];
-    let COMPOSE_BASE = "/index.html"; // mặc định an toàn
+    const COMPOSE_CANDIDATES = ["/ams.html", "/compose.html", "/editor.html", "/"];
+    let COMPOSE_BASE = "/ams.html"; // mặc định an toàn
 
     async function detectComposePage(){
       for (const p of COMPOSE_CANDIDATES) {
         try {
           const r = await fetch(p, { method: "GET", credentials: "include" });
           if (r.ok) {
-            if (p !== "/index_home.html") { // tránh nhầm trang chủ
+            if (p !== "/ams_home.html") { // tránh nhầm trang chủ
               COMPOSE_BASE = p;
               break;
             }

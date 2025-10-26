@@ -48,8 +48,8 @@ async def add_correlation_id(request: Request, call_next):
 MAX_IDLE_SECONDS = AUTH_IDLE_TIMEOUT_SEC  # 1h từ auth.py
 
 WHITELIST_PREFIXES = (
-    "/index.html",
-    "/index_home.html",                     # 👈 Thêm để cho phép vào trang chủ mới
+    "/ams.html",
+    "/ams_home.html",                     
     "/login", "/api/login",
     "/logout", "/api/logout",
     "/health", "/api/health",
@@ -194,10 +194,10 @@ def _log_routes():
         except Exception:
             pass
 
-# ---------------- Redirect "/" → index_home.html ----------------
+# ---------------- Redirect "/" → ams_home.html ----------------
 @app.get("/", include_in_schema=False)
 async def root():
-    return RedirectResponse(url="/index_home.html", status_code=307)
+    return RedirectResponse(url="/ams_home.html", status_code=307)
 
 # ---------------- Static web/ ----------------
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

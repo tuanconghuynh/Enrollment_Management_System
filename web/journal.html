@@ -34,7 +34,7 @@
     <header class="flex flex-wrap gap-3 items-center justify-between">
       <div class="min-w-0">
         <div class="flex items-center gap-2">
-          <a href="/index_home.html" title="Về trang chủ" class="flex items-center hover:opacity-80 transition">
+          <a href="/ams_home.html" title="Về trang chủ" class="flex items-center hover:opacity-80 transition">
             <img src="hutech.png" alt="HUTECH" class="w-8 h-8 object-contain" />
           </a>
           <h1 class="text-2xl font-bold leading-tight">Nhật ký hệ thống</h1>
@@ -46,8 +46,8 @@
         <label class="text-sm text-gray-500" for="apiBase">API Base</label>
         <input id="apiBase" class="input w-52 md:w-72" placeholder="" />
         <span class="hidden md:inline-block w-px h-6 bg-gray-200"></span>
-        <a class="btn btn-outline" href="/students_list.html" title="Danh sách hồ sơ">📋 Danh sách hồ sơ</a>
-        <a class="btn btn-outline" href="/index_home.html" title="Trang chủ">← Trang chủ</a>
+        <!-- <a class="btn btn-outline" href="/students_list.html" title="Danh sách hồ sơ">📋 Danh sách hồ sơ</a> -->
+        <a class="btn btn-outline" href="/ams_home.html" title="Trang chủ">← Trang chủ</a>
       </div>
     </header>
 
@@ -143,7 +143,7 @@
               <tr>
                 <th class="th-sortable text-left" data-sort="id">STT <span class="arrow">▲▼</span></th>
                 <th class="th-sortable text-center" data-sort="occurred_at">Thời gian <span class="arrow">▲▼</span></th>
-                <th class="th-sortable text-center" data-sort="actor_name">Người <span class="arrow">▲▼</span></th>
+                <th class="th-sortable text-center" data-sort="actor_name">Người thực hiện <span class="arrow">▲▼</span></th>
                 <th class="th-sortable text-center" data-sort="action">Thao tác <span class="arrow">▲▼</span></th>
                 <th class="th-sortable text-center" data-sort="target">MSSV <span class="arrow">▲▼</span></th>
                 <th class="th-sortable text-center" data-sort="status">Trạng thái <span class="arrow">▲▼</span></th>
@@ -486,7 +486,7 @@
           ${row.status === 'SUCCESS' ? '<span class="status-ok">OK</span>' : '<span class="status-fail">FAIL</span>'}
         </td>
         <td class="text-center">
-          <button class="btn btn-outline btn-xs" data-id="${row.id}">Xem</button>
+          <button class="btn btn-outline btn-xs" data-id="${row.id}">View👁️‍🗨️</button>
         </td>`;
       tb.appendChild(tr);
     });

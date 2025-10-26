@@ -17,7 +17,7 @@ from app.core.security import hash_password  # dùng context chung
 router = APIRouter()
 
 # === Trỏ đúng thư mục template: <repo>/web ===
-ROOT_DIR = Path(__file__).resolve().parents[2]   # .../Project_AdmissionCheck
+ROOT_DIR = Path(__file__).resolve().parents[2]   # .../Project_Admission_Management_System
 templates = Jinja2Templates(directory=str(ROOT_DIR / "web"))
 
 VALID_ROLES = {"Admin", "NhanVien", "CongTacVien"}
@@ -30,7 +30,7 @@ def admin_index(
 ):
     users = db.query(User).order_by(User.id.desc()).all()
     return templates.TemplateResponse(
-        "admin_index.html",
+        "admin_ams.html",
         {"request": request, "users": users, "me": me}
     )
 

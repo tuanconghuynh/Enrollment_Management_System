@@ -5,7 +5,7 @@ setlocal ENABLEDELAYEDEXPANSION
 cd /d "%~dp0"
 
 echo ==============================================
-echo  AdmissionCheck - FastAPI (interactive)
+echo  Admission_Management_System - FastAPI (interactive)
 echo  Tao venv + cai thu vien + chay server
 echo ==============================================
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Đăng nhập | Admission Check</title>
+  <title>Đăng nhập | Admission_Management_System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="icon" type="image/png" href="/hutech.png" sizes="32x32">
   <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
@@ -34,7 +34,7 @@
         <img src="/hutech.png" class="h-10 w-10" alt="HUTECH">
         <div>
           <h1 class="text-xl font-bold leading-tight">Viện Hợp tác &amp; Phát triển Đào tạo</h1>
-          <p class="text-sm text-gray-500">Đăng nhập - Admission Check – Trang Nội Bộ</p>
+          <p class="text-sm text-gray-500">Đăng nhập - Admission_Management_System – Trang Nội Bộ</p>
         </div>
       </div>
 
@@ -96,7 +96,7 @@
           if (err) err.textContent = 'Sai tài khoản hoặc mật khẩu';
           return false;
         }
-        location.href = '/index_home.html'; // giữ đúng flow hiện tại của anh
+        location.href = '/ams_home.html'; // giữ đúng flow hiện tại của anh
         return false;
       } catch (ex) {
         if (err) err.textContent = 'Không thể kết nối máy chủ. Vui lòng thử lại.';

@@ -1,4 +1,4 @@
-# app/routers/admissions.py
+# app/routers/Admission.py
 import os
 import pandas as pd
 from fastapi import APIRouter, Request, Depends, UploadFile, File, HTTPException
@@ -13,7 +13,7 @@ from .auth import require_roles, get_current_user
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "web"))
 
-router = APIRouter(prefix="/admissions", tags=["Admissions"])
+router = APIRouter(prefix="/Admission", tags=["Admission"])
 
 # =====================
 # Import học viên
@@ -126,4 +126,4 @@ def create_application(
     )
     db.add(app_row)
     db.commit()
-    return RedirectResponse(url="/admissions/students", status_code=302)
+    return RedirectResponse(url="/Admission/students", status_code=302)

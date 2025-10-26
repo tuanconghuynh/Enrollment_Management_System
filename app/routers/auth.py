@@ -148,7 +148,7 @@ def login(
                 "is_active": user.is_active,
             },
         }
-    return RedirectResponse(url="/index_home.html", status_code=302)
+    return RedirectResponse(url="/ams_home.html", status_code=302)
 
 @router.post("/logout")
 @router.post("/api/logout")

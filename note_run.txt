@@ -2,15 +2,15 @@
 
 1. Lệnh tạo database (MySQL/MariaDB)
 
-Nếu anh dùng MySQL (thường settings.DB_URL=mysql+pymysql://vhtpt%40hutech.edu.vn:VHTPT@hutech123@localhost:3306/admissioncheck
+Nếu anh dùng MySQL (thường settings.DB_URL=mysql+pymysql://vhtpt%40hutech.edu.vn:VHTPT@hutech123@localhost:3306/Admission_Management_System
 ) thì chỉ cần chạy:
 
-CREATE DATABASE admission_check CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE Admission_Management_System CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 2. Tạo tài khoản riêng cho app (nếu chưa có)
 
 CREATE USER 'vhtpt@hutech.edu.vn'@'localhost' IDENTIFIED BY 'VHTPT@hutech123';
-GRANT ALL PRIVILEGES ON admissioncheck.* TO 'vhtpt@hutech.edu.vn'@'localhost';
+GRANT ALL PRIVILEGES ON Admission_Management_System.* TO 'vhtpt@hutech.edu.vn'@'localhost';
 FLUSH PRIVILEGES;
 
 3. Chạy migrate / khởi tạo bảng
@@ -18,7 +18,7 @@ FLUSH PRIVILEGES;
 Vì anh đang dùng SQLAlchemy nên code có Base.metadata.create_all(bind=engine) → chỉ cần chạy server FastAPI lần đầu là nó tự tạo bảng trong database.
 Nếu anh đổi máy, chỉ cần:
 
-cd C:\HuynhCongTuan\Project_AdmissionCheck
+cd C:\HuynhCongTuan\Project_Admission_Management_System
 .\.venv\Scripts\activate
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
@@ -32,11 +32,11 @@ Em viết cho anh file init_db.sql để sau này anh chỉ cần import:
 📄 init_db.sql
 
 -- Tạo database
-CREATE DATABASE IF NOT EXISTS admissioncheck CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS Admission_Management_System CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Tạo user & cấp quyền
 CREATE USER 'vhtpt@hutech.edu.vn'@'localhost' IDENTIFIED BY 'VHTPT@hutech123';
-GRANT ALL PRIVILEGES ON admissioncheck.* TO 'vhtpt@hutech.edu.vn'@'localhost';
+GRANT ALL PRIVILEGES ON Admission_Management_System.* TO 'vhtpt@hutech.edu.vn'@'localhost';
 FLUSH PRIVILEGES;
 
 

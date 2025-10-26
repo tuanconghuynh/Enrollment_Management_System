@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # DB mặc định: bạn có thể override bằng biến môi trường DB_URL hoặc file .env
-    DB_URL: str = "mysql+pymysql://root:@localhost:3306/admission_check?charset=utf8mb4"
+    DB_URL: str = "mysql+pymysql://root:@localhost:3306/Admission_Management_System?charset=utf8mb4"
 
     # Đường dẫn font Times New Roman (có thể override bằng ENV)
     FONT_PATH: str = "assets/TimesNewRoman.ttf"
