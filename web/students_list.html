@@ -312,6 +312,18 @@
       try { sessionStorage.setItem('deletedMshv', JSON.stringify([...deletedMshv])); } catch(_){}
     }
 
+    function clearDeletedIfExists(items){
+      (items || []).forEach(it => {
+        const id = String(it?.ma_so_hv || '');
+        const serverSoftDeleted = isDeletedFlag(it); // true nếu bản ghi còn đang soft-delete trên BE
+        // Nếu server trả về và KHÔNG soft-delete -> gỡ khỏi blacklist của FE
+        if (id && deletedMshv.has(id) && !serverSoftDeleted){
+          deletedMshv.delete(id);
+        }
+      });
+      persistDeletedMshv();
+    }
+
     function notDeleted(it){
       const id = String(it?.ma_so_hv || '');
       return id && !deletedMshv.has(id) && !isDeletedFlag(it);
@@ -641,14 +653,32 @@
         const j = await tryJson(`/applicants/search?${k}=${encodeURIComponent(q)}&page=${page}&size=${size}`);
         if (j) {
           const norm = normalizePaged(j);
+
+          // ✅ Gỡ MSHV khỏi blacklist nếu server đã trả về (và không còn soft-delete)
+          clearDeletedIfExists(norm.items);
+
+          // Sau đó mới lọc notDeleted
           norm.items = (norm.items || []).filter(notDeleted);
           return norm;
         }
       }
+
       let j = await tryJson(`/applicants/search?page=${page}&size=${size}`);
-      if (j) { const norm = normalizePaged(j); norm.items = (norm.items || []).filter(notDeleted); return norm; }
+      if (j) {
+        const norm = normalizePaged(j);
+        clearDeletedIfExists(norm.items);
+        norm.items = (norm.items || []).filter(notDeleted);
+        return norm;
+      }
+
       j = await tryJson(`/applicants?page=${page}&size=${size}`);
-      if (j) { const norm = normalizePaged(j); norm.items = (norm.items || []).filter(notDeleted); return norm; }
+      if (j) {
+        const norm = normalizePaged(j);
+        clearDeletedIfExists(norm.items);
+        norm.items = (norm.items || []).filter(notDeleted);
+        return norm;
+      }
+
       return { items: [], total: 0, page: 1, size: size };
     }
 
@@ -691,6 +721,7 @@
       setState({loading:true});
       try{
         const full = await buildSourceFull();
+        clearDeletedIfExists(full);
         state.total = full.length;
 
         const totalPages = Math.max(1, Math.ceil(state.total / state.size));
@@ -710,20 +741,27 @@
       try {
         const bc = new BroadcastChannel('app-events');
         bc.onmessage = (ev) => {
-          if (ev?.data?.type === 'APPLICANT_RESTORED') {
-            const id = String(ev.data?.mssv || '');
-            if (id) {
-              deletedMshv.delete(id);
-              persistDeletedMshv();
-              state.page = 1;
-              runSearch();
-            }
+          const t = ev?.data?.type;
+          const id = String(ev?.data?.mssv || '');
+          if (!id) return;
+
+          if (t === 'APPLICANT_RESTORED') {
+            deletedMshv.delete(id);
+            persistDeletedMshv();
+            state.page = 1;
+            runSearch();
+          }
+
+          // 🧹 Khi xoá vĩnh viễn: gỡ luôn khỏi blacklist xoá mềm để sau này tạo lại sẽ hiện
+          if (t === 'APPLICANT_DELETED_PERMANENT') {
+            deletedMshv.delete(id);
+            persistDeletedMshv();
+            state.page = 1;
+            runSearch();
           }
         };
       } catch(_) {}
     })();
-
-    
 
     // ===== File helpers =====
     async function fetchFileOrAlert(url, filename, type = "excel"){
@@ -840,7 +878,18 @@
         } catch(_) {}
       })();
       $("q").focus();
-
+      (function checkPurgedFallback(){
+        try {
+          const id = localStorage.getItem('purged.mssv');
+          if (id) {
+            deletedMshv.delete(String(id));
+            persistDeletedMshv();
+            localStorage.removeItem('purged.mssv');
+            state.page = 1;
+            runSearch();
+          }
+        } catch(_) {}
+      })();
       const defaultSize = 10;
       $("pageSize").value = String(defaultSize);
       state.size = defaultSize;
@@ -959,6 +1008,5 @@
       </div>
     </div>
   </div>
-
 </body>
 </html>

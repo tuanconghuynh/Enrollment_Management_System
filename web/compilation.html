@@ -585,10 +585,11 @@ $('dot').addEventListener('change',  () => tryPreviewMaHoSo(true));
 
   // ===== Local tombstone cho MSHV đã xoá =====
   const TOMBSTONE_KEY = 'deleted_mshv_set_v1';
-  function getDeletedSet() { try { return new Set(JSON.parse(localStorage.getItem(TOMBSTONE_KEY) || '[]')); } catch { return new Set(); } }
-  function saveDeletedSet(set) { try { localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(Array.from(set))); } catch {} }
-  function markDeleted(mshv) { const s = getDeletedSet(); s.add(String(mshv).trim()); saveDeletedSet(s); }
-  function isMarkedDeleted(mshv) { return getDeletedSet().has(String(mshv).trim()); }
+  function getDeletedSet(){ try{ return new Set(JSON.parse(localStorage.getItem(TOMBSTONE_KEY)||'[]')); }catch{ return new Set(); } }
+  function saveDeletedSet(set){ try{ localStorage.setItem(TOMBSTONE_KEY, JSON.stringify([...set])); }catch{} }
+  function markDeleted(mshv){ const s=getDeletedSet(); s.add(String(mshv).trim()); saveDeletedSet(s); }
+  function isMarkedDeleted(mshv){ return getDeletedSet().has(String(mshv).trim()); }
+  function clearMarkedDeleted(mshv){ const s=getDeletedSet(); s.delete(String(mshv).trim()); saveDeletedSet(s); }
 
   /* ===== Lookup / Update / Delete ===== */
   let loadedDocsByCode = {};
@@ -868,6 +869,8 @@ function populateFormFromApplicant(a={}, docs){
       ma_so_hv: j.ma_so_hv || body.ma_so_hv,
       ma_ho_so: j.ma_ho_so || body.ma_ho_so
     };
+    // nếu MSHV này từng bị đánh dấu xoá ở máy này, gỡ ra
+    clearMarkedDeleted(window.loadedApplicant.ma_so_hv);
     setPrintButtonsEnabled(true);
     return j;
   }
@@ -1192,25 +1195,21 @@ $('q_ma_so_hv').addEventListener('keydown', (e) => {
   };
 
   // Load theo MSHV
-  $('btnLoadApplicantMSHV').addEventListener('click', async ()=>{
-    try{
-      const mshv = $('q_ma_so_hv').value.trim();
-      if(!mshv){ alert("Nhập MSHV (MSSV) để tải!"); return; }
+  $('btnLoadApplicantMSHV').addEventListener('click', async () => {
+    const mshv = $('q_ma_so_hv').value.trim();
+    if (!mshv) { alert("Nhập MSHV (MSSV) để tải!"); return; }
 
-      // ❗ Chặn nếu vừa bị xoá trong phiên/thiết bị này
-      if (isMarkedDeleted(mshv)) {
-        $('lookupMsg').textContent = `MSHV ${mshv} đã bị xóa tạm`;
-        showToast(`MSHV ${mshv} đã bị xóa`, 'warn');
-        window.loadedApplicant = null;
-        setPrintButtonsEnabled(false);
-        await clearForm();
-        return;
-      }
+    $('lookupMsg').textContent = "Đang tải theo MSHV...";
 
-      $('lookupMsg').textContent = "Đang tải theo MSHV...";
-      const a = await loadApplicantByMSHV(mshv);
+    try {
+      // Nếu từng bị đánh dấu xoá tạm, vẫn thử gọi server để kiểm tra thực tế
+      let a = await loadApplicantByMSHV(mshv);
 
-      if (isSoftDeleted(a) || isSoftDeleted(a?.applicant)) {
+      // Nếu server trả về hợp lệ & không soft-delete -> gỡ cờ local
+      if (!isSoftDeleted(a) && !isSoftDeleted(a?.applicant)) {
+        clearMarkedDeleted(mshv);
+      } else {
+        // Trường hợp server xác nhận vẫn bị xoá
         $('lookupMsg').textContent = `MSHV ${mshv} đã bị xóa`;
         showToast(`MSHV ${mshv} đã bị xóa`, 'warn');
         window.loadedApplicant = null;
@@ -1223,8 +1222,9 @@ $('q_ma_so_hv').addEventListener('keydown', (e) => {
       populateFormFromApplicant(a, a.docs || []);
       setPrintButtonsEnabled(true);
       $('lookupMsg').textContent = `Đã tải hồ sơ: ${a.ho_ten} • Mã HS ${a.ma_ho_so} • MSHV ${a.ma_so_hv}`;
-    }catch(e){
-      $('lookupMsg').textContent = e.message;
+    } catch (e) {
+      // Nếu 404/410… mới coi như “đã xóa” thực sự
+      $('lookupMsg').textContent = e.message || 'Không tải được hồ sơ.';
       window.loadedApplicant = null;
       setPrintButtonsEnabled(false);
       await clearForm();
@@ -1280,6 +1280,29 @@ $('q_ma_so_hv').addEventListener('keydown', (e) => {
     const url = new URL(window.location.href);
     const mshv = url.searchParams.get('mshv');
     if (mshv) { $('q_ma_so_hv').value = mshv; $('btnLoadApplicantMSHV').click(); }
+    // Nhận broadcast từ trang Nhật ký / danh sách
+    try {
+      const bc = new BroadcastChannel('app-events');
+      bc.onmessage = (ev) => {
+        const t = ev?.data?.type;
+        const id = String(ev?.data?.mssv || '');
+        if (!id) return;
+        if (t === 'APPLICANT_RESTORED' || t === 'APPLICANT_DELETED_PERMANENT' || t === 'APPLICANT_RECREATED') {
+          clearMarkedDeleted(id);
+        }
+      };
+    } catch (_) {}
+
+    // Fallback dùng localStorage key khi mở tab mới
+    (function syncTombstoneFromStorage(){
+      try {
+        const r1 = localStorage.getItem('restored.mssv');
+        const r2 = localStorage.getItem('purged.mssv');
+        [r1, r2].filter(Boolean).forEach(id => clearMarkedDeleted(id));
+        if (r1) localStorage.removeItem('restored.mssv');
+        if (r2) localStorage.removeItem('purged.mssv');
+      } catch(_) {}
+    })();
   });
 
   document.addEventListener("DOMContentLoaded", async () => {

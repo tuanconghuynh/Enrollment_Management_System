@@ -14,7 +14,7 @@
   <script>
   const isJournal = /\/journal\.html$/.test(location.pathname);
   if (isJournal && (location.search || location.hash)) {
-    history.replaceState(null, '', location.pathname); // giữ nguyên subpath, chỉ bỏ ? và #
+    history.replaceState(null, '', location.pathname);
   }
   </script>
 
@@ -294,7 +294,7 @@
   const actionVi = c => ACTION_LABELS[(c||'').toUpperCase()] || (c||'—');
 
   const FIELD_LABELS = {
-    checklist_version_id:"Phiên bản checklist",
+    checklist_version_name:"Version danh mục",
     da_tn_truoc_do:"Đã TN trước đó",
     deleted_at:"Thời điểm xóa",
     deleted_by:"Người xóa",
@@ -711,178 +711,205 @@ async function openDetail(id) {
     const d = await r.json();
     state.currentLog = d;
 
-  // ⚙️ Hiển thị MSSV thay cho STT
-  const label = d?.target_id
-    ? `MSSV: ${String(d.target_id)}`
-    : `STT: ${String(id)}`;
-  $('#d_id').textContent = label;
+    // ⚙️ Hiển thị MSSV thay cho STT
+    const label = d?.target_id ? `MSSV: ${String(d.target_id)}` : `STT: ${String(id)}`;
+    $('#d_id').textContent = label;
 
-    // Ẩn nút mở hồ sơ (vì anh không cần)
+    // Ẩn nút mở hồ sơ (không dùng)
     const btnOpenApplicant = document.getElementById('btnOpenApplicant');
     if (btnOpenApplicant) btnOpenApplicant.style.display = 'none';
 
-    // ===== Quy tắc hiển thị nút theo ngữ cảnh =====
-    const canTarget = !!(d?.target_id);
-    const isApplicant = (d?.target_type === 'Applicant');
-    const isHardDeleted = (d?.action === 'DELETE_HARD') || (d?.new_values?.hard_deleted === true);
-    const isSoftDeleteAction = (d?.action === 'DELETE_SOFT' || d?.action === 'DELETE');
-    const hasSnapshot = !!(d?.prev_values) || !!(d?.new_values);
+    // ===== Ngữ cảnh chung
+    const canTarget          = !!(d?.target_id);
+    const isApplicant        = (d?.target_type === 'Applicant');
+    const isHardDeleted      = (String(d?.action || '').toUpperCase() === 'DELETE_HARD') || (d?.new_values?.hard_deleted === true);
+    const isSoftDeleteAction = ['DELETE_SOFT', 'DELETE'].includes(String(d?.action || '').toUpperCase());
 
-    // Khôi phục: chỉ cho Applicant, có target_id, KHÔNG hard-deleted
+    // ===== Chuẩn hoá snapshot trước/sau (dùng cho quyết định hiển thị nút)
+    const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+    const asObj = (x) => (isObj(x) ? x : {});
+    const prev  = asObj(d.prev_values);
+    const next  = asObj(d.new_values);
+
+    // ===== Quyết định HIỆN nút "Khôi phục"
     const btnRestore = document.getElementById('btnRestore');
-    if (!isApplicant || !canTarget || isHardDeleted) {
-      btnRestore.disabled = true;
-      btnRestore.title = isHardDeleted
-        ? 'Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục!'
-        : (!hasSnapshot ? 'Log này không có snapshot để khôi phục.' : 'Không thể khôi phục với log này!');
-    } else {
-      btnRestore.disabled = false;
-      btnRestore.title = 'Khôi phục từ snapshot';
+    btnRestore.style.display = 'none';
+    btnRestore.disabled = false;
+    btnRestore.title = '';
+
+    const action = String(d?.action || '').toUpperCase();
+    const hasPrev = Object.keys(prev).length > 0;
+    const restorableActions = new Set(['UPDATE', 'DELETE_SOFT', 'DELETE']);
+
+    // nếu là xóa tạm / delete mềm -> kiểm tra xem hiện tại đã bị xóa vĩnh viễn chưa
+    let purgedNow = (action === 'DELETE_HARD') || (d?.new_values?.hard_deleted === true);
+    if (!purgedNow && ['DELETE_SOFT','DELETE'].includes(action) && d?.target_id) {
+      purgedNow = await alreadyPurgedByLog(d.target_id);   // hỏi Journal xem có log DELETE_HARD không
     }
 
-    // Xóa vĩnh viễn: chỉ Admin + log DELETE/DELETE_SOFT + Applicant + có target
+    const isRestorable =
+      isApplicant &&
+      canTarget &&
+      !purgedNow &&                 // <-- đã bị xóa vĩnh viễn thì KHÔNG cho khôi phục
+      restorableActions.has(action) &&
+      hasPrev;                      // UPDATE/DELETE_* đều cần snapshot trước
+
+    if (isRestorable) {
+      btnRestore.style.display = '';
+    } else {
+      // btnRestore.style.display = 'none';
+      // nếu anh muốn hiện mờ (disabled) thay vì ẩn hẳn, dùng 3 dòng dưới và bỏ dòng display = 'none'
+      btnRestore.style.display = '';
+      btnRestore.disabled = true;
+      btnRestore.title = purgedNow ? 'Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục.' : 'Không có dữ liệu cũ để khôi phục.';
+    }
+
+    // ===== Nút "Xoá vĩnh viễn" (Admin + log xóa mềm/DELETE + có target + chưa bị hard-delete)
     const btnHardDelete = document.getElementById('btnHardDelete');
     const showHardDel = IS_ADMIN && isApplicant && canTarget && isSoftDeleteAction && !isHardDeleted;
     btnHardDelete.style.display = showHardDel ? '' : 'none';
 
-    // 🧠 Giữ nguyên logic phía sau
+    // ===== Phần render chi tiết
     const nameMap = await getChecklistNameMap();
-    const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
-    const asObj = (x) => (isObj(x) ? x : {});
-    const prev = asObj(d.prev_values);
-    const next = asObj(d.new_values);
     const current = Object.keys(next).length ? next : prev;
-      // Hành động xoá?
-      const isDeleteAction = ['DELETE_SOFT', 'DELETE', 'DELETE_HARD'].includes(String(d?.action || '').toUpperCase());
 
-      // Chọn snapshot & docs cho phần “Dữ liệu …”
-      const snapshotForView = isDeleteAction
-        ? prev
-        : (Object.keys(next).length ? next : prev);
+    const isDeleteAction = ['DELETE_SOFT', 'DELETE', 'DELETE_HARD'].includes(action);
 
-      const asDict = (x) => (isObj(x) ? x : {});
-      const docsBefore = asDict(prev.docs_before) || asDict(prev.docs);
-      const docsAfter  = asDict(next.docs_after)  || asDict(next.docs);
+    // Chọn snapshot & docs cho phần “Dữ liệu …”
+    const snapshotForView = isDeleteAction ? prev : (Object.keys(next).length ? next : prev);
 
-      const docsForView = isDeleteAction
-        ? (Object.keys(docsBefore).length ? docsBefore : docsAfter)
-        : (Object.keys(docsAfter).length  ? docsAfter  : docsBefore);
+    const asDict = (x) => (isObj(x) ? x : {});
+    const docsBefore = asDict(prev.docs_before) || asDict(prev.docs);
+    const docsAfter  = asDict(next.docs_after)  || asDict(next.docs);
 
-      // Tính diff thường (bỏ qua docs*)
-      const diffs = diffKeysFiltered(prev, next);
+    const docsForView = isDeleteAction
+      ? (Object.keys(docsBefore).length ? docsBefore : docsAfter)
+      : (Object.keys(docsAfter).length  ? docsAfter  : docsBefore);
 
-      // docs_diff có thể là array/object/null — chuẩn hóa
-      let docsDiff = Array.isArray(next.docs_diff)
-        ? next.docs_diff
-        : (Array.isArray(d.docs_diff) ? d.docs_diff : []);
-      if (!Array.isArray(docsDiff) || docsDiff.length === 0) {
-        const beforeKeys = Object.keys(asDict(docsBefore));
-        const afterKeys  = Object.keys(asDict(docsAfter));
-        const all = new Set([...beforeKeys, ...afterKeys]);
-        docsDiff = Array.from(all)
-          .map(code => ({
-            code,
-            from: Number((docsBefore || {})[code] || 0),
-            to:   Number((docsAfter  || {})[code] || 0)
-          }))
-          .filter(x => x.from !== x.to);
-      }
+    // Tính diff thường (bỏ qua docs*)
+    const diffs = diffKeysFiltered(prev, next);
 
-      /* Thông tin chung */
-      const infoHtml = `
-        <h4 class="mt-1 mb-2 font-bold text-blue-800">Thông tin chung</h4>
-        <div class="grid grid-cols-[220px_1fr] border border-gray-200 rounded-xl overflow-hidden">
-          <div class="bg-slate-50 font-semibold p-2">Thời gian</div>     <div class="p-2">${cellVal(d.occurred_at)}</div>
-          <div class="bg-slate-50 font-semibold p-2">Người thao tác</div><div class="p-2">${escapeHtml(d.actor_name || d.actor_id || '—')}</div>
-          <div class="bg-slate-50 font-semibold p-2">Hành động</div>     <div class="p-2">${escapeHtml(actionVi(d.action))}</div>
-          <div class="bg-slate-50 font-semibold p.2">Trạng thái</div>    <div class="p-2">${escapeHtml(d.status || '')}</div>
-          <div class="bg-slate-50 font-semibold p-2">Đối tượng (MSSV)</div><div class="p-2">${escapeHtml(d.target_id || '—')}</div>
-          <div class="bg-slate-50 font-semibold p-2">Đường dẫn</div>     <div class="p-2">${escapeHtml(d.path || '')}</div>
-          <div class="bg-slate-50 font-semibold p-2">IP</div>             <div class="p-2">${escapeHtml(d.ip_address || '')}</div>
-          <div class="bg-slate-50 font-semibold p-2">Correlation ID</div><div class="p-2">${escapeHtml(d.correlation_id || '')}</div>
-        </div>`;
+    // docs_diff có thể là array/object/null — chuẩn hóa
+    let docsDiff = Array.isArray(next.docs_diff) ? next.docs_diff : (Array.isArray(d.docs_diff) ? d.docs_diff : []);
+    if (!Array.isArray(docsDiff) || docsDiff.length === 0) {
+      const beforeKeys = Object.keys(asDict(docsBefore));
+      const afterKeys  = Object.keys(asDict(docsAfter));
+      const all = new Set([...beforeKeys, ...afterKeys]);
+      docsDiff = Array.from(all)
+        .map(code => ({
+          code,
+          from: Number((docsBefore || {})[code] || 0),
+          to:   Number((docsAfter  || {})[code] || 0)
+        }))
+        .filter(x => x.from !== x.to);
+    }
 
-      /* Dữ liệu (snapshot) */
-      const currentPicks = [
-        ["Mã hồ sơ","ma_ho_so"],
-        ["Ngày nhận hồ sơ","ngay_nhan_hs"],
-        ["Mã số học viên","ma_so_hv"],
-        ["Họ tên","ho_ten"],
-        ["Ngày sinh","ngay_sinh"],
-        ["Giới tính","gioi_tinh"],
-        ["Dân tộc","dan_toc"],
-        ["Số điện thoại","so_dt"],
-        ["Email học viên","email_hoc_vien"],
-        ["Ngành nhập học","nganh_nhap_hoc"],
-        ["Đợt","dot"],
-        ["Khóa","khoa"],
-        ["Đã TN trước đó","da_tn_truoc_do"],
-        ["Ghi chú","ghi_chu"],
-        ["Người nhận","nguoi_nhan_ky_ten"],
-        ["Trạng thái","status"],
-        ["Thời điểm xóa","deleted_at"],
-        ["Người xóa","deleted_by"],
-        ["Lý do xóa","deleted_reason"]
-      ];
+    /* Thông tin chung */
+    const infoHtml = `
+      <h4 class="mt-1 mb-2 font-bold text-blue-800">Thông tin chung</h4>
+      <div class="grid grid-cols-[220px_1fr] border border-gray-200 rounded-xl overflow-hidden">
+        <div class="bg-slate-50 font-semibold p-2">Thời gian</div>     <div class="p-2">${cellVal(d.occurred_at)}</div>
+        <div class="bg-slate-50 font-semibold p-2">Người thao tác</div><div class="p-2">${escapeHtml(d.actor_name || d.actor_id || '—')}</div>
+        <div class="bg-slate-50 font-semibold p-2">Hành động</div>     <div class="p-2">${escapeHtml(actionVi(d.action))}</div>
+        <div class="bg-slate-50 font-semibold p.2">Trạng thái</div>    <div class="p-2">${escapeHtml(d.status || '')}</div>
+        <div class="bg-slate-50 font-semibold p-2">Đối tượng (MSSV)</div><div class="p-2">${escapeHtml(d.target_id || '—')}</div>
+        <div class="bg-slate-50 font-semibold p-2">Đường dẫn</div>     <div class="p-2">${escapeHtml(d.path || '')}</div>
+        <div class="bg-slate-50 font-semibold p-2">IP</div>             <div class="p-2">${escapeHtml(d.ip_address || '')}</div>
+        <div class="bg-slate-50 font-semibold p-2">Correlation ID</div><div class="p-2">${escapeHtml(d.correlation_id || '')}</div>
+      </div>`;
 
-      const snapshotTitle = isDeleteAction ? 'Dữ liệu trước khi xóa' : 'Dữ liệu hiện tại';
-      console.log('dan_toc snapshot', snapshotForView?.dan_toc, 'prev', prev?.dan_toc, 'next', next?.dan_toc);
+    /* Dữ liệu (snapshot) */
+    const currentPicks = [
+      ["Mã hồ sơ","ma_ho_so"],
+      ["Ngày nhận hồ sơ","ngay_nhan_hs"],
+      ["Mã số học viên","ma_so_hv"],
+      ["Họ tên","ho_ten"],
+      ["Ngày sinh","ngay_sinh"],
+      ["Giới tính","gioi_tinh"],
+      ["Dân tộc","dan_toc"],
+      ["Số điện thoại","so_dt"],
+      ["Email học viên","email_hoc_vien"],
+      ["Ngành nhập học","nganh_nhap_hoc"],
+      ["Đợt","dot"],
+      ["Khóa","khoa"],
+      ["Đã TN trước đó","da_tn_truoc_do"],
+      ["Ghi chú","ghi_chu"],
+      ["Người nhận","nguoi_nhan_ky_ten"],
+      ["Trạng thái","status"],
+      ["Thời điểm xóa","deleted_at"],
+      ["Người xóa","deleted_by"],
+      ["Lý do xóa","deleted_reason"]
+    ];
 
+    const snapshotTitle = isDeleteAction ? 'Dữ liệu trước khi xóa' : 'Dữ liệu hiện tại';
 
-      window.currentRenderSection = 'snapshot';
-      window.currentRenderField   = null;
+    window.currentRenderSection = 'snapshot';
+    window.currentRenderField   = null;
 
-      const currentHtml = `
-        <h4 class="mt-6 mb-2 font-bold text-blue-800">${snapshotTitle}</h4>
-        ${snapshotGrid(snapshotForView, currentPicks)}
+    const currentHtml = `
+      <h4 class="mt-6 mb-2 font-bold text-blue-800">${snapshotTitle}</h4>
+      ${snapshotGrid(snapshotForView, currentPicks)}
 
-        <h4 class="mt-6 mb-2 font-bold text-blue-800">Danh mục hồ sơ (${isDeleteAction ? 'trước khi xóa' : 'hiện tại'})</h4>
-        ${renderDocsCurrentTable(docsForView, nameMap)}
-      `;
+      <h4 class="mt-6 mb-2 font-bold text-blue-800">Danh mục hồ sơ (${isDeleteAction ? 'trước khi xóa' : 'hiện tại'})</h4>
+      ${renderDocsCurrentTable(docsForView, nameMap)}
+    `;
 
-     /* Trường thay đổi */
+    /* Trường thay đổi */
     const diffHtml = diffs.length
       ? `<h4 class="mt-6 mb-2 font-bold text-blue-800">Trường thay đổi</h4>
-        <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
-          <thead class="bg-slate-50">
-            <tr>
-              <th class="p-2 text-left">Trường</th>
-              <th class="p-2 text-left">Giá trị cũ</th>
-              <th class="p-2 text-left">Giá trị mới</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${diffs.map(x => `
-              <tr class="border-t">
-                <td class="p-2 font-semibold">${escapeHtml(getFieldLabel(x.field))}</td>
-                <td class="p-2">${cellValFor(x.field, x.from)}</td>
-                <td class="p-2">${cellValFor(x.field, x.to)}</td>
+          <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="p-2 text-left">Trường</th>
+                <th class="p-2 text-left">Giá trị cũ</th>
+                <th class="p-2 text-left">Giá trị mới</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>`
+            </thead>
+            <tbody>
+              ${diffs.map(x => `
+                <tr class="border-t">
+                  <td class="p-2 font-semibold">${escapeHtml(getFieldLabel(x.field))}</td>
+                  <td class="p-2">${cellValFor(x.field, x.from)}</td>
+                  <td class="p-2">${cellValFor(x.field, x.to)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>`
       : `<div class="text-gray-500 mt-4">Không có trường thay đổi.</div>`;
 
-      /* Danh mục hồ sơ thay đổi */
-      const docsHtml = `
-        <h4 class="mt-6 mb-2 font-bold text-blue-800">Danh mục hồ sơ thay đổi</h4>
-        ${renderDocsDiffTable(docsDiff, nameMap)}
-      `;
+    /* Danh mục hồ sơ thay đổi */
+    const docsHtml = `
+      <h4 class="mt-6 mb-2 font-bold text-blue-800">Danh mục hồ sơ thay đổi</h4>
+      ${renderDocsDiffTable(docsDiff, nameMap)}
+    `;
 
-      // Render
-      $('#d_view').innerHTML = infoHtml + currentHtml + diffHtml + docsHtml;
+    // Render
+    $('#d_view').innerHTML = infoHtml + currentHtml + diffHtml + docsHtml;
 
-      // Admin-only hard delete button (phòng hờ)
-      const isDel = ['DELETE','DELETE_SOFT'].includes(String(d.action).toUpperCase());
-      $('#btnHardDelete').style.display = (isDel && IS_ADMIN) ? '' : 'none';
-      $('#detail').style.display = 'flex';
-    }catch(e){
-      showNoti('Không tải được chi tiết: ' + (e.message||'unknown'), 'error');
-    } finally {
-      // reset marker dùng cho cellVal
-      window.currentRenderSection = null;
-      window.currentRenderField   = null;
-    }
+    // Admin-only hard delete button (phòng hờ lần nữa)
+    const isDel = ['DELETE','DELETE_SOFT'].includes(action);
+    $('#btnHardDelete').style.display = (isDel && IS_ADMIN) ? '' : 'none';
+
+    $('#detail').style.display = 'flex';
+  } catch (e) {
+    showNoti('Không tải được chi tiết: ' + (e.message || 'unknown'), 'error');
+  } finally {
+    // reset marker dùng cho cellVal
+    window.currentRenderSection = null;
+    window.currentRenderField   = null;
+  }
+}
+  // === Helper: kiểm tra đã bị xóa vĩnh viễn chưa (dựa vào Journal)
+  async function alreadyPurgedByLog(targetId){
+    if (!targetId) return false;
+    try {
+      const qs = `action=DELETE_HARD&target_id=${encodeURIComponent(targetId)}&page=1&page_size=1&sort=occurred_at:desc`;
+      const r = await apiFetch('/journal/?' + qs);
+      if (!r || !r.ok) return false;
+      const j = await r.json().catch(()=>null);
+      const arr = Array.isArray(j?.items) ? j.items : (Array.isArray(j?.data) ? j.data : []);
+      return Array.isArray(arr) && arr.length > 0;
+    } catch(_) { return false; }
   }
 
   // Đóng modal bằng ESC và click ra ngoài
@@ -1061,6 +1088,7 @@ async function openDetail(id) {
     } catch (_) { alert('Không kiểm tra được quyền truy cập.'); location.href = '/students_list.html'; return; }
 
     await detectPrefix();
+    try { localStorage.removeItem('purged.mssv'); } catch(_) {}
     $('#pageSize').value = String(state.size);
     bindSortHandlers();
     grabFilters();
@@ -1128,7 +1156,7 @@ async function openDetail(id) {
           showNoti(msg, 'error');
           return;
         }
-        showNoti('Đã xóa vĩnh viễn.','success');
+        showNoti('Đã xóa vĩnh viễn!','success');
         btnHardDeleteCancel.click();
         document.getElementById('detail').style.display = 'none';
         load();
@@ -1140,6 +1168,5 @@ async function openDetail(id) {
     yesBtn.addEventListener('click', onYes, { once:true });
   };
 </script>
-
 </body>
 </html>

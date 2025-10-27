@@ -488,7 +488,7 @@
         ghi_chu: pick("ghi_chu") || null,
         nguoi_nhan_ky_ten: $('nguoiNhan').value.trim() || null,
         docs: [],
-        checklist_version_name: "v1",
+        checklist_version_name: ACTIVE_CHECKLIST?.version_name || "v1",
       };
     }
 
@@ -521,6 +521,11 @@
       console.log("Preview payloads:", test);
       alert("Đã log 5 payload xem trước (Console).");
     };
+
+    window.addEventListener("load", async () => {
+      await ensureNguoiNhanFromSession();
+      await fetchActiveChecklist(); // ✅ lấy version đang kích hoạt
+    });
 
     $('btnUpload').onclick = async ()=>{
       if (parsedRows.length === 0) { alert("Chưa chọn tệp hoặc tệp rỗng"); return; }
@@ -618,7 +623,28 @@
         $('btnPreview').disabled = true;
       }
     }
-    window.addEventListener("load", ensureNguoiNhanFromSession);
+
+    let ACTIVE_CHECKLIST = null;
+
+    async function fetchActiveChecklist() {
+      try {
+        await detectPrefix();
+        const r = await apiFetch("/checklist/active");
+        if (r.ok) {
+          ACTIVE_CHECKLIST = await r.json();
+          console.log("✅ Checklist active:", ACTIVE_CHECKLIST.version_name);
+        } else {
+          ACTIVE_CHECKLIST = { version_name: "v1" };
+        }
+      } catch {
+        ACTIVE_CHECKLIST = { version_name: "v1" };
+      }
+    }
+
+    window.addEventListener("load", async () => {
+      await ensureNguoiNhanFromSession();
+      await fetchActiveChecklist(); // ✅ Lấy danh mục đang kích hoạt
+    });
 
     // ===== Template (headers theo FIELD_DEFS + sample)
     function buildTemplateHeaders(){

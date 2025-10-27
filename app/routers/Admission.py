@@ -6,9 +6,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+
 from app.db.session import get_db
 from app.models import Student, Application, User
 from .auth import require_roles, get_current_user
+from app.routers.checklist import _get_active
+
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "web"))
@@ -118,11 +121,16 @@ def create_application(
     if not student:
         raise HTTPException(status_code=404, detail="Không tìm thấy học viên")
 
+    # Lấy version danh mục hồ sơ đang active
+    active_ver = _get_active(db)
+
     app_row = Application(
         student_id=student_id,
         status="Draft",
         assigned_to_user_id=me.id,
         last_modified_by_user_id=me.id,
+        checklist_version_id=active_ver.id,          # ✅ gắn version_id
+        checklist_version_name=active_ver.version_name,  # ✅ gắn tên version
     )
     db.add(app_row)
     db.commit()

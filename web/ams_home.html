@@ -201,7 +201,7 @@
       const me = await r.json();
       const role = me.role || '';
       const name = me.full_name || me.username || 'Người dùng';
-      document.getElementById('hello').innerHTML = `Hi, <b>${name}</b> <span class="text-gray-500">(${role})</span>`;
+      document.getElementById('hello').innerHTML = `<b>${name}</b> <span class="text-gray-500">(${role})</span>`;
       // Nếu bắt đổi mật khẩu lần đầu → đưa thẳng sang account (phòng trường hợp bypass)
       if (me.must_change_password) {
         location.href = '/account?first=1';
