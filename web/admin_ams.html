@@ -6,7 +6,6 @@
   <title>V-HT&PTĐT - Quản lý người dùng</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/png" href="hutech.png" sizes="32x32">
-  <link rel="apple-touch-icon" href="hutech.png">
   <meta name="theme-color" content="#2563eb">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -63,7 +62,7 @@
         </select>
       </div>
       <div class="md:col-span-6 flex justify-end">
-        <button class="btn btn-primary">Tạo tài khoản</button>
+        <button class="btn btn-primary">Tạo mới</button>
       </div>
     </form>
   </section>
@@ -103,19 +102,21 @@
                 </button>
               </form>
 
-              <!-- Sửa -->
+              <!-- View (vẫn cho phép chỉnh sửa trong modal) -->
               <button type="button"
-                      class="btn btn-outline btn-xs"
-                      data-edit='{
-                        "id": "{{u.id}}",
-                        "username": "{{u.username}}",
-                        "full_name": "{{u.full_name or ""}}",
-                        "email": "{{u.email or ""}}",
-                        "dob": "{{ (u.dob|string)[:10] if u.dob else "" }}",
-                        "role": "{{u.role}}",
-                        "is_active": "{{ "1" if u.is_active else "0" }}"
-                      }'>
-                Sửa
+                class="btn btn-outline btn-xs"
+                data-edit='{
+                  "id": "{{u.id}}",
+                  "username": "{{u.username}}",
+                  "full_name": "{{u.full_name or ""}}",
+                  "email": "{{u.email or ""}}",
+                  "dob": "{{ (u.dob|string)[:10] if u.dob else "" }}",
+                  "role": "{{u.role}}",
+                  "is_active": "{{ "1" if u.is_active else "0" }}",
+                  "last_login_at": "{{u.last_login_at or ""}}",
+                  "password_changed_at": "{{u.password_changed_at or ""}}"
+                }'>
+                View 👁️‍🗨️
               </button>
             </td>
           </tr>
@@ -126,12 +127,11 @@
   </section>
   </div>
 
-  <!-- Modal sửa user (kèm Reset mật khẩu bên trong) -->
+  <!-- Modal xem/chỉnh sửa user -->
   <div class="overlay" id="editUserModal">
     <div class="modal">
-      <div class="hd">Sửa tài khoản</div>
+      <div class="hd">Chi tiết & chỉnh sửa tài khoản</div>
 
-      <!-- Cập nhật thông tin cơ bản -->
       <form class="bd grid md:grid-cols-6 gap-3" method="post" action="/admin/users/update" id="updateForm">
         <input type="hidden" name="user_id" id="e_id">
 
@@ -167,13 +167,23 @@
           </label>
         </div>
 
+        <!-- Thông tin thời gian -->
+        <div class="md:col-span-3">
+          <div class="label">Lần đăng nhập gần nhất</div>
+          <input class="input bg-gray-100" id="e_last_login" readonly>
+        </div>
+        <div class="md:col-span-3">
+          <div class="label">Thời điểm đổi mật khẩu</div>
+          <input class="input bg-gray-100" id="e_pw_changed" readonly>
+        </div>
+
         <div class="md:col-span-6 flex justify-end gap-2">
           <button type="button" class="btn btn-outline" id="e_cancel">Đóng</button>
           <button class="btn btn-primary">Lưu thay đổi</button>
         </div>
       </form>
 
-      <!-- Ngăn cách -->
+      <!-- Reset mật khẩu -->
       <div class="bd" style="padding-top:0">
         <hr style="border-color:#e5e7eb;margin:8px 0 14px;">
         <h4 class="section-h4">Đặt lại mật khẩu</h4>
@@ -199,74 +209,110 @@
   </div>
 
 <footer class="max-w-6xl mx-auto px-6 pb-4 text-right text-xs text-gray-500">
-  © <span class="font-semibold">
-    <a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">
-      V-HT.PTĐT HUTECH
-    </a>
-  </span>
-  ➖ Code by:
-  <span class="font-semibold">
-    <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">
-      HC- Tuan
-    </a>
-  </span>
+  © <span class="font-semibold"><a href="https://hutech.edu.vn/e-hutech" target="_blank" rel="noopener noreferrer">V-HT.PTĐT HUTECH</a></span> ➖ Code by: <span class="font-semibold"><a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer">HC- Tuan</a></span>
 </footer>
 
 <script>
-  // Toggle mắt
-  document.querySelectorAll('[data-toggle-eye]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const input=document.querySelector(btn.getAttribute('data-toggle-eye'));
-      if(!input) return;
-      input.type=(input.type==='password')?'text':'password';
-      btn.textContent=(input.type==='password')?'👁️':'🙈';
-    });
-  });
-
-  // Định dạng ngày sinh dd/mm/yyyy (VN)
-  function formatVNDate(selector) {
-    document.querySelectorAll(selector).forEach(el=>{
-      const raw=(el.textContent||'').trim();
-      if(!raw || raw==='—') return;
-      const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      let d;
-      if(m){ d=new Date(+m[1],+m[2]-1,+m[3]); }
-      else { const t=new Date(raw); if(isNaN(t)) return; d=t; }
-      el.textContent=new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d);
-    });
+/* ========= Helpers format thời gian theo VN (+07:00) ========= */
+// Parse an toàn: nếu chuỗi không có timezone → coi là UTC
+function parseToDate(raw) {
+  if (!raw) return null;
+  let s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(s)) s = s.replace(' ', 'T');
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?)?(Z|[+\-]\d{2}:?\d{2})?$/);
+  if (m) {
+    const [_, Y, M, D, h='00', mi='00', se='00', ms='0', tz] = m;
+    if (!tz) return new Date(Date.UTC(+Y, +M-1, +D, +h, +mi, +se, +ms));
+    return new Date(s);
   }
-  window.addEventListener('DOMContentLoaded', ()=>{ formatVNDate('[data-dateonly]'); });
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
 
-  // Modal: mở/đóng + fill dữ liệu
-  const modal = document.getElementById('editUserModal');
-  document.querySelectorAll('[data-edit]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const data = JSON.parse(btn.getAttribute('data-edit'));
-      modal.classList.add('show');
-      // Update form
-      document.getElementById('e_id').value = data.id || '';
-      document.getElementById('e_username').value = data.username || '';
-      document.getElementById('e_full_name').value = data.full_name || '';
-      document.getElementById('e_email').value = data.email || '';
-      document.getElementById('e_dob').value = (data.dob || '').substring(0,10);
-      document.getElementById('e_role').value = data.role || 'CongTacVien';
-      document.getElementById('e_is_active').checked = data.is_active === "1";
-      // Reset form (sync user_id)
-      document.getElementById('rp_id').value = data.id || '';
-      document.getElementById('rp_new').value = '';
-    });
-  });
-  document.getElementById('e_cancel').addEventListener('click', ()=> modal.classList.remove('show'));
-  modal.addEventListener('click', (e)=>{ if(e.target.id==='editUserModal') modal.classList.remove('show'); });
-
-  // Logout (nếu có nút)
-  const btnLogout = document.getElementById('btnLogout');
-  if (btnLogout) {
-    btnLogout.addEventListener('click', async () => {
-      try { await fetch('/api/logout', { method: 'POST' }); } catch(e) {}
-      location.href = '/login';
-    });
+function toVNDateText(raw) {
+  if (!raw) return '—';
+  const onlyDate = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (onlyDate) {
+    const d = new Date(Date.UTC(+onlyDate[1], +onlyDate[2]-1, +onlyDate[3]));
+    return new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day:'2-digit', month:'2-digit', year:'numeric'
+    }).format(d);
   }
+  const d = parseToDate(raw);
+  if (!d) return raw;
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day:'2-digit', month:'2-digit', year:'numeric'
+  }).format(d);
+}
+
+function toVNDateTimeText(raw) {
+  if (!raw) return '—';
+  const d = parseToDate(raw);
+  if (!d) return raw;
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day:'2-digit', month:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  }).format(d).replace(',', '');
+}
+
+function formatVNDate(selector='[data-dateonly]') {
+  document.querySelectorAll(selector).forEach(el => {
+    const raw = (el.textContent || '').trim();
+    if (!raw || raw === '—') return;
+    el.textContent = toVNDateText(raw);
+  });
+}
+
+/* ========= Toggle hiện/ẩn mật khẩu ========= */
+document.querySelectorAll('[data-toggle-eye]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const input = document.querySelector(btn.getAttribute('data-toggle-eye'));
+    if (!input) return;
+    input.type = (input.type === 'password') ? 'text' : 'password';
+    btn.textContent = (input.type === 'password') ? '👁️' : '🙈';
+  });
+});
+
+/* ========= Modal View (vẫn cho chỉnh sửa) ========= */
+function boolLikeTrue(v){
+  return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+}
+function safeSubDate(s){ return (s||'').substring(0,10); }
+
+const modal = document.getElementById('editUserModal');
+document.querySelectorAll('[data-edit]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const data = JSON.parse(btn.getAttribute('data-edit'));
+    modal.classList.add('show');
+
+    document.getElementById('e_id').value = data.id || '';
+    document.getElementById('e_username').value = data.username || '';
+    document.getElementById('e_full_name').value = data.full_name || '';
+    document.getElementById('e_email').value = data.email || '';
+    document.getElementById('e_dob').value = safeSubDate(data.dob);
+    document.getElementById('e_role').value = data.role || 'CongTacVien';
+    document.getElementById('e_is_active').checked = boolLikeTrue(data.is_active);
+
+    // Hai trường thời gian hiển thị theo VN
+    document.getElementById('e_last_login').value = toVNDateTimeText(data.last_login_at);
+    document.getElementById('e_pw_changed').value = toVNDateTimeText(data.password_changed_at);
+
+    // Reset form reset-pass
+    document.getElementById('rp_id').value = data.id || '';
+    document.getElementById('rp_new').value = '';
+  });
+});
+
+document.getElementById('e_cancel').addEventListener('click',()=> modal.classList.remove('show'));
+modal.addEventListener('click',e=>{ if(e.target.id==='editUserModal') modal.classList.remove('show'); });
+
+/* ========= Boot: format cột ngày sinh trong bảng ========= */
+window.addEventListener('DOMContentLoaded', () => {
+  formatVNDate('[data-dateonly]');
+});
 </script>
 </body>
 </html>
