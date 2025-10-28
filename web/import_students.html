@@ -141,8 +141,8 @@
           </div>
 
           <div class="overflow-hidden border rounded-xl">
-            <div class="overflow-auto max-h-72">
-              <table class="table min-w-full">
+          <div class="overflow-auto max-h-[70vh]"> <!-- cao tối đa 70% chiều cao màn hình -->
+            <table id="resultsTable" class="table min-w-full">
                 <thead>
                   <tr>
                     <th class="text-center w-16">STT</th>
@@ -208,11 +208,40 @@
     const results = [];
 
     function translateMessage(msg){
-      if (msg.includes("HTTP 409") && msg.includes("MSSV")) return "❗ Mã số học viên (MSSV) đã tồn tại.";
-      if (msg.includes("HTTP 422") && msg.includes("10 chữ số")) return "⚠️ MSSV phải gồm đúng 10 chữ số.";
-      if (msg.includes("HTTP 400")) return "⚠️ Dữ liệu không hợp lệ hoặc thiếu trường bắt buộc.";
-      if (msg.includes("HTTP 500")) return "💥 Lỗi hệ thống (Internal Server Error).";
-      return msg.replace(/\(id=(\d+)\)/, "(MSSV: $1)");
+      let s = String(msg || "");
+
+      // Nếu dạng "HTTP 409 {json}" → tách phần JSON ra
+      const m = s.match(/^HTTP\s+(\d+)\s+(.+)$/i);
+      let code = null;
+      if (m) {
+        code = m[1];
+        s = m[2];
+      }
+
+      // Thử parse JSON { detail: "..." }
+      try {
+        const j = JSON.parse(s);
+        if (j && j.detail) s = String(j.detail);
+      } catch(_) { /* không phải JSON thì giữ nguyên */ }
+
+      // Chuẩn hoá & map thông điệp thân thiện
+      const t = s.toLowerCase();
+
+      if ((code === '409') || /409/.test(String(msg))) {
+        if (/mã.*(số|so).*học viên|mssv|đã tồn tại/i.test(s)) return "❗ Mã số học viên đã tồn tại!";
+        return "❗ Trùng dữ liệu (409)!";
+      }
+      if ((code === '422') || /422/.test(String(msg)) || /10\s*ch[ữư]\s*s[ốo]/i.test(s))
+        return "⚠️ MSSV phải gồm đúng 10 chữ số!";
+
+      if ((code === '400') || /400/.test(String(msg)))
+        return "⚠️ Dữ liệu không hợp lệ hoặc thiếu trường bắt buộc!";
+
+      if ((code === '500') || /500/.test(String(msg)))
+        return "💥 Lỗi hệ thống (Internal Server Error)!";
+
+      // Mặc định: trả lại thông điệp đã làm sạch
+      return s;
     }
     function badge(type){
       if (type==='OK')   return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">THÀNH CÔNG</span>';
@@ -242,7 +271,7 @@
           <td class="text-center border-b">${r.idx}</td>
           <td class="text-center border-b whitespace-nowrap font-medium">${r.data?.ma_ho_so || '—'}</td>
           <td class="text-center border-b">${badge(r.type)}</td>
-          <td class="text-center border-b">${translateMessage(r.msg || '')}</td>
+          <td class="text-left border-b whitespace-normal break-words">${translateMessage(r.msg || '')}</td>
         </tr>
       `).join('');
 
@@ -692,6 +721,24 @@
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
     };
 
+    // ===== Định dạng ngày xuất ra Excel: DD/MM/YYYY chuẩn VN =====
+    function isoToVN(iso){
+      if (!iso) return "";
+      const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      //     YYYY        MM        DD
+      return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso); // ✅ DD/MM/YYYY
+    }
+
+    function anyToVNDate(v){
+      if (!v) return "";
+      const s = String(v).trim();
+      // nếu là serial Excel -> đổi sang ISO rồi sang VN
+      if (/^\d+$/.test(s)) return isoToVN(excelSerialToISO(Number(s)));
+      // nếu là ISO YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return isoToVN(s);
+      // nếu đã là dd/mm/yyyy… giữ nguyên
+      return s;
+    }
     // ===== Export XLSX =====
     function toAoAFull(list){
       const header = [
@@ -709,14 +756,14 @@
           d.ma_so_hv || "",
           d.gioi_tinh || "",
           d.dan_toc || "",
-          d.ngay_sinh || "",
+          anyToVNDate(d.ngay_sinh),     // <— chuyển dd/mm/yyyy
           d.so_dt || "",
           d.email_hoc_vien || "",
           d.nganh_nhap_hoc || "",
           d.dot || "",
           d.khoa || "",
           d.da_tn_truoc_do || "",
-          d.ngay_nhan_hs || "",
+          anyToVNDate(d.ngay_nhan_hs),  // <— chuyển dd/mm/yyyy
           label,
           (r.msg ? translateMessage(r.msg) : "")
         ]);
@@ -733,6 +780,7 @@
       if (!data.length) return;
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(toAoAFull(data));
+      
       ws['!cols'] = [
         {wch:12},{wch:22},{wch:14},{wch:10},{wch:12},
         {wch:12},{wch:12},{wch:26},
@@ -744,6 +792,27 @@
     }
     $("btnExportAll").addEventListener("click", ()=> exportResults(false));
     $("btnExportErr").addEventListener("click", ()=> exportResults(true));
+
+    (function () {
+      // Ưu tiên query expired=1 (khi bị redirect)
+      const params = new URLSearchParams(location.search);
+      const byQuery = params.get('expired') === '1';
+
+      // Hoặc cookie cờ do BE set
+      const byCookie = document.cookie.split(';').some(c => c.trim().startsWith('__session_expired=1'));
+
+      if (byQuery || byCookie) {
+        // Hiện thông báo rộng rãi
+        if (typeof showToast === 'function') {
+          showToast('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 'warn', 4500);
+        } else {
+          // Fallback nếu trang không có showToast
+          alert('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
+        }
+        // Xóa cookie cờ để khỏi lặp lại
+        document.cookie = '__session_expired=; Max-Age=0; Path=/; SameSite=Lax';
+      }
+    })();
   </script>
 </body>
 </html>

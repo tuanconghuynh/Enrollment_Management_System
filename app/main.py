@@ -14,7 +14,8 @@ from app.db.session import engine, get_db
 # Routers
 from app.routers import health, applicants, checklist, export, batch
 from app.routers import auth, admin, journal
-from app.routers import account  # NEW: trang thông tin tài khoản
+from app.routers import account  #trang thông tin tài khoản
+from urllib.parse import quote
 
 # Dùng chung hằng số timeout với auth.py để không lệch
 from app.routers.auth import IDLE_TIMEOUT_SEC as AUTH_IDLE_TIMEOUT_SEC
@@ -49,7 +50,7 @@ MAX_IDLE_SECONDS = AUTH_IDLE_TIMEOUT_SEC  # 1h từ auth.py
 
 WHITELIST_PREFIXES = (
     "/compilation.html",
-    "/ams_home.html",                     
+    "/ams_home.html",
     "/login", "/api/login",
     "/logout", "/api/logout",
     "/health", "/api/health",
@@ -69,9 +70,11 @@ STATIC_EXTS = (
 async def idle_timeout_middleware(request: Request, call_next):
     path = request.url.path
 
+    # Cho phép truy cập các đường tĩnh / whitelist
     if path.startswith(WHITELIST_PREFIXES) or path.lower().endswith(STATIC_EXTS):
         return await call_next(request)
 
+    # Không có session -> tiếp tục bình thường
     if "session" not in request.scope:
         return await call_next(request)
 
@@ -82,13 +85,33 @@ async def idle_timeout_middleware(request: Request, call_next):
         now = int(_now())
         last = int(sess.get("_last_seen") or 0)
         if last and now - last > MAX_IDLE_SECONDS:
+            # Hết hạn phiên
             request.session.clear()
+
             if path.startswith("/api"):
+                # API: 401 + header để FE biết bật thông báo
                 return JSONResponse(
                     {"detail": "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!"},
-                    status_code=401
+                    status_code=401,
+                    headers={"X-Session-Expired": "1"}
                 )
-            return RedirectResponse(url="/login?expired=1", status_code=302)
+
+            # Web: đặt cookie cờ + redirect về login?expired=1
+            next_q = quote(str(request.url.path) + (("?" + request.url.query) if request.url.query else ""))
+            resp = RedirectResponse(url=f"/login?expired=1&next={next_q}", status_code=302)
+            # Cookie *không* httponly để JS đọc và show toast; sống 30 giây
+            resp.set_cookie(
+                key="__session_expired",
+                value="1",
+                max_age=30,
+                path="/",
+                secure=False,      # Nếu anh chạy HTTPS có thể đặt True
+                httponly=False,    # cho phép JS đọc
+                samesite="lax",
+            )
+            return resp
+
+        # Còn hạn → cập nhật dấu vết
         sess["_last_seen"] = now
 
     return await call_next(request)

@@ -249,4 +249,35 @@ body{
 #resBody td:nth-child(2){
   font-variant-numeric: tabular-nums;
 }
+/* ===== Kết quả import: dễ đọc log dài ===== */
+
+/* Table-layout fixed giúp phân chia cột ổn định và cho phép wrap nội dung */
+#resultsTable {
+  table-layout: fixed;
+}
+
+/* Căn giữa 3 cột đầu (STT, Mã HS, Trạng thái) */
+#resBody th:nth-child(-n+3),
+#resBody td:nth-child(-n+3) {
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Cột 4 = "Thông điệp": để trái, cho xuống dòng */
+#resBody th:nth-child(4),
+#resBody td:nth-child(4) {
+  text-align: left;
+  white-space: normal;     /* cho phép xuống dòng */
+  word-break: break-word;  /* bẻ từ dài */
+  overflow: visible;       /* bỏ ẩn bớt nếu có */
+  text-overflow: clip;     /* bỏ ellipsis nếu bị set ở nơi khác */
+  vertical-align: top;     /* log nhiều dòng nhìn thoáng hơn */
+}
+
+/* Nếu muốn header dính khi cuộn */
+#resultsTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
 

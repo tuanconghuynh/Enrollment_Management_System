@@ -217,6 +217,26 @@
       }
     }
     boot();
+    (function () {
+      // Ưu tiên query expired=1 (khi bị redirect)
+      const params = new URLSearchParams(location.search);
+      const byQuery = params.get('expired') === '1';
+
+      // Hoặc cookie cờ do BE set
+      const byCookie = document.cookie.split(';').some(c => c.trim().startsWith('__session_expired=1'));
+
+      if (byQuery || byCookie) {
+        // Hiện thông báo rộng rãi
+        if (typeof showToast === 'function') {
+          showToast('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 'warn', 4500);
+        } else {
+          // Fallback nếu trang không có showToast
+          alert('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
+        }
+        // Xóa cookie cờ để khỏi lặp lại
+        document.cookie = '__session_expired=; Max-Age=0; Path=/; SameSite=Lax';
+      }
+    })();
   </script>
 </body>
 </html>
