@@ -393,6 +393,48 @@ function showToast(msg, type='info', ms=3000){
     }
   });
 })();
+// ===== Bắt sự kiện Lưu thay đổi trong modal chỉnh sửa =====
+(function(){
+  const form = document.getElementById('updateForm');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+
+    const btn = form.querySelector('button.btn.btn-primary');
+    const old = btn?.innerHTML;
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Đang lưu...'; }
+
+    try {
+      const fd = new FormData(form);
+      const r = await fetch(form.action, { method: 'POST', body: fd, credentials: 'include' });
+
+      const ct = r.headers.get('content-type') || '';
+      let data = null;
+      if (ct.includes('application/json')) {
+        try { data = await r.json(); } catch {}
+      } else {
+        try { const t = await r.text(); data = t ? JSON.parse(t) : null; } catch {}
+      }
+
+      if (r.ok) {
+        showToast('Cập nhật thành công ✅', 'success', 2500);
+        // Ẩn modal & reload danh sách nhẹ
+        document.getElementById('editUserModal')?.classList.remove('show');
+        setTimeout(()=> location.reload(), 1000);
+        return;
+      }
+
+      const msg = (data && (data.detail || data.message)) || `Lỗi cập nhật (HTTP ${r.status})`;
+      showToast(msg, 'error', 4000);
+    } catch (err) {
+      console.error(err);
+      showToast('Không kết nối được máy chủ. Vui lòng thử lại.', 'error', 4000);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = old || 'Lưu thay đổi'; }
+    }
+  });
+})();
 </script>
 </body>
 </html>
