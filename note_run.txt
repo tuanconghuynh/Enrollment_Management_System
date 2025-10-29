@@ -55,3 +55,30 @@ git commit "update"
 git push
 
 
+
+reset database
+-- Tắt ràng buộc khóa ngoại tạm thời
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- Xóa dữ liệu các bảng có liên quan (theo thứ tự phụ thuộc)
+DELETE FROM applicant_docs;
+DELETE FROM applicants;
+DELETE FROM applications;
+DELETE FROM audit_logs;
+DELETE FROM checklist_items;
+DELETE FROM checklist_versions;
+DELETE FROM deletion_requests;
+DELETE FROM students;
+
+-- Bật lại kiểm tra khóa ngoại
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- Đặt lại auto increment (nếu muốn)
+ALTER TABLE applicant_docs AUTO_INCREMENT = 1;
+ALTER TABLE applicants AUTO_INCREMENT = 1;
+ALTER TABLE applications AUTO_INCREMENT = 1;
+ALTER TABLE audit_logs AUTO_INCREMENT = 1;
+ALTER TABLE checklist_items AUTO_INCREMENT = 1;
+ALTER TABLE checklist_versions AUTO_INCREMENT = 1;
+ALTER TABLE deletion_requests AUTO_INCREMENT = 1;
+ALTER TABLE students AUTO_INCREMENT = 1;

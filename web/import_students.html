@@ -12,6 +12,8 @@
   <meta name="theme-color" content="#2563eb">
 </head>
 <body class="bg-gray-50">
+   <!-- Toast -->
+  <div id="toast-wrap" class="fixed top-4 right-4 z-[9999] space-y-2 pointer-events-none"></div>
   <div class="max-w-7xl mx-auto p-6 space-y-6">
 
     <!-- Header -->
@@ -166,6 +168,41 @@
   </footer>
 
   <script>
+    // Toast đơn giản dùng Tailwind
+    function showToast(msg, type='info', ms=4000) {
+      const wrap = document.getElementById('toast-wrap');
+      if (!wrap) return;
+
+      const color = {
+        success: 'bg-green-600',
+        error:   'bg-red-600',
+        warn:    'bg-amber-600',
+        info:    'bg-slate-600'
+      }[type] || 'bg-slate-600';
+
+      const box = document.createElement('div');
+      box.className =
+        `${color} text-white text-sm px-4 py-3 rounded-xl shadow-xl ring-1 ring-black/5
+        transition transform pointer-events-auto`;
+      box.style.opacity = '0';
+      box.style.translate = '0 -6px';
+      box.innerHTML = msg;
+
+      wrap.appendChild(box);
+      // animate in
+      requestAnimationFrame(() => { box.style.opacity='1'; box.style.translate='0 0'; });
+
+      // click to close
+      box.addEventListener('click', () => dismiss());
+      const t = setTimeout(dismiss, ms);
+
+      function dismiss(){
+        clearTimeout(t);
+        box.style.opacity='0';
+        box.style.translate='0 -6px';
+        box.addEventListener('transitionend', () => box.remove(), { once:true });
+      }
+    }
     // ===== Helpers & API base =====
     const $ = id => document.getElementById(id);
     const apiBase = () => $("apiBase").value.trim().replace(/\/+$/,'');
@@ -531,6 +568,7 @@
       await detectPrefix();
       stopFlag = false; $('btnStop').classList.remove('hidden');
       $('btnUpload').disabled = true;
+      showToast('Đang chạy import… vui lòng giữ tab mở.', 'info', 2500);
 
       const m = getMappingFromUI();
       if (!requireMappings(m)) { $('btnUpload').disabled=false; return; }
@@ -567,6 +605,19 @@
           await new Promise(res=>setTimeout(res, 25));
         }
       }
+      // Tổng kết kết quả & cảnh báo đẹp
+      const summary = `Xong import: <b>${ok}</b> thành công • <b>${fail}</b> lỗi • <b>${skip}</b> bỏ qua.`;
+      showToast(summary, fail ? (ok ? 'warn' : 'error') : 'success', 7000);
+
+      // Gợi ý xuất lỗi nếu có
+      if (fail > 0) {
+        const btnErr = document.getElementById('btnExportErr');
+        btnErr?.classList.add('animate-pulse');
+        setTimeout(()=> btnErr?.classList.remove('animate-pulse'), 4000);
+      }
+
+      // Kéo người dùng tới bảng kết quả
+      document.getElementById('resultsTable')?.scrollIntoView({ behavior:'smooth', block:'start' });
       $('btnStop').classList.add('hidden');
       $('btnUpload').disabled = false;
     };
