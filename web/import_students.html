@@ -22,7 +22,7 @@
         </a>
         <div>
           <h1 class="text-2xl font-bold leading-tight">Import danh sách học viên</h1>
-          <p class="text-sm text-gray-500">Nạp .xlsx/.csv → map cột → gửi tạo hồ sơ (docs để trống). Mã HS: 4 số theo Khóa/Đợt.</p>
+          <p class="text-sm text-gray-500">Nạp .xlsx/.csv → map cột → gửi tạo hồ sơ (docs để trống). <b>Mã HS: lấy từ file, không tự sinh.</b></p>
         </div>
       </div>
 
@@ -83,7 +83,7 @@
           <div id="mappings" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
           <p class="text-xs text-gray-500">
             Bắt buộc phải map: <b>Họ và Tên</b>, <b>Mã số học viên</b>.<br>
-            Nếu <b>không có</b> cột <i>Mã hồ sơ</i> thì <b>bắt buộc</b> map thêm <b>Khóa</b> và <b>Đợt</b> để hệ thống tự sinh 4 số theo từng nhóm.
+            <b>Mã hồ sơ</b> (nếu có): hệ thống sẽ dùng <b>4 số cuối</b> trong giá trị này. Nếu <b>không có</b>, trường Mã HS sẽ <b>để trống</b> để cấp sau.
           </p>
         </section>
 
@@ -141,7 +141,7 @@
           </div>
 
           <div class="overflow-hidden border rounded-xl">
-          <div class="overflow-auto max-h-[70vh]"> <!-- cao tối đa 70% chiều cao màn hình -->
+          <div class="overflow-auto max-h-[70vh]">
             <table id="resultsTable" class="table min-w-full">
                 <thead>
                   <tr>
@@ -209,40 +209,50 @@
 
     function translateMessage(msg){
       let s = String(msg || "");
-
-      // Nếu dạng "HTTP 409 {json}" → tách phần JSON ra
-      const m = s.match(/^HTTP\s+(\d+)\s+(.+)$/i);
       let code = null;
-      if (m) {
-        code = m[1];
-        s = m[2];
-      }
 
-      // Thử parse JSON { detail: "..." }
+      // Bóc "HTTP xxx <payload>"
+      const m = s.match(/^HTTP\s+(\d+)\s+(.+)$/i);
+      if (m) { code = m[1]; s = m[2]; }
+
+      // Nếu JSON -> lấy detail / errors
+      let lower = s.toLowerCase();
       try {
         const j = JSON.parse(s);
-        if (j && j.detail) s = String(j.detail);
-      } catch(_) { /* không phải JSON thì giữ nguyên */ }
+        if (j?.detail) {
+          // detail có thể là chuỗi hoặc mảng lỗi
+          if (typeof j.detail === "string") { s = j.detail; }
+          else if (Array.isArray(j.detail)) {
+            s = j.detail.map(e => (e.msg || e.message || JSON.stringify(e))).join("; ");
+          }
+          lower = String(s).toLowerCase();
+        }
+      } catch (_) {}
 
-      // Chuẩn hoá & map thông điệp thân thiện
-      const t = s.toLowerCase();
+      // Chỉ gắn “MSSV 10 số” khi đúng là lỗi MSSV
+      const isMSSV10 =
+        /mssv|ma\s*so\s*hv|ma_so_hv/.test(lower) &&
+        /10\s*ch[ưư]?̣?\s*s[ốo]|10\s*digits|\b\d{1,9}\b(?!\d)/.test(lower);
+      if (isMSSV10) return "⚠️ MSSV phải gồm đúng 10 chữ số!";
 
-      if ((code === '409') || /409/.test(String(msg))) {
-        if (/mã.*(số|so).*học viên|mssv|đã tồn tại/i.test(s)) return "❗ Mã số học viên đã tồn tại!";
+      // Một số case hay gặp
+      if ((code === '409') || /\b409\b/.test(String(msg))) {
+        if (/mssv|ma\s*so\s*hv|ma_so_hv/.test(lower) && /exist|tồn tại/.test(lower)) {
+          return "❗ Mã số học viên đã tồn tại!";
+        }
         return "❗ Trùng dữ liệu (409)!";
       }
-      if ((code === '422') || /422/.test(String(msg)) || /10\s*ch[ữư]\s*s[ốo]/i.test(s))
-        return "⚠️ MSSV phải gồm đúng 10 chữ số!";
 
-      if ((code === '400') || /400/.test(String(msg)))
-        return "⚠️ Dữ liệu không hợp lệ hoặc thiếu trường bắt buộc!";
+      if (code === '422' || /\b422\b/.test(String(msg))) {
+        return "⚠️ Dữ liệu không hợp lệ: " + s;
+      }
+      if (code === '400' || /\b400\b/.test(String(msg))) return "⚠️ Thiếu trường bắt buộc hoặc sai định dạng!";
+      if (code === '500' || /\b500\b/.test(String(msg))) return "💥 Lỗi hệ thống (Internal Server Error)!";
 
-      if ((code === '500') || /500/.test(String(msg)))
-        return "💥 Lỗi hệ thống (Internal Server Error)!";
-
-      // Mặc định: trả lại thông điệp đã làm sạch
+      // Mặc định
       return s;
     }
+
     function badge(type){
       if (type==='OK')   return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">THÀNH CÔNG</span>';
       if (type==='SKIP') return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700" title="Thiếu dữ liệu bắt buộc">BỎ QUA</span>';
@@ -451,57 +461,22 @@
       return "Khác";
     }
 
-    // ===== MÃ HS 4 SỐ THEO (KHÓA, ĐỢT)
+    // ===== MÃ HS: lấy 4 số cuối nếu có trong file, KHÔNG tự sinh
     function extractSeq4(code){ const m = String(code||'').match(/(\d{4})$/); return m?m[1]:''; }
 
-    async function getMaxSeqInGroup(khoa, dot){
-      let page=1, size=500, max=0;
-      for(;;){
-        const r = await apiFetch(`/applicants/search?q=${encodeURIComponent(String(khoa))}&page=${page}&size=${size}`);
-        if(!r || !r.ok) break;
-        const j = await r.json().catch(()=>({}));
-        const arr = Array.isArray(j?.items) ? j.items : [];
-        for (const it of arr){
-          if (String(it.khoa).trim() !== String(khoa).trim()) continue;
-          if (String(it.dot).trim()  !== String(dot).trim())  continue;
-          const m = String(it.ma_ho_so||'').match(/(\d{4})$/);
-          if (m){ const n = parseInt(m[1],10); if(Number.isFinite(n) && n>max) max=n; }
-        }
-        if (arr.length < size) break;
-        page += 1;
-      }
-      return max;
-    }
-
-    // ===== Build payload (trả về 4 số) =====
-    async function makeApplicantPayload(src, map, seqCache){
+    // ===== Build payload (ma_ho_so chỉ lấy từ file nếu có)
+    async function makeApplicantPayload(src, map){
       const pick = (key, d="") => (map[key] ? String(src[map[key]] ?? "").trim() : d);
 
-      // 1) Nếu file có Mã HS -> lấy 4 số cuối
-      let seq4 = extractSeq4(pick("ma_ho_so", ""));
-
-      // 2) Nếu không có -> sinh từ cache theo (Khóa, Đợt)
-      if (!seq4) {
-        const k = pick("khoa");
-        const d = pick("dot");
-        if (k && d && seqCache){
-          const key = `${k}|${d}`;
-          if (seqCache[key] == null) {
-            const max = await getMaxSeqInGroup(k, d);
-            seqCache[key] = max + 1;
-          }
-          seq4 = String(seqCache[key]).padStart(4,'0');
-          seqCache[key] += 1;
-        }
-      }
+      // Nếu file có Mã HS -> lấy 4 số cuối; nếu không -> KHÔNG gán thuộc tính này
+      const seq4 = extractSeq4(pick("ma_ho_so", ""));
 
       const ngay_nhan_form = $('defaultNgayNhan').value; // YYYY-MM-DD
       const ngay_nhan_iso  = parseDateFlexible(ngay_nhan_form) || ngay_nhan_form;
       const ngay_sinh_iso  = parseDateFlexible(pick("ngay_sinh")) || null;
       const gioi_tinh      = normalizeGender(pick("gioi_tinh")) || null;
 
-      return {
-        ma_ho_so: seq4 || "",                    // << CHỈ 4 SỐ
+      const payload = {
         ngay_nhan_hs: ngay_nhan_iso,
         ho_ten: pick("ho_ten"),
         ma_so_hv: pick("ma_so_hv"),
@@ -519,6 +494,10 @@
         docs: [],
         checklist_version_name: ACTIVE_CHECKLIST?.version_name || "v1",
       };
+
+      if (seq4) payload.ma_ho_so = seq4; // chỉ set khi có số
+
+      return payload;
     }
 
     function requireMappings(m){
@@ -528,24 +507,13 @@
       return true;
     }
 
+    // Preview: chỉ build payload từ file, không sinh số
     $('btnPreview').onclick = async () => {
       const m = getMappingFromUI();
       if (!requireMappings(m)) return;
-
-      // Chuẩn bị seqCache giống lúc upload (preview 5 dòng đầu)
-      const needGroup = !m['ma_ho_so'];
-      const seqCache = {};
-      if (needGroup){
-        const k = String((parsedRows[0]||{})[m['khoa']]||'').trim();
-        const d = String((parsedRows[0]||{})[m['dot']] ||'').trim();
-        if (k && d){
-          const max = await getMaxSeqInGroup(k,d);
-          seqCache[`${k}|${d}`] = max + 1;
-        }
-      }
       const test = [];
       for (let i=0;i<Math.min(5, parsedRows.length); i++){
-        test.push(await makeApplicantPayload(parsedRows[i], m, seqCache));
+        test.push(await makeApplicantPayload(parsedRows[i], m));
       }
       console.log("Preview payloads:", test);
       alert("Đã log 5 payload xem trước (Console).");
@@ -556,6 +524,7 @@
       await fetchActiveChecklist(); // ✅ lấy version đang kích hoạt
     });
 
+    // Upload: không yêu cầu Khóa/Đợt khi thiếu Mã HS; không seqCache
     $('btnUpload').onclick = async ()=>{
       if (parsedRows.length === 0) { alert("Chưa chọn tệp hoặc tệp rỗng"); return; }
       if (!$('defaultNgayNhan').value) { alert("Vui lòng chọn 'Ngày nhận HS (mặc định)' trước khi import."); return; }
@@ -566,35 +535,13 @@
       const m = getMappingFromUI();
       if (!requireMappings(m)) { $('btnUpload').disabled=false; return; }
 
-      // Nếu không có cột Mã HS -> bắt buộc có Khóa & Đợt
-      const needGroup = !m['ma_ho_so'];
-      if (needGroup && (!m['khoa'] || !m['dot'])) {
-        alert("File không có cột 'Mã hồ sơ'. Vui lòng map thêm 'Khóa' và 'Đợt' để sinh số tự động.");
-        $('btnUpload').disabled = false; return;
-      }
-
-      // Preload next sequence cho từng (khoa|dot)
-      const seqCache = {};
-      if (needGroup){
-        const groups = new Set();
-        for (const row of parsedRows){
-          const k = String(row[m['khoa']]||'').trim();
-          const d = String(row[m['dot']] ||'').trim();
-          if (k && d) groups.add(`${k}|${d}`);
-        }
-        for (const key of groups){
-          const [k,d] = key.split('|');
-          const max = await getMaxSeqInGroup(k, d);
-          seqCache[key] = max + 1;
-        }
-      }
-
       const total = parsedRows.length; let done=0, ok=0, fail=0;
       setBar(0,total);
 
       for (let i=0;i<parsedRows.length;i++){
         if (stopFlag) break;
-        const body = await makeApplicantPayload(parsedRows[i], m, seqCache);
+        const body = await makeApplicantPayload(parsedRows[i], m);
+        if (body.ma_ho_so === "") delete body.ma_ho_so; // đề phòng
         if (!body.ho_ten || !body.ma_so_hv){
           fail++; done++; setBar(done,total);
           addResult('SKIP', i+1, body, 'Thiếu bắt buộc (Họ và tên hoặc Mã số HV)');
@@ -654,7 +601,6 @@
     }
 
     let ACTIVE_CHECKLIST = null;
-
     async function fetchActiveChecklist() {
       try {
         await detectPrefix();
@@ -672,7 +618,7 @@
 
     window.addEventListener("load", async () => {
       await ensureNguoiNhanFromSession();
-      await fetchActiveChecklist(); // ✅ Lấy danh mục đang kích hoạt
+      await fetchActiveChecklist();
     });
 
     // ===== Template (headers theo FIELD_DEFS + sample)
@@ -702,7 +648,7 @@
         ["- Ngày nhận HS được chọn ở giao diện, KHÔNG cần có trong file."],
         ["- Định dạng ngày sinh gợi ý: DD/MM/YYYY (ví dụ: 01/10/2005)."],
         ["- Giới tính chấp nhận: Nam | Nữ | Khác (hoặc m/f, male/female, 1/0)."],
-        ["- Nếu không có 'Mã hồ sơ', bắt buộc có 'Khóa' & 'Đợt' để sinh số 4 chữ số theo nhóm."]
+        ["- Mã hồ sơ (nếu có): hệ thống dùng 4 số cuối; nếu không có, để trống để cấp sau."]
       ];
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(guide), "HuongDan");
       XLSX.writeFile(wb, `template_hoc_vien_${Date.now()}.xlsx`);
@@ -725,24 +671,20 @@
     function isoToVN(iso){
       if (!iso) return "";
       const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      //     YYYY        MM        DD
-      return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso); // ✅ DD/MM/YYYY
+      return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso);
     }
-
     function anyToVNDate(v){
       if (!v) return "";
       const s = String(v).trim();
-      // nếu là serial Excel -> đổi sang ISO rồi sang VN
       if (/^\d+$/.test(s)) return isoToVN(excelSerialToISO(Number(s)));
-      // nếu là ISO YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return isoToVN(s);
-      // nếu đã là dd/mm/yyyy… giữ nguyên
       return s;
     }
+
     // ===== Export XLSX =====
     function toAoAFull(list){
       const header = [
-        "MaHS(4so)","Họ tên","MSSV","Giới tính","Dân tộc","Ngày sinh","Số ĐT","Email",
+        "MaHS","Họ tên","MSSV","Giới tính","Dân tộc","Ngày sinh","Số ĐT","Email",
         "Ngành nhập học","Đợt","Khóa","Đối tượng TN","Ngày nhận",
         "Kết quả","Ghi chú kết quả"
       ];
@@ -756,14 +698,14 @@
           d.ma_so_hv || "",
           d.gioi_tinh || "",
           d.dan_toc || "",
-          anyToVNDate(d.ngay_sinh),     // <— chuyển dd/mm/yyyy
+          anyToVNDate(d.ngay_sinh),
           d.so_dt || "",
           d.email_hoc_vien || "",
           d.nganh_nhap_hoc || "",
           d.dot || "",
           d.khoa || "",
           d.da_tn_truoc_do || "",
-          anyToVNDate(d.ngay_nhan_hs),  // <— chuyển dd/mm/yyyy
+          anyToVNDate(d.ngay_nhan_hs),
           label,
           (r.msg ? translateMessage(r.msg) : "")
         ]);
@@ -780,7 +722,6 @@
       if (!data.length) return;
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(toAoAFull(data));
-      
       ws['!cols'] = [
         {wch:12},{wch:22},{wch:14},{wch:10},{wch:12},
         {wch:12},{wch:12},{wch:26},
@@ -794,22 +735,15 @@
     $("btnExportErr").addEventListener("click", ()=> exportResults(true));
 
     (function () {
-      // Ưu tiên query expired=1 (khi bị redirect)
       const params = new URLSearchParams(location.search);
       const byQuery = params.get('expired') === '1';
-
-      // Hoặc cookie cờ do BE set
       const byCookie = document.cookie.split(';').some(c => c.trim().startsWith('__session_expired=1'));
-
       if (byQuery || byCookie) {
-        // Hiện thông báo rộng rãi
         if (typeof showToast === 'function') {
           showToast('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 'warn', 4500);
         } else {
-          // Fallback nếu trang không có showToast
           alert('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
         }
-        // Xóa cookie cờ để khỏi lặp lại
         document.cookie = '__session_expired=; Max-Age=0; Path=/; SameSite=Lax';
       }
     })();

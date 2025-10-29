@@ -508,8 +508,8 @@ async function payloadForCreate() {
   if (!/^\d{4}$/.test(seq4)) {
     // nếu chưa có số thì hỏi API để lấy số tiếp theo
     const seq = await generateNextSeq4(k, d) || '0001';
-    $('ma_ho_so').value = seq4;
-    $('ma_ho_so').placeholder = seq4;
+    $('ma_ho_so').value = seq;       
+    $('ma_ho_so').placeholder = seq; 
   }
 
   // 🗓️ Ngày nhận mặc định hôm nay
@@ -563,12 +563,16 @@ $('dot').addEventListener('change',  () => tryPreviewMaHoSo(true));
 
   function payloadForUpdate() {
     const currentDate = $("ngay_nhan_hs").value || new Date().toISOString().split("T")[0];
-    return {
-      ma_ho_so: $("ma_ho_so").value.trim(),
+
+    // lấy raw mã (4 số) trên UI
+    const seq4 = $("ma_ho_so").value.trim();
+
+    const payload = {
+      // chỉ đưa ngày để BE cập nhật chuẩn
       ngay_nhan_hs: ymdKeep(currentDate),
       ho_ten: $("ho_ten").value.trim(),
       gioi_tinh: $("gioi_tinh").value || null,
-      dan_toc: $("dan_toc").value.trim() || null, 
+      dan_toc: $("dan_toc").value.trim() || null,
       ma_so_hv: $("ma_so_hv").value.trim(),
       ngay_sinh: ymdKeep($("ngay_sinh").value) || null,
       so_dt: $("so_dt").value.trim() || null,
@@ -581,6 +585,14 @@ $('dot').addEventListener('change',  () => tryPreviewMaHoSo(true));
       nguoi_nhan_ky_ten: $("nguoi_nhan_ky_ten").value.trim() || null,
       docs: collectDocs(),
     };
+
+    // ✅ Chỉ thêm ma_ho_so nếu có 4 số; nếu trống -> bật auto assign
+    if (/^\d{4}$/.test(seq4)) {
+      payload.ma_ho_so = seq4;
+    } else {
+      payload.auto_assign_ma_ho_so = true;
+    }
+    return payload;
   }
 
   // ===== Local tombstone cho MSHV đã xoá =====
@@ -771,7 +783,9 @@ function populateFormFromApplicant(a={}, docs){
         if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào để cập nhật.", "warn"); return; }
 
         const reason = await askUpdateReason(); if (!reason) return;
-        const body = payloadForUpdate(); body.update_reason_key = reason.key; body.update_reason_text = reason.text;
+        const body = payloadForUpdate(); 
+        body.update_reason_key = reason.key; 
+        body.update_reason_text = reason.text;
 
         $('lookupMsg').textContent = "Đang cập nhật...";
         const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {

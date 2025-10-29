@@ -16,6 +16,7 @@ from app.models.applicant import Applicant, ApplicantDoc
 from app.models.checklist import ChecklistItem, ChecklistVersion
 from app.routers.auth import require_roles
 from app.services.audit import write_audit
+import re
 
 from app.utils.soft_delete import exclude_deleted
 
@@ -72,6 +73,24 @@ def _validate_update_reason(data) -> str:
         label = f"Lý do khác: {text}"
 
     return label
+
+# 🆕 Regex lấy số thứ tự 4 chữ số cuối mã hồ sơ
+SEQ4_RE = re.compile(r"(\d{4})$")
+
+def _next_seq4(db: Session, khoa: Optional[str], dot: Optional[str]) -> str:
+    q = db.query(Applicant)
+    if khoa: q = q.filter(Applicant.khoa == str(khoa).strip())
+    if dot:  q = q.filter(Applicant.dot  == str(dot).strip())
+
+    maxn = 0
+    for a in q.all():
+        m = SEQ4_RE.search(str(getattr(a, "ma_ho_so", "") or ""))
+        if m:
+            try:
+                n = int(m.group(1))
+                if n > maxn: maxn = n
+            except: pass
+    return f"{(maxn + 1):04d}"
 
 
 # ================= Helpers =================
@@ -395,7 +414,7 @@ def get_by_mshv(
 @router.post("/", status_code=201)
 def create_applicant(
     request: Request,
-    payload: dict = Body(...),  # dùng dict để tự parse, tránh 422 của Pydantic
+    payload: dict = Body(...),
     db: Session = Depends(get_db),
     me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
 ):
@@ -416,15 +435,18 @@ def create_applicant(
         db.commit()
         raise HTTPException(400, "Checklist version không tồn tại")
 
+      # ✅ MSSV vẫn bắt buộc 10 số
     ma_so_hv = (payload.get("ma_so_hv") or "").strip()
     ensure_mssv(ma_so_hv)
 
-    ma_ho_so = (payload.get("ma_ho_so") or "").strip()
+    # ✅ Mã hồ sơ: KHÔNG bắt buộc khi tạo mới
+    raw_ma_hs = (payload.get("ma_ho_so") or "").strip()
+    ma_ho_so = raw_ma_hs or None
+
     ho_ten = (payload.get("ho_ten") or "").strip()
     ngay_nhan_hs = _parse_date_flexible(payload.get("ngay_nhan_hs"))
 
-    if not ma_ho_so:
-        raise HTTPException(422, "Thiếu trường bắt buộc: Mã Hồ Sơ")
+    # ❌ bỏ check bắt buộc Mã HS
     if not ho_ten:
         raise HTTPException(422, "Thiếu trường bắt buộc: Họ Và Tên")
     if not ngay_nhan_hs:
@@ -434,12 +456,11 @@ def create_applicant(
     if existed_mssv:
         raise HTTPException(409, "Mã số học viên đã tồn tại!")
 
-    # ✅ chấp nhận cả 'nganh_nhap_hoc' (mới) hoặc 'nganh' (cũ)
     _nganh_val = (payload.get("nganh_nhap_hoc") or payload.get("nganh") or None)
 
     a = Applicant(
         ma_so_hv=ma_so_hv,
-        ma_ho_so=ma_ho_so,
+        ma_ho_so=ma_ho_so,                    # << cho phép None
         ngay_nhan_hs=ngay_nhan_hs,
         ho_ten=ho_ten,
         email_hoc_vien=payload.get("email_hoc_vien"),
@@ -453,12 +474,9 @@ def create_applicant(
         checklist_version_id=v.id,
         status="saved",
         printed=False,
-        # 🆕 giới tính
         gioi_tinh=_normalize_gender(payload.get("gioi_tinh")),
-        # 🆕 dân tộc (nếu model/DB có cột)
         **({"dan_toc": payload.get("dan_toc")} if hasattr(Applicant, "dan_toc") else {}),
     )
-    # ✅ ghi vào đúng cột hiện có trong model
     if hasattr(Applicant, "nganh_nhap_hoc"):
         a.nganh_nhap_hoc = _nganh_val
     elif hasattr(Applicant, "nganh"):
@@ -683,7 +701,7 @@ def update_applicant(
                 d.applicant_ma_so_hv = new_mssv
             ma_so_hv = new_mssv
 
-    # ma_ho_so: không cho phép để trống
+    # Nếu FE gửi ma_ho_so trong body thì không cho để trống
     if has("ma_ho_so"):
         new_code = str(get("ma_ho_so") or "").strip()
         if not new_code:
@@ -716,6 +734,14 @@ def update_applicant(
     # 🆕 cập nhật dân tộc
     if "dan_toc" in body and hasattr(Applicant, "dan_toc"):
         a.dan_toc = str_or_none(body.get("dan_toc"))
+
+    # 🆕 TỰ CẤP MÃ HS: khi hồ sơ CHƯA có mã và FE yêu cầu
+    auto_assign = bool(body.get("auto_assign_ma_ho_so", False))
+    if auto_assign and not (a.ma_ho_so and str(a.ma_ho_so).strip()):
+        # Dùng (khoa, đợt) vừa sửa (nếu có), nếu không dùng giá trị đang có
+        _khoa = (body.get("khoa") if "khoa" in body else a.khoa)
+        _dot  = (body.get("dot")  if "dot"  in body else a.dot)
+        a.ma_ho_so = _next_seq4(db, _khoa, _dot)
 
     # Lưu người cập nhật gần nhất
     a.nguoi_nhan_ky_ten = getattr(me, "full_name", None) or getattr(me, "username", None)
@@ -782,7 +808,6 @@ def update_applicant(
         "ma_ho_so": a.ma_ho_so,
         "ho_ten": a.ho_ten,
     }
-
 
 # ================= DELETE by MSSV (SOFT-DELETE, chỉ cần lý do) =================
 @router.delete("/{ma_so_hv}", status_code=status.HTTP_204_NO_CONTENT)
