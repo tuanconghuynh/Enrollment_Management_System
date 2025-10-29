@@ -411,7 +411,7 @@ def render_batch_pdf(
         y_r = _draw_kv(c, right_lbl, right_val, y, "Đợt:",            a.dot or "");                            y = min(y_l, y_r)
 
         # Bảng hồ sơ gồm
-        c.setFont(FONT_BOLD, TEXT_SIZE); c.drawString(LM, y, "Hồ sơ gồm")
+        c.setFont(FONT_BOLD, TEXT_SIZE); c.drawString(LM, y, "Hồ sơ gồm:")
         y -= 6*mm
         rows = _build_checklist_rows(items, docs)
         y = _draw_checklist_table(c, LM, y, W - LM - RM, rows)
