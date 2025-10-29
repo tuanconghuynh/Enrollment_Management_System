@@ -334,6 +334,65 @@ window.addEventListener('DOMContentLoaded', () => {
     document.cookie = '__session_expired=; Max-Age=0; Path=/; SameSite=Lax';
   }
 })();
+
+// ===== Toast helper =====
+function showToast(msg, type='info', ms=3000){
+  const wrap = document.getElementById('toast-wrap'); if(!wrap) return alert(msg);
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = String(msg);
+  wrap.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add('show'));
+  const timer = setTimeout(()=>{ el.classList.remove('show'); el.addEventListener('transitionend',()=>el.remove(),{once:true}); }, ms);
+  el.addEventListener('click', ()=>{ clearTimeout(timer); el.classList.remove('show'); el.addEventListener('transitionend',()=>el.remove(),{once:true}); });
+}
+
+// ===== Bắt submit form tạo user để hiển thị noti đẹp =====
+(function(){
+  const form = document.querySelector('form[action="/admin/users/create"][method="post"]');
+  if(!form) return;
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"], .btn.btn-primary');
+    const old = btn ? btn.innerHTML : null;
+    if(btn){ btn.disabled = true; btn.innerHTML = 'Đang tạo…'; }
+
+    try{
+      const fd = new FormData(form);
+      const r = await fetch('/admin/users/create', { method:'POST', body: fd, credentials:'include' });
+
+      // Thử đọc JSON nếu có
+      const ct = r.headers.get('content-type')||'';
+      let payload = null;
+      if (ct.includes('application/json')) {
+        try { payload = await r.json(); } catch {}
+      } else {
+        // Fallback text (BE có thể trả string)
+        try { const t = await r.text(); payload = t ? JSON.parse(t) : null; } catch {}
+      }
+
+      if (r.ok) {
+        showToast('Tạo tài khoản thành công ✅', 'success', 2200);
+        // Xoá form/refresh danh sách:
+        form.reset();
+        // Reload nhẹ để bảng cập nhật:
+        setTimeout(()=> location.reload(), 900);
+        return;
+      }
+
+      // Các case lỗi thường gặp
+      const msg = (payload && (payload.detail || payload.message)) 
+                  || (r.status===409 ? 'Username/Email đã tồn tại' : '')
+                  || `Lỗi tạo tài khoản (HTTP ${r.status})`;
+      showToast(msg, 'error', 4000);
+    } catch (err){
+      showToast('Không kết nối được máy chủ. Vui lòng thử lại.', 'error', 3500);
+    } finally{
+      if(btn){ btn.disabled = false; btn.innerHTML = old || 'Tạo mới'; }
+    }
+  });
+})();
 </script>
 </body>
 </html>

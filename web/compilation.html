@@ -172,8 +172,7 @@
         </div>
 
         <div class="mt-6 flex gap-3 flex-wrap items-center">
-          <button id="btnSave" class="btn btn-secondary">Lưu</button>
-          <button id="btnUpdateApplicantMain" class="btn btn-secondary">Cập nhật</button>
+          <button id="btnSaveOrUpdate" class="btn btn-secondary">Lưu</button>
         </div>
         <div id="msg" class="mt-3 text-sm text-green-700"></div>
       </section>
@@ -762,52 +761,103 @@ function populateFormFromApplicant(a={}, docs){
     tryPreviewMaHoSo(true);
   }
 
-  // Lưu
-  $('btnSave').addEventListener('click', async ()=>{
-    const btn = $('btnSave'); btn.disabled = true; const old = btn.textContent; btn.textContent = "Đang lưu...";
-    try{
-      const res = await createApplicant();
-      if (res) {
-        showToast(`Đã lưu hồ sơ ${res.ma_so_hv || $('ma_so_hv').value}`, "success");
-        $('msg').textContent = `Đã lưu MSHV ${res.ma_so_hv || $('ma_so_hv').value}`;
-        resetToNewForm();
-      }
-    } finally{ btn.disabled = false; btn.textContent = old; }
-  });
+  // // Lưu
+  // $('btnSave').addEventListener('click', async ()=>{
+  //   const btn = $('btnSave'); btn.disabled = true; const old = btn.textContent; btn.textContent = "Đang lưu...";
+  //   try{
+  //     const res = await createApplicant();
+  //     if (res) {
+  //       showToast(`Đã lưu hồ sơ ${res.ma_so_hv || $('ma_so_hv').value}`, "success");
+  //       $('msg').textContent = `Đã lưu MSHV ${res.ma_so_hv || $('ma_so_hv').value}`;
+  //       resetToNewForm();
+  //     }
+  //   } finally{ btn.disabled = false; btn.textContent = old; }
+  // });
 
-  // Cập nhật (2 nút)
-  ["btnUpdateApplicant", "btnUpdateApplicantMain"].forEach(id => {
-    const handler = async ()=>{
-      try {
-        const btn = $(id); const old = btn.textContent; btn.disabled = true; btn.textContent = "Đang cập nhật...";
-        if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào để cập nhật.", "warn"); return; }
+  // // Cập nhật (2 nút)
+  // ["btnUpdateApplicant", "btnUpdateApplicantMain"].forEach(id => {
+  //   const handler = async ()=>{
+  //     try {
+  //       const btn = $(id); const old = btn.textContent; btn.disabled = true; btn.textContent = "Đang cập nhật...";
+  //       if (!window.loadedApplicant?.ma_so_hv) { showToast("Chưa tải hồ sơ nào để cập nhật.", "warn"); return; }
 
-        const reason = await askUpdateReason(); if (!reason) return;
-        const body = payloadForUpdate(); 
-        body.update_reason_key = reason.key; 
+  //       const reason = await askUpdateReason(); if (!reason) return;
+  //       const body = payloadForUpdate(); 
+  //       body.update_reason_key = reason.key; 
+  //       body.update_reason_text = reason.text;
+
+  //       $('lookupMsg').textContent = "Đang cập nhật...";
+  //       const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {
+  //         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  //       });
+  //       if (handleAuth(r)) return;
+  //       if (!r.ok) { const t = await r.text(); throw new Error(`Cập nhật thất bại (${r.status}): ${t}`); }
+
+  //       const res = await r.json();
+  //       showToast(`Đã cập nhật hồ sơ của MSHV: ${res.ma_so_hv}`, "success");
+  //       $('lookupMsg').textContent = `Cập nhật xong MSHV ${res.ma_so_hv}.`;
+  //       resetToNewForm();
+  //     } catch (e) {
+  //       $('lookupMsg').textContent = e.message;
+  //       showToast(e.message || "Cập nhật thất bại!", "error");
+  //     } finally {
+  //       const btn = $(id); if (btn) { btn.disabled = false; btn.textContent = "Cập nhật"; }
+  //     }
+  //   };
+  //   $(id)?.addEventListener('click', handler);
+  // });
+  async function saveOrUpdate(e) {
+    const btn = e?.currentTarget || $('btnSaveOrUpdate');
+    const old = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang xử lý...'; }
+
+    try {
+      // ==== CASE 1: đang mở hồ sơ -> CẬP NHẬT (có hỏi lệnh bổ sung) ====
+      if (window.loadedApplicant?.ma_so_hv) {
+        const reason = await askUpdateReason();   // hiện modal chọn lệnh bổ sung
+        if (!reason) return;
+
+        const body = payloadForUpdate();
+        body.update_reason_key  = reason.key;
         body.update_reason_text = reason.text;
 
-        $('lookupMsg').textContent = "Đang cập nhật...";
+        $('lookupMsg').textContent = 'Đang cập nhật...';
         const r = await apiFetch(`/applicants/${encodeURIComponent(window.loadedApplicant.ma_so_hv)}`, {
-          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
         });
         if (handleAuth(r)) return;
-        if (!r.ok) { const t = await r.text(); throw new Error(`Cập nhật thất bại (${r.status}): ${t}`); }
-
+        if (!r.ok) {
+          const t = await r.text();
+          throw new Error(`Cập nhật thất bại (${r.status}): ${t}`);
+        }
         const res = await r.json();
-        showToast(`Đã cập nhật hồ sơ của MSHV: ${res.ma_so_hv}`, "success");
+        showToast(`Đã cập nhật MSHV ${res.ma_so_hv}`, 'success');
         $('lookupMsg').textContent = `Cập nhật xong MSHV ${res.ma_so_hv}.`;
         resetToNewForm();
-      } catch (e) {
-        $('lookupMsg').textContent = e.message;
-        showToast(e.message || "Cập nhật thất bại!", "error");
-      } finally {
-        const btn = $(id); if (btn) { btn.disabled = false; btn.textContent = "Cập nhật"; }
+        return;
       }
-    };
-    $(id)?.addEventListener('click', handler);
-  });
 
+      // ==== CASE 2: chưa mở hồ sơ -> TẠO MỚI ====
+      const created = await createApplicant();
+      if (created) {
+        showToast(`Đã lưu hồ sơ mới: ${created.ma_so_hv}`, 'success');
+        $('msg').textContent = `Đã lưu MSHV ${created.ma_so_hv}`;
+        resetToNewForm();
+      }
+    } catch (err) {
+      $('lookupMsg').textContent = err.message || 'Lỗi xử lý.';
+      showToast(err.message || 'Lỗi xử lý!', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = old || 'Lưu'; }
+    }
+  }
+  $('btnSaveOrUpdate')?.addEventListener('click', saveOrUpdate);
+  // Nếu còn giữ nút "Cập nhật" ở panel phải thì dùng chung handler:
+  $('btnUpdateApplicant')?.addEventListener('click', saveOrUpdate);
+
+  
   async function createApplicant(){
     // lấy & chuẩn hoá input
     const hoTen = ($('ho_ten')?.value || '').trim();
