@@ -1,0 +1,162 @@
+{% extends "layout_ams.html" %}
+
+{% block title %}Import học viên | AMS{% endblock %}
+
+{% block extra_head %}
+  <!-- Thư viện XLSX -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+{% endblock %}
+
+{% block content %}
+  <!-- TIÊU ĐỀ TRANG -->
+  <section class="mb-4">
+    <h2 class="text-2xl font-bold text-gray-800">
+      Import danh sách học viên
+    </h2>
+    <p class="text-gray-600 mt-1 text-sm">
+      Nạp file Excel/CSV, map cột &amp; gửi tạo hồ sơ. Mặc định không gán checklist.
+    </p>
+  </section>
+
+  <!-- LAYOUT IMPORT -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- LEFT -->
+    <aside class="card space-y-5 lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
+      <!-- File -->
+      <section class="space-y-2">
+        <div class="font-semibold">Tệp dữ liệu</div>
+        <div id="drop" class="drop p-5 text-center cursor-pointer select-none">
+          <div class="text-gray-700 font-medium">Kéo &amp; thả tệp vào đây</div>
+          <div class="text-xs text-gray-500">Hoặc bấm để chọn .xlsx/.xls/.csv</div>
+          <input id="file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
+        </div>
+      </section>
+
+      <!-- Defaults -->
+      <section class="grid grid-cols-1 gap-3">
+        <div>
+          <div class="font-semibold mb-1">Ngày nhận HS (mặc định)</div>
+          <small class="text-xs text-gray-500">Áp dụng cho tất cả bản ghi khi import.</small>
+          <input id="defaultNgayNhan" type="date" class="input" />
+        </div>
+      </section>
+
+      <!-- Người nhập -->
+      <section class="grid grid-cols-1 gap-3">
+        <div>
+          <div class="font-semibold mb-2">Người nhập</div>
+          <div class="relative">
+            <input id="nguoiNhan" class="input pr-10" placeholder="Chưa đăng nhập" readonly>
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm"
+                  title="Tự động lấy theo tài khoản đăng nhập">🔒</span>
+          </div>
+          <p id="meStatus" class="text-xs text-gray-500 mt-1"></p>
+        </div>
+      </section>
+
+      <!-- API Base -->
+      <section class="grid grid-cols-1 gap-3">
+        <div>
+          <div class="font-semibold mb-1">API Base</div>
+          <small class="text-xs text-gray-500">Mặc định là domain hiện tại. Đổi nếu cần trỏ sang server khác.</small>
+          <input id="apiBase" class="input w-full" placeholder="" />
+        </div>
+      </section>
+
+      <!-- Mapping -->
+      <section class="space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="font-semibold">Map cột → trường</div>
+          <div class="flex gap-2">
+            <button id="btnResetMap" class="btn btn-outline text-sm">Reset map</button>
+          </div>
+        </div>
+        <div id="mappings" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+        <p class="text-xs text-gray-500">
+          Bắt buộc: <b>Họ và Tên</b> <i>hoặc</i> <b>Họ đệm + Tên</b>, và <b>Mã số HV</b>.<br>
+          <b>Mã hồ sơ</b> (nếu có): hệ thống dùng <b>4 số cuối</b>. Nếu không có, trường Mã HS sẽ để trống để cấp sau.
+        </p>
+      </section>
+
+      <!-- Actions -->
+      <section class="space-y-3">
+        <div class="flex gap-2 flex-wrap">
+          <button id="btnPreview" class="btn btn-outline" disabled>Xem trước</button>
+          <button id="btnUpload"  class="btn btn-primary" disabled>Bắt đầu import</button>
+          <button id="btnStop"    class="btn btn-outline hidden">Dừng</button>
+        </div>
+        <div>
+          <div class="flex items-center justify-between text-sm text-gray-600">
+            <span>Tiến độ</span><span id="stats">Chưa chạy.</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full overflow-hidden mt-1">
+            <div id="bar" class="bg-blue-600 text-white text-xs text-center py-1 transition-all" style="width:0%">0%</div>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- RIGHT -->
+    <main class="card space-y-4 lg:col-span-2">
+      <div class="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <div class="font-semibold">Xem trước dữ liệu</div>
+          <div class="text-xs text-gray-500">Hiển thị tối đa <b>5</b> dòng đầu (cuộn để xem).</div>
+        </div>
+      </div>
+
+      <div class="overflow-hidden border rounded-xl">
+        <div id="previewBox" class="overflow-x-auto overflow-y-auto">
+          <table class="table min-w-full">
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- KẾT QUẢ -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="font-semibold">Kết quả</div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+              DONE: <span id="okCount">0</span>
+            </span>
+            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+              ERROR: <span id="errCount">0</span>
+            </span>
+            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+              SKIP: <span id="skipCount">0</span>
+            </span>
+
+            <button id="btnExportErr" class="btn btn-outline btn-xs" disabled>📤 Xuất lỗi (XLSX)</button>
+            <button id="btnExportAll" class="btn btn-outline btn-xs" disabled>📦 Xuất tất cả (XLSX)</button>
+
+            <span class="hidden md:inline-block w-px h-4 bg-gray-200"></span>
+            <button id="btnClearLog" class="btn btn-outline btn-xs">Clear</button>
+          </div>
+        </div>
+
+        <div class="overflow-hidden border rounded-xl">
+          <div class="overflow-auto max-h-[70vh]">
+            <table id="resultsTable" class="table min-w-full">
+              <thead>
+                <tr>
+                  <th class="text-center w-16">STT</th>
+                  <th class="text-center w-36">Mã Hồ sơ</th>
+                  <th class="text-center w-40">Trạng thái</th>
+                  <th class="text-center">Thông điệp</th>
+                </tr>
+              </thead>
+              <tbody id="resBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/js/import_students.js"></script>
+{% endblock %}

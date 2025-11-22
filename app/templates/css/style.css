@@ -20,7 +20,7 @@ body{
 
 /* Nền AMS chỉ áp cho các trang bên trong hệ thống (home, account, admin, …) */
 body:not(.no-ams-bg){
-  background:url('hinhnen.png') center/cover fixed no-repeat;
+  background:url('/assets/hinhnen.png') center/cover fixed no-repeat;
   position:relative;
 }
 
@@ -35,10 +35,14 @@ body:not(.no-ams-bg)::before{
 
 /* ===== Login page ===== */
 .login-bg{
-  position:fixed; inset:0; z-index:-1;
-  background:url('banner.png') center/cover no-repeat;
-  filter:blur(4px) saturate(105%);
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  /* DÙNG background, không phải background-image */
+  background: url("/assets/banner.png") center/cover no-repeat;
+  filter: blur(4px) saturate(105%);
 }
+
 .login-overlay{
   position:fixed; inset:0; z-index:-1;
   background:linear-gradient(to bottom, rgba(0,0,0,.25), rgba(0,0,0,.35));

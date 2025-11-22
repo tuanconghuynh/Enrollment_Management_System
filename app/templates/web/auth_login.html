@@ -4,16 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Đăng nhập | Admission_Management_System</title>
+
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/style.css">
+
+  <!-- CSS đúng -->
+  <link rel="stylesheet" href="/css/style.css">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="/hutech.png" sizes="32x32">
-  <link rel="apple-touch-icon" href="/hutech.png">
+  <link rel="icon" type="image/png" href="/assets/hutech.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/hutech.png">
   <meta name="theme-color" content="#2563eb">
-
- 
 </head>
+
 <body class="no-ams-bg min-h-screen flex items-center justify-center p-4">
   <!-- Background (banner + overlay) -->
   <div class="login-bg" aria-hidden="true"></div>
@@ -22,7 +25,10 @@
   <main class="w-full max-w-md" aria-labelledby="loginTitle">
     <section class="rounded-2xl shadow-2xl p-8 bg-white/90 backdrop-blur-md">
       <header class="flex items-center gap-3 mb-6">
-        <img src="/hutech.png" class="h-10 w-10" alt="HUTECH">
+        
+        <!-- Logo đúng -->
+        <img src="/assets/hutech.png" class="h-10 w-10" alt="HUTECH">
+        
         <div>
           <h1 id="loginTitle" class="text-xl font-bold leading-tight">Viện Hợp tác &amp; Phát triển Đào tạo</h1>
           <p class="text-sm text-gray-500">Đăng nhập — Admission Management System (AMS)</p>
@@ -84,6 +90,7 @@
     </section>
   </main>
 
-  <script src="auth_login.js"></script>
+  <!-- JS -->
+  <script src="/js/auth_login.js"></script>
 </body>
 </html>

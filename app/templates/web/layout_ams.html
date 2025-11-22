@@ -6,17 +6,25 @@
 
   <title>{% block title %}AMS{% endblock %}</title>
 
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="style.css">
-  <link rel="icon" href="hutech.png" type="image/png" />
-  <meta name="theme-color" content="#2563eb">
+  <!-- Tailwind + CSS chung -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="/assets/hutech.png" type="image/png" />
+  <meta name="theme-color" content="#2563eb" />
+
+  <!-- Hover nhẹ logo -->
+  <style>
+    a:hover img {
+      transform: scale(1.05);
+      transition: transform 0.2s ease;
+    }
+  </style>
 
   {% block extra_head %}{% endblock %}
 </head>
-<style>
-  /* Hover nhẹ logo */
-  a:hover img { transform: scale(1.05); transition: transform 0.2s ease; }
-</style>
+
 <body class="min-h-screen flex flex-col">
   <!-- HEADER CHUNG -->
   <header class="w-full bg-white/85 backdrop-blur-sm border-b border-slate-200">
@@ -24,7 +32,7 @@
       <a href="/ams_home.html"
          class="flex items-center gap-3 hover:opacity-90 transition"
          title="Về trang chủ">
-        <img src="hutech.png" class="h-10 w-10" alt="HUTECH" />
+        <img src="/assets/hutech.png" class="h-10 w-10" alt="HUTECH" />
         <div>
           <h1 class="text-2xl sm:text-3xl font-extrabold text-blue-700 leading-tight">
             ADMISSION MANAGEMENT SYSTEM - AMS
@@ -76,7 +84,7 @@
           Menu chính
         </div>
         <a href="/ams_home.html"
-           class="nav-item {% if active_page == 'home' %}nav-item-active{% endif %}">
+           class="nav-item {% if active_page == 'ams_home' or active_page == 'home' %}nav-item-active{% endif %}">
           🏠 Trang chủ
         </a>
         <a href="/compilation.html"
@@ -84,11 +92,11 @@
           📝 Nhập hồ sơ mới
         </a>
         <a href="/students_list.html"
-           class="nav-item {% if active_page == 'students' %}nav-item-active{% endif %}">
+           class="nav-item {% if active_page == 'students_list' or active_page == 'students' %}nav-item-active{% endif %}">
           📋 Danh sách hồ sơ
         </a>
         <a href="/import_students.html"
-           class="nav-item {% if active_page == 'import' %}nav-item-active{% endif %}">
+           class="nav-item {% if active_page == 'import_students' or active_page == 'import' %}nav-item-active{% endif %}">
           ⬇️ Import học viên
         </a>
         <a href="/journal.html"
@@ -96,7 +104,7 @@
           🕓 Nhật ký hệ thống
         </a>
         <a href="/checklist_admin.html"
-           class="nav-item {% if active_page == 'checklist' %}nav-item-active{% endif %}">
+           class="nav-item {% if active_page == 'checklist_admin' or active_page == 'checklist' %}nav-item-active{% endif %}">
           📑 Quản lý danh mục hồ sơ
         </a>
         <a href="/admin"
@@ -121,7 +129,8 @@
         <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
         <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
         <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP. Hồ Chí Minh</p>
-        <p><b>ĐT:</b> (028) 6686 6465 ·
+        <p>
+          <b>ĐT:</b> (028) 6686 6465 ·
           <b>Email:</b>
           <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">
             daotaotructuyen@hutech.edu.vn

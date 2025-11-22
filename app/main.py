@@ -5,33 +5,38 @@ from time import time as _now
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse, RedirectResponse
+from starlette.status import HTTP_403_FORBIDDEN
+
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.base import Base
 from app.db.session import engine, get_db
-
-from fastapi.middleware.cors import CORSMiddleware
-from app.routers import applicants_batch  
-
-# Routers
+from app.routers import applicants_batch
 from app.routers import health, applicants, checklist, export, batch
 from app.routers import auth, admin, journal
-from app.routers import account  #trang thông tin tài khoản
-from urllib.parse import quote
-
-#Email
+from app.routers import account
 from app.routers import applicants_email
-from app.core.config import settings  
-
-# Dùng chung hằng số timeout với auth.py để không lệch
+from app.core.config import settings
 from app.routers.auth import IDLE_TIMEOUT_SEC as AUTH_IDLE_TIMEOUT_SEC
+from urllib.parse import quote
 
 # (tuỳ) audit
 try:
     from app.services.audit import write_audit
 except Exception:
-    write_audit = None  # fallback an toàn
+    write_audit = None
+
+# ================== TEMPLATE PATH CHUNG ==================
+BASE_DIR = os.path.dirname(__file__)                  # .../app
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+WEB_TEMPLATES_DIR = os.path.join(TEMPLATES_DIR, "web")
+templates = Jinja2Templates(directory=WEB_TEMPLATES_DIR)
+# =========================================================
 
 app = FastAPI()
 
@@ -39,11 +44,12 @@ app.include_router(applicants_email.router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # hoặc liệt kê origin FE của anh
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],          # quan trọng: cho OPTIONS
+    allow_methods=["*"],
     allow_headers=["*"],
 )
+
 # ---------------- Session cookie ----------------
 app.add_middleware(
     SessionMiddleware,
@@ -86,11 +92,9 @@ STATIC_EXTS = (
 async def idle_timeout_middleware(request: Request, call_next):
     path = request.url.path
 
-    # Cho phép truy cập các đường tĩnh / whitelist
     if path.startswith(WHITELIST_PREFIXES) or path.lower().endswith(STATIC_EXTS):
         return await call_next(request)
 
-    # Không có session -> tiếp tục bình thường
     if "session" not in request.scope:
         return await call_next(request)
 
@@ -101,40 +105,35 @@ async def idle_timeout_middleware(request: Request, call_next):
         now = int(_now())
         last = int(sess.get("_last_seen") or 0)
         if last and now - last > MAX_IDLE_SECONDS:
-            # Hết hạn phiên
             request.session.clear()
 
             if path.startswith("/api"):
-                # API: 401 + header để FE biết bật thông báo
                 return JSONResponse(
                     {"detail": "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!"},
                     status_code=401,
                     headers={"X-Session-Expired": "1"}
                 )
 
-            # Web: đặt cookie cờ + redirect về login?expired=1
             next_q = quote(str(request.url.path) + (("?" + request.url.query) if request.url.query else ""))
             resp = RedirectResponse(url=f"/login?expired=1&next={next_q}", status_code=302)
-            # Cookie *không* httponly để JS đọc và show toast; sống 30 giây
             resp.set_cookie(
                 key="__session_expired",
                 value="1",
                 max_age=30,
                 path="/",
-                secure=False,      # Nếu anh chạy HTTPS có thể đặt True
-                httponly=False,    # cho phép JS đọc
+                secure=False,
+                httponly=False,
                 samesite="lax",
             )
             return resp
 
-        # Còn hạn → cập nhật dấu vết
         sess["_last_seen"] = now
 
     return await call_next(request)
 
 # ---------------- Ép đổi mật khẩu lần đầu ----------------
 ENFORCE_CHANGE_WHITELIST = (
-    "/account", "/account/change-password", "/api/account/change-password",  # cho phép trang + API đổi pass
+    "/account", "/account/change-password", "/api/account/change-password",
     "/login", "/api/login", "/logout", "/api/logout",
     "/health", "/api/health",
     "/auth_login.html",
@@ -143,17 +142,13 @@ ENFORCE_CHANGE_WHITELIST = (
     "/journal.html",
 )
 
-from starlette.status import HTTP_403_FORBIDDEN
-
 @app.middleware("http")
 async def enforce_first_change_password(request: Request, call_next):
     path = request.url.path
 
-    # file tĩnh & đường cho phép
     if path.startswith(ENFORCE_CHANGE_WHITELIST) or path.lower().endswith(STATIC_EXTS):
         return await call_next(request)
 
-    # chưa đăng nhập thì thôi
     sess = request.session if "session" in request.scope else None
     uid = sess.get("uid") if sess else None
     if not uid:
@@ -161,7 +156,6 @@ async def enforce_first_change_password(request: Request, call_next):
 
     must_change = sess.get("must_change_password")
     if must_change is None:
-        # nạp 1 lần rồi cache vào session
         try:
             db = next(get_db())
             from app.models.user import User
@@ -172,13 +166,11 @@ async def enforce_first_change_password(request: Request, call_next):
         sess["must_change_password"] = must_change
 
     if must_change:
-        # API → trả JSON 403
         if path.startswith("/api"):
             return JSONResponse(
                 {"detail": "Vui lòng đổi mật khẩu trước khi tiếp tục.", "force_change": True},
                 status_code=HTTP_403_FORBIDDEN
             )
-        # Web → ép về trang account
         return RedirectResponse(url="/account?first=1", status_code=302)
 
     return await call_next(request)
@@ -208,18 +200,16 @@ app.include_router(auth.router,    tags=["Auth"])
 app.include_router(admin.router,   tags=["Admin"])
 app.include_router(account.router, tags=["Account"])
 
-# API chuẩn
 app.include_router(health.router,     prefix="/api", tags=["Health"])
 app.include_router(checklist.router,  prefix="/api", tags=["Checklist"])
 app.include_router(applicants.router, prefix="/api", tags=["Applicants"])
-app.include_router(applicants_batch.router, prefix="/api", tags=["Applicants (batch)"]) 
+app.include_router(applicants_batch.router, prefix="/api", tags=["Applicants (batch)"])
 app.include_router(batch.router,      prefix="/api", tags=["Batch"])
 app.include_router(export.router,     prefix="/api", tags=["Export"])
 app.include_router(journal.router,    prefix="/api", tags=["Journal"])
 
-# Alias không /api (ẩn khỏi docs)
 for r in (health.router, checklist.router, applicants.router, applicants_batch.router, batch.router, export.router, journal.router):
-    app.include_router(r, prefix="", include_in_schema=False) 
+    app.include_router(r, prefix="", include_in_schema=False)
 
 # ---------------- Startup ----------------
 @app.on_event("startup")
@@ -239,15 +229,45 @@ def _log_routes():
 async def root():
     return RedirectResponse(url="/ams_home.html", status_code=307)
 
+# ------------ Route chung cho các trang .html (template) ------------
+@app.get("/{page_name}.html", response_class=HTMLResponse, include_in_schema=False)
+async def render_page(page_name: str, request: Request):
+    # map tên file -> key active_page trong layout_ams.html
+    active_map = {
+        "ams_home": "home",
+        "compilation": "compilation",
+        "students_list": "students",
+        "import_students": "import",
+        "journal": "journal",
+        "checklist_admin": "checklist",
+        "admin_ams": "admin",
+    }
+    ctx = {
+        "request": request,
+        "active_page": active_map.get(page_name, page_name),
+    }
+    return templates.TemplateResponse(f"{page_name}.html", ctx)
+
+# ---------------- Static files ----------------
 os.makedirs(settings.receipts_path, exist_ok=True)
 app.mount(
     "/static/receipts",
     StaticFiles(directory=str(settings.receipts_path)),
     name="receipts",
 )
-app.mount("/web", StaticFiles(directory="web"), name="web")
 
-# ---------------- Static web/ ----------------
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-WEB_DIR  = os.path.join(BASE_DIR, "web")
-app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="webroot")
+app.mount(
+    "/assets",
+    StaticFiles(directory=os.path.join(TEMPLATES_DIR, "assets")),
+    name="assets",
+)
+app.mount(
+    "/css",
+    StaticFiles(directory=os.path.join(TEMPLATES_DIR, "css")),
+    name="css",
+)
+app.mount(
+    "/js",
+    StaticFiles(directory=os.path.join(TEMPLATES_DIR, "js")),
+    name="js",
+)

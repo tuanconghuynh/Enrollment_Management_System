@@ -11,13 +11,16 @@ from sqlalchemy import or_
 
 from app.db.session import get_db
 from app.models.user import User
-from app.routers.auth import require_admin  # guard Admin
-from app.core.security import hash_password  # dùng context chung
+from app.routers.auth import require_admin
+from app.core.security import hash_password
 
 router = APIRouter()
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-templates = Jinja2Templates(directory=str(ROOT_DIR / "web"))
+# == CHỈNH LẠI TEMPLATE PATH ĐÚNG ==
+BASE_DIR = Path(__file__).resolve().parents[1]      # .../app
+WEB_TEMPLATES_DIR = BASE_DIR / "templates" / "web"
+templates = Jinja2Templates(directory=str(WEB_TEMPLATES_DIR))
+# ==================================
 
 VALID_ROLES = {"Admin", "NhanVien", "CongTacVien"}
 
@@ -42,7 +45,12 @@ def admin_index(
     users = db.query(User).order_by(User.id.desc()).all()
     return templates.TemplateResponse(
         "admin_ams.html",
-        {"request": request, "users": users, "me": me}
+        {
+            "request": request,
+            "users": users,
+            "me": me,
+            "active_page": "admin",   # để layout_ams.html tô màu menu Admin
+        },
     )
 
 @router.post("/admin/users/create")
