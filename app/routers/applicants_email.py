@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Body, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Body, Query, Request
 import json
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,6 +15,8 @@ from app.models.email_log import EmailLog
 from typing import List, Dict, Any
 from sqlalchemy import select
 from types import SimpleNamespace
+from app.services.audit import write_audit
+
 
 router = APIRouter(prefix="/applicants", tags=["applicants-email"])
 
@@ -275,6 +277,7 @@ def get_email_draft(
 def send_email_generic(
     ma_so_hv: str,
     bg: BackgroundTasks,
+    request: Request,
     db: Session = Depends(get_db),
     tpl: str = Query("confirmation"),
     a5: bool = Query(True),
@@ -349,15 +352,35 @@ def send_email_generic(
 
     bg.add_task(_task, a.ma_so_hv, to_email, subj, html, att_paths)
 
-    # 🔵 THÊM ĐOẠN NÀY: cập nhật trạng thái đã gửi email
-    a.status = "emailed"          # hoặc "email_sent" tuỳ anh thích
-    db.commit()
+    # Cập nhật trạng thái hồ sơ
+    a.status = "emailed"  # hoặc "email_sent" tuỳ anh đặt
+    try:
+        # 👇 Ghi log vào bảng AuditLog để hiện lên trang Nhật ký
+        write_audit(
+            db,
+            action="EMAIL_SENT",
+            target_type="Applicant",
+            target_id=a.ma_so_hv,   # 👈 MSSV vào đây
+            prev_values=None,
+            new_values={
+                "template": tpl,
+                "attach_receipt": attach_receipt,
+                "to_email": to_email,
+                "subject": subj,
+            },
+            status="SUCCESS",
+            request=request,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        # không raise để không làm hỏng flow gửi mail, chỉ mất log thôi
 
     return {
         "ok": True,
         "ma_so_hv": a.ma_so_hv,
         "template": tpl,
-        "status": a.status,       # trả về cho FE nếu muốn xài luôn
+        "status": a.status,
     }
 
 # ---------- Batch ----------
@@ -404,9 +427,7 @@ def send_email_batch(
                         "missing_list": missing_list,
                     },
                 )
-
                 await send_html_email(subject=subj, recipients=[to_email], html_body=html)
-
                 session.add(EmailLog(
                     applicant_ma_so_hv=a.ma_so_hv,
                     applicant_ma_ho_so=a.ma_ho_so,
@@ -415,7 +436,23 @@ def send_email_batch(
                     success=True,
                 ))
 
-                # 🔵 THÊM: set trạng thái đã gửi email cho từng hồ sơ
+                # 🔵 THÊM: log vào AuditLog cho từng MSSV
+                write_audit(
+                    session,
+                    action="EMAIL_SENT",
+                    target_type="Applicant",
+                    target_id=a.ma_so_hv,
+                    prev_values=None,
+                    new_values={
+                        "template": tpl,
+                        "to_email": to_email,
+                        "subject": subj,
+                        "batch": True,
+                    },
+                    status="SUCCESS",
+                    request=None,    # background task, không có request
+                )
+
                 a.status = "emailed"
                 session.add(a)
 

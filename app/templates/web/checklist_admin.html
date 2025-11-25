@@ -1,203 +1,121 @@
-<!doctype html> 
-<html lang="vi">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Quản lý Danh mục hồ sơ | AMS</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="icon" type="image/png" href="/assets/hutech.png">
-  <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="/css/style.css">
-</head>
- <style>
-    /* Hover nhẹ logo */
-    a:hover img { transform: scale(1.05); transition: transform 0.2s ease; }
-  </style>
-<body class="min-h-screen flex flex-col">
+{% extends "layout_ams.html" %}
+{% set active_page = 'checklist_admin' %}
 
-  <!-- HEADER CHUNG GIỐNG TRANG CHỦ -->
-  <header class="w-full bg-white/85 backdrop-blur-sm border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center gap-3">
-      <a href="/ams_home.html"
-         class="flex items-center gap-3 hover:opacity-90 transition"
-         title="Về trang chủ">
-        <img src="/assets/hutech.png" class="h-10 w-10" alt="HUTECH" />
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold text-blue-700 leading-tight">
-            ADMISSION MANAGEMENT SYSTEM - AMS
-          </h1>
-          <p class="text-sm sm:text-base text-gray-600 font-medium tracking-wide">
-            V-HT.PTĐT - Hệ Thống Quản Lý Hồ Sơ Nhập Học (AMS)
-          </p>
-        </div>
-      </a>
-    </div>
-  </header>
+{% block title %}Quản lý Danh mục hồ sơ | AMS{% endblock %}
 
-  <!-- MAIN LAYOUT -->
-  <main class="flex-1 flex">
-    <!-- SIDEBAR ĐỒNG NHẤT -->
-    <aside class="hidden md:flex md:flex-col w-64 bg-white/85 border-r border-slate-200 backdrop-blur-sm">
-      <!-- Khối user + dropdown -->
-      <div class="px-4 pt-4 pb-3 border-b border-slate-200 relative">
-        <button id="userMenuBtn"
-                class="w-full justify-between text-sm text-gray-700 bg-white hover:bg-slate-50 px-3 py-2 rounded-lg shadow border flex items-center gap-2"
-                aria-haspopup="true" aria-expanded="false" aria-controls="userMenu">
-          <span><b id="helloName">—</b>
-            <span class="text-gray-500">(<span id="helloRole">—</span>)</span>
-          </span>
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" class="text-gray-500" aria-hidden="true">
-            <path fill-rule="evenodd"
-                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.187l3.71-3.956a.75.75 0 011.08 1.04l-4.24 4.52a.75.75 0 01-1.08 0l-4.24-4.52a.75.75 0 01.02-1.06z"
-                  clip-rule="evenodd"/>
-          </svg>
-        </button>
+{% block content %}
+  <div class="space-y-6">
 
-        <div id="userMenu"
-            class="menu absolute right-0 top-[calc(100%+4px)] w-48 md:w-56
-                    bg-white border rounded-lg shadow-md overflow-hidden z-20 text-xs"
-            role="menu">
-          <a href="/account"
-            class="block px-3 py-1.5 hover:bg-gray-50"
-            role="menuitem">
-            🔎 Thông tin tài khoản
-          </a>
-          <a href="/account"
-            class="block px-3 py-1.5 hover:bg-gray-50"
-            role="menuitem">
-            🔐 Đổi mật khẩu
-          </a>
-          <button id="btnMenuLogout"
-                  class="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-red-600"
-                  role="menuitem">
-            ↩️ Đăng xuất
-          </button>
+    {# Header trang Checklist #}
+    <section class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="min-w-0">
+          <h1 class="text-2xl font-bold leading-tight">QUẢN LÝ DANH MỤC HỒ SƠ</h1>
+          <p class="text-sm text-gray-500">Chỉ <b>Admin</b> có quyền chỉnh sửa.</p>
         </div>
       </div>
-
-      <!-- Menu chính -->
-      <nav class="py-4 text-sm flex-1">
-        <div class="px-4 pb-3 text-xs font-semibold text-gray-500 uppercase">
-          Menu chính
-        </div>
-        <a href="/ams_home.html"         class="nav-item">🏠 Trang chủ</a>
-        <a href="/compilation.html"      class="nav-item">📝 Nhập hồ sơ mới</a>
-        <a href="/students_list.html"    class="nav-item">📋 Danh sách hồ sơ</a>
-        <a href="/import_students.html"  class="nav-item">⬇️ Import học viên</a>
-        <a href="/journal.html"          class="nav-item">🕓 Nhật ký hệ thống</a>
-        <a href="/checklist_admin.html"  class="nav-item nav-item-active">📑 Quản lý danh mục hồ sơ</a>
-        <a href="/admin"                 class="nav-item">👤 Quản lý tài khoản</a>
-      </nav>
-    </aside>
-
-    <!-- CONTENT -->
-    <section class="flex-1 flex items-start justify-center">
-      <div class="max-w-7xl mx-auto px-6 py-6 w-full space-y-6" id="pageContent">
-
-        <!-- Header trang Checklist -->
-        <section class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="min-w-0">
-              <h1 class="text-2xl font-bold leading-tight">QUẢN LÝ DANH MỤC HỒ SƠ</h1>
-              <p class="text-sm text-gray-500">Chỉ <b>Admin</b> có quyền chỉnh sửa.</p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="text-sm text-gray-500">API Base</label>
-            <input id="apiBase" class="input w-60 md:w-80" placeholder="">
-            <span class="hidden md:inline-block w-px h-6 bg-gray-200"></span>
-            <a href="/" class="btn btn-outline">Trang chính</a>
-          </div>
-        </section>
-
-        <!-- Quyền -->
-        <div id="roleBanner" class="rounded-xl border bg-white p-4 hidden">
-          <div id="roleText" class="text-sm text-gray-700"></div>
-        </div>
-
-        <!-- Versions -->
-        <section class="card space-y-4">
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <h2 class="font-semibold">Phiên bản danh mục</h2>
-            <div class="text-sm text-gray-500">Tạo version mới (clone), xem và xóa phiên bản cũ.</div>
-          </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <!-- Danh sách version -->
-            <div class="border rounded-xl overflow-hidden bg-white">
-              <div class="px-4 py-3 border-b font-semibold">Các phiên bản</div>
-              <div id="verWrap" class="divide-y"></div>
-            </div>
-
-            <!-- Tạo version -->
-            <div class="border rounded-xl overflow-hidden bg-white">
-              <div class="px-4 py-3 border-b font-semibold">Tạo phiên bản mới</div>
-              <div class="p-4 space-y-3">
-                <div>
-                  <label class="label">Tên phiên bản</label>
-                  <input id="verName" class="input w-full" placeholder="vd: v2 (2025)">
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label class="label">Clone từ</label>
-                    <select id="verClone" class="input w-full">
-                      <option value="active">Version đang active</option>
-                    </select>
-                  </div>
-                  <div class="flex items-center gap-2 pt-6">
-                    <input id="verActivate" type="checkbox" class="h-4 w-4">
-                    <label for="verActivate" class="text-sm">Kích hoạt ngay</label>
-                  </div>
-                </div>
-                <div class="flex items-center justify-end gap-2">
-                  <button id="btnCreateVer" class="btn btn-primary" disabled>Tạo version</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Items -->
-        <section class="card space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 class="font-semibold">
-                Danh mục hồ sơ (version:
-                <span id="activeVer" class="chip-mini">—</span>)
-              </h2>
-              <p class="text-xs text-gray-500">Kéo ☰ để sắp xếp; nhớ bấm <b>Lưu thứ tự</b>.</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <button id="btnAdd" class="btn btn-primary" disabled>+ Thêm mục</button>
-              <button id="btnSaveOrder" class="btn btn-outline" disabled>💾 Lưu thứ tự</button>
-            </div>
-          </div>
-
-          <div class="overflow-hidden border rounded-xl bg-white">
-            <div class="overflow-auto">
-              <table class="table min-w-full text-sm">
-                <thead>
-                  <tr>
-                    <th class="text-center w-14">#</th>
-                    <th class="text-left  w-10"> </th>
-                    <th class="text-left">Mã</th>
-                    <th class="text-left">Tên hiển thị</th>
-                    <th class="text-center w-24">Thứ tự</th>
-                    <th class="text-right  w-56">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody" class="divide-y"></tbody>
-              </table>
-            </div>
-          </div>
-          <div id="empty" class="text-center text-gray-500 py-6 hidden">Chưa có mục nào.</div>
-        </section>
-
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500">API Base</label>
+        <input id="apiBase" class="input w-60 md:w-80" placeholder="">
+        <span class="hidden md:inline-block w-px h-6 bg-gray-200"></span>
+        <a href="/" class="btn btn-outline">Trang chính</a>
       </div>
     </section>
-  </main>
 
-  <!-- Modal Add/Edit: dùng style.css (.overlay + .modal) -->
+    {# Quyền #}
+    <div id="roleBanner" class="rounded-xl border bg-white p-4 hidden">
+      <div id="roleText" class="text-sm text-gray-700"></div>
+    </div>
+
+    {# Versions #}
+    <section class="card space-y-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <h2 class="font-semibold">Phiên bản danh mục</h2>
+        <div class="text-sm text-gray-500">
+          Tạo version mới (clone), xem và xóa phiên bản cũ.
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {# Danh sách version #}
+        <div class="border rounded-xl overflow-hidden bg-white">
+          <div class="px-4 py-3 border-b font-semibold">Các phiên bản</div>
+          <div id="verWrap" class="divide-y"></div>
+        </div>
+
+        {# Tạo version #}
+        <div class="border rounded-xl overflow-hidden bg-white">
+          <div class="px-4 py-3 border-b font-semibold">Tạo phiên bản mới</div>
+          <div class="p-4 space-y-3">
+            <div>
+              <label class="label">Tên phiên bản</label>
+              <input id="verName" class="input w-full" placeholder="vd: v2 (2025)">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="label">Clone từ</label>
+                <select id="verClone" class="input w-full">
+                  <option value="active">Version đang active</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2 pt-6">
+                <input id="verActivate" type="checkbox" class="h-4 w-4">
+                <label for="verActivate" class="text-sm">Kích hoạt ngay</label>
+              </div>
+            </div>
+            <div class="flex items-center justify-end gap-2">
+              <button id="btnCreateVer" class="btn btn-primary" disabled>
+                Tạo version
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# Items #}
+    <section class="card space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="font-semibold">
+            Danh mục hồ sơ (version:
+            <span id="activeVer" class="chip-mini">—</span>)
+          </h2>
+          <p class="text-xs text-gray-500">
+            Kéo ☰ để sắp xếp; nhớ bấm <b>Lưu thứ tự</b>.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnAdd" class="btn btn-primary" disabled>+ Thêm mục</button>
+          <button id="btnSaveOrder" class="btn btn-outline" disabled>💾 Lưu thứ tự</button>
+        </div>
+      </div>
+
+      <div class="overflow-hidden border rounded-xl bg-white">
+        <div class="overflow-auto">
+          <table class="table min-w-full text-sm">
+            <thead>
+              <tr>
+                <th class="text-center w-14">#</th>
+                <th class="text-left  w-10"> </th>
+                <th class="text-left">Mã</th>
+                <th class="text-left">Tên hiển thị</th>
+                <th class="text-center w-24">Thứ tự</th>
+                <th class="text-right  w-56">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="tbody" class="divide-y"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="empty" class="text-center text-gray-500 py-6 hidden">
+        Chưa có mục nào.
+      </div>
+    </section>
+
+  </div>
+
+  {# Modal Add/Edit: dùng style.css (.overlay + .modal) #}
   <div id="modal" class="overlay" aria-hidden="true">
     <div class="modal w-[92vw] max-w-lg">
       <div class="hd flex items-center justify-between">
@@ -221,7 +139,7 @@
     </div>
   </div>
 
-  <!-- Modal: xem items của phiên bản bất kỳ -->
+  {# Modal: xem items của phiên bản bất kỳ #}
   <div id="modalViewVer" class="overlay" aria-hidden="true">
     <div class="modal w-[96vw] max-w-3xl">
       <div class="hd flex items-center justify-between">
@@ -249,43 +167,8 @@
       </div>
     </div>
   </div>
+{% endblock %}
 
-  <!-- Toast -->
-  <div id="toast-wrap"></div>
-
-  <!-- Modal xác nhận Đăng xuất (dùng chung với các trang khác) -->
-  <div class="overlay" id="logoutModal" role="dialog" aria-modal="true" aria-labelledby="lgTitle">
-    <div class="modal max-w-md" id="logoutBox" tabindex="-1">
-      <div class="px-6 py-4 border-b flex items-center justify-between">
-        <div id="lgTitle" class="font-semibold text-gray-800">Xác nhận</div>
-        <button class="btn btn-outline btn-xs" id="lgClose" aria-label="Đóng">✕</button>
-      </div>
-      <div class="px-6 py-5" id="lgDesc">
-        <p class="text-gray-700">Bạn có chắc chắn muốn đăng xuất không?</p>
-      </div>
-      <div class="px-6 py-4 border-t flex justify-end gap-2 bg-gray-50 rounded-b-2xl">
-        <button class="btn btn-outline" id="lgCancel">Hủy</button>
-        <button class="btn btn-primary" id="lgOK">Đăng xuất</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <footer class="bg-[#1E50B4] text-white mt-auto">
-    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
-      <div>
-        <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
-        <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
-        <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP. Hồ Chí Minh</p>
-        <p>
-          <b>ĐT:</b> (028) 6686 6465 ·
-          <b>Email:</b> <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">daotaotructuyen@hutech.edu.vn</a>
-        </p>
-      </div>
-      <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
-    </div>
-  </footer>
-
-<script src="/js/checklist_admin.js"></script>
-</body>
-</html>
+{% block scripts %}
+  <script src="/js/checklist_admin.js"></script>
+{% endblock %}

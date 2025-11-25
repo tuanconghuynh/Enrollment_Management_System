@@ -15,6 +15,8 @@ from app.routers.auth import require_roles
 from app.models.audit import AuditLog, DeletionRequest
 from app.services.audit import write_audit
 from pydantic import BaseModel, Field
+from sqlalchemy import delete, not_
+
 
 # (liên quan hard-delete Applicant)
 from app.models.applicant import Applicant, ApplicantDoc
@@ -53,6 +55,15 @@ def list_logs(
     actor: Optional[str] = Query(None, description="filter by actor_name contains"),
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = Query(None),
+    # ẩn bớt các log “rác”
+    exclude_noise: bool = Query(
+        True,
+        description="Nếu True: ẩn các log tra cứu / lỗi hệ thống / mở email / preview batch..."
+    ),
+    exclude_actions: Optional[str] = Query(
+        None,
+        description="Danh sách action cần ẩn, ngăn cách bởi dấu phẩy, vd: 'READ,EXCEPTION'"
+    ),
     # phân trang + sắp xếp
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
@@ -98,6 +109,28 @@ def list_logs(
         qset = qset.filter(AuditLog.occurred_at >= from_dt)
     if to_dt:
         qset = qset.filter(AuditLog.occurred_at < to_dt)
+    
+        # Ẩn bớt các action không phải chức năng chính
+    noise_set = set()
+
+    if exclude_noise:
+        noise_set.update({
+            "READ",               # Tra cứu
+            "EXCEPTION",          # Lỗi hệ thống
+            "EMAIL_DRAFT_OPEN",   # Mở màn hình soạn email
+            "EMAIL_PREVIEW",      # Xem trước email
+            "EMAIL_TEMPLATE_VIEW",
+            "BATCH_UPDATE_PREVIEW",  # Xem trước batch, không thay đổi dữ liệu
+        })
+
+    if exclude_actions:
+        extra = [a.strip().upper() for a in exclude_actions.split(",") if a.strip()]
+        noise_set.update(extra)
+
+    if noise_set:
+        # dùng not_() hoặc ~ để phủ định IN
+        qset = qset.filter(~AuditLog.action.in_(noise_set))
+        # hoặc: qset = qset.filter(AuditLog.action.notin_(noise_set))
 
     # Sắp xếp
     order_col = AuditLog.occurred_at
@@ -416,6 +449,16 @@ class JournalTrackIn(BaseModel):
     action: str = Field(..., description="Ví dụ: 'PRINT_IN' hoặc 'EXPORT'")
     detail: JournalTrackDetail | None = None
 
+    # 👇 thêm 2 field để nhận từ FE
+    target_type: str | None = Field(
+        None,
+        description="Applicant | ApplicantBatch | Batch | ... (tùy FE gửi)"
+    )
+    target_id: str | None = Field(
+        None,
+        description="MSSV hoặc ID mục tiêu"
+    )
+
 # ====== Ghi log thao tác in/xuất ======
 @router.post("/track")
 def track_action(
@@ -434,8 +477,19 @@ def track_action(
         pass
 
     d = payload.detail.dict() if payload.detail else {}
-    target_type = d.get("target_type") or "Batch"
-    target_id = d.get("target_id") or (d.get("filters") or {}).get("mshv") or None
+
+    # ƯU TIÊN lấy từ top-level (FE đang gửi target_type/target_id ở đây)
+    target_type = (
+        (payload.target_type or "").strip()
+        or (d.get("target_type") or "").strip()
+        or "Batch"
+    )
+    target_id = (
+        (payload.target_id or "").strip()
+        or (d.get("target_id") or "").strip()
+        or (d.get("filters") or {}).get("mshv")
+        or None
+    )
 
     # new_values lưu toàn bộ chi tiết để xem ở trang "Chi tiết"
     new_values = {

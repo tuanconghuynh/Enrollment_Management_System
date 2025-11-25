@@ -14,8 +14,9 @@ from app.core.security import verify_password, hash_password
 
 router = APIRouter()
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-templates = Jinja2Templates(directory=str(ROOT_DIR / "web"))
+BASE_DIR = Path(__file__).resolve().parents[1]      # .../app
+WEB_TEMPLATES_DIR = BASE_DIR / "templates" / "web"
+templates = Jinja2Templates(directory=str(WEB_TEMPLATES_DIR))
 
 def _flash(request: Request, msg: str, level: str = "info"):
     request.session["_flash"] = {"message": msg, "level": level}

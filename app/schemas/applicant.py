@@ -158,7 +158,7 @@ class ApplicantOut(BaseModel):
     ma_ho_so: Optional[str] = None
     status: str
     printed: bool
-
+    
 
 # ========= Dùng cho GET chi tiết (phục vụ UI sửa hồ sơ) =========
 class ApplicantDocOut(BaseModel):
@@ -199,7 +199,8 @@ class ApplicantDetailOut(BaseModel):
     docs: List[ApplicantDocOut] = Field(default_factory=list)
 
     class Config:
-        orm_mode = True
+        # Pydantic v2: dùng from_attributes thay cho orm_mode
+        from_attributes = True
         json_encoders = {
             date: lambda v: v.strftime("%d/%m/%Y") if v else None,
             datetime: lambda v: v.strftime("%d/%m/%Y") if v else None,
@@ -226,4 +227,4 @@ class ApplicantListItem(BaseModel):
     dan_toc: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

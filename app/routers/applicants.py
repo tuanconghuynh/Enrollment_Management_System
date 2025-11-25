@@ -26,7 +26,6 @@ except Exception:
     ApplicantIn = dict  # type: ignore
     ApplicantOut = dict  # type: ignore
 
-
 router = APIRouter(prefix="/applicants", tags=["Applicants"])
 
 # ====== Lý do cập nhật (preset) ======
@@ -38,7 +37,6 @@ UPDATE_REASON_CHOICES = {
     "chinhsua_hoso": "Chỉnh sửa hồ sơ",
     "khac": "Lý do khác",
 }
-
 
 def _validate_update_reason(data) -> str:
     """
@@ -92,14 +90,12 @@ def _next_seq4(db: Session, khoa: Optional[str], dot: Optional[str]) -> str:
             except: pass
     return f"{(maxn + 1):04d}"
 
-
 # ================= Helpers =================
 DATE_DMY = re.compile(r"^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$")
 DATE_YMD = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 MSSV_REGEX = re.compile(r"^\d{10}$")
 
 DELETE_KEY_SECRET = os.getenv("DELETE_KEY_SECRET", "delete-dev")
-
 
 def verify_delete_key(key: str) -> bool:
     """
@@ -108,11 +104,9 @@ def verify_delete_key(key: str) -> bool:
     digest = hmac.new(DELETE_KEY_SECRET.encode(), b"ALLOW_DELETE", hashlib.sha256).hexdigest()
     return hmac.compare_digest(key or "", digest)
 
-
 def ensure_mssv(v: str):
     if not MSSV_REGEX.fullmatch(v or ""):
         raise HTTPException(status_code=422, detail="MSSV phải gồm đúng 10 chữ số.")
-
 
 def _parse_date_flexible(v: Optional[object]) -> Optional[date]:
     if v in (None, ""):
@@ -137,11 +131,9 @@ def _parse_date_flexible(v: Optional[object]) -> Optional[date]:
     except Exception:
         return None
 
-
 def _to_dmy(v: Optional[object]) -> Optional[str]:
     d = _parse_date_flexible(v)
     return f"{d.day:02d}/{d.month:02d}/{d.year:04d}" if d else None
-
 
 def _to_iso(v: Optional[object]) -> Optional[str]:
     if v is None or v == "":
@@ -152,7 +144,6 @@ def _to_iso(v: Optional[object]) -> Optional[str]:
         return datetime.combine(v, datetime.min.time()).isoformat()
     d = _parse_date_flexible(v)
     return datetime.combine(d, datetime.min.time()).isoformat() if d else None
-
 
 # 🆕 Chuẩn hóa giới tính
 def _normalize_gender(v):
@@ -165,7 +156,6 @@ def _normalize_gender(v):
         return "Nữ"
     # nếu FE gửi "Nam"/"Nữ"/khác đúng ý thì giữ nguyên
     return v
-
 
 def snapshot_applicant(a: Applicant) -> dict:
     """Chụp nhanh bản ghi để ghi audit (prev/new)."""
@@ -205,9 +195,7 @@ def snapshot_applicant(a: Applicant) -> dict:
         "deleted_at": iso(getattr(a, "deleted_at", None)),
         "deleted_by": getattr(a, "deleted_by", None),
         "deleted_reason": getattr(a, "deleted_reason", None),
-        # 🆕 giới tính
         "gioi_tinh": getattr(a, "gioi_tinh", None),
-        # 🆕 dân tộc
         "dan_toc": getattr(a, "dan_toc", None),
     }
 
@@ -320,9 +308,7 @@ def get_by_code(
         "status": getattr(a, "status", None),
         "printed": getattr(a, "printed", None),
         "checklist_version_id": getattr(a, "checklist_version_id", None),
-        # 🆕 giới tính
         "gioi_tinh": getattr(a, "gioi_tinh", None),
-        # 🆕 dân tộc
         "dan_toc": getattr(a, "dan_toc", None),
     }
 
@@ -615,7 +601,6 @@ def create_applicant(
         "printed": a.printed,
     }
 
-
 # ================= SEARCH =================
 @router.get("/search")
 def search_applicants(
@@ -686,7 +671,6 @@ def search_applicants(
         "total": total,
     }
 
-
 # ================= API find theo mã hồ sơ (giữ tương thích) =================
 @router.get("/find")
 @router.get("/find/")
@@ -743,9 +727,7 @@ def find_by_ma_ho_so(
             {"code": it.code, "display_name": it.display_name, "order_no": getattr(it, "order_no", 0)}
             for it in items
         ],
-        # 🆕 giới tính
         "gioi_tinh": getattr(a, "gioi_tinh", None),
-        # 🆕 dân tộc
         "dan_toc": getattr(a, "dan_toc", None),
     }
 

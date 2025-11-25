@@ -1,3 +1,5 @@
+  //js/journal.js
+
   /* ====== Khóa URL sạch ====== */
   (function lockCleanJournalURL(){
     const clean = () => { if (location.pathname !== '/journal.html' || location.search || location.hash) history.replaceState(null, '', '/journal.html'); };
@@ -52,12 +54,23 @@
     RESTORE:"Khôi phục",
     PRINT_IN:"In",     // ✅ thêm
     EXPORT:"Xuất Excel", // ✅ thêm
+    EMAIL_SENT: "Gửi email",
     EXCEPTION:"Lỗi hệ thống",
     READ:"Tra cứu",
     BATCH_UPDATE: "Cập nhật hàng loạt",
     BATCH_UPDATE_PREVIEW: "Xem trước (batch)",
   };
   const actionVi = c => ACTION_LABELS[(c||'').toUpperCase()] || (c||'—');
+
+    // 👇 THÊM ĐOẠN NÀY: các action KHÔNG muốn hiển thị trong bảng
+  const HIDE_ACTIONS = new Set([
+    'READ',              // Tra cứu
+    'EXCEPTION',         // Lỗi hệ thống
+    'EMAIL_DRAFT_OPEN',  // mở màn hình soạn email
+    'EMAIL_PREVIEW',     // xem trước email, nếu có
+    'EMAIL_TEMPLATE_VIEW',
+    'BATCH_UPDATE_PREVIEW' // chỉ xem trước batch, không thực sự cập nhật
+  ]);
 
   const FIELD_LABELS = {
     checklist_version_name: "Version danh mục",
@@ -167,6 +180,8 @@
       renderPager();
       $('#count').textContent = String(state.total);
       setState({ loading: false, empty: items.length === 0 });
+
+
       syncUrl();
     } catch (e) {
       tb.innerHTML = `<tr><td colspan="7" class="text-center text-rose-600 py-10">Lỗi: ${e.message}</td></tr>`;
@@ -245,10 +260,18 @@
   /* ====== Table list ====== */
   function renderTable(items){
     const tb = $('#tbody');
-    if (!items.length){
-      tb.innerHTML = `<tr><td colspan="7" class="text-center text-gray-500 py-10">Không có log nào</td></tr>`;
+
+    // 👇 LỌC BỎ NHỮNG ACTION KHÔNG MUỐN HIỂN THỊ
+    const visibleItems = (items || []).filter(row => {
+      const act = String(row.action || '').toUpperCase();
+      return !HIDE_ACTIONS.has(act);
+    });
+
+    if (!visibleItems.length){
+      tb.innerHTML = `<tr><td colspan="8" class="text-center text-gray-500 py-10">Không có log nào (đã ẩn bớt các log tra cứu, lỗi hệ thống, mở email, ...)</td></tr>`;
       return;
     }
+
     tb.innerHTML='';
 
     const collator = new Intl.Collator('vi', {numeric:true, sensitivity:'base'});
@@ -256,23 +279,25 @@
     const actionMap = ACTION_LABELS;
 
     const getVal = (r)=>{
-      if (key==='id') return r.id;
+      if (key==='id')          return r.id;
       if (key==='occurred_at') return r.occurred_at;
-      if (key==='actor_name') return r.actor_name||'';
-      if (key==='action') return actionMap[r.action] || r.action || '';
-      if (key==='status') return r.status||'';
-      if (key==='target') return r.target_id || '';
+      if (key==='actor_name')  return r.actor_name||'';
+      if (key==='action')      return actionMap[r.action] || r.action || '';
+      if (key==='status')      return r.status||'';
+      if (key==='target')      return r.target_id || '';
       return '';
     };
 
-    const sorted = items.slice().sort((a,b)=> collator.compare(String(getVal(a)), String(getVal(b))));
+    const sorted = visibleItems.slice().sort((a,b)=>{
+      return collator.compare(String(getVal(a)), String(getVal(b)));
+    });
     if (dir==='desc') sorted.reverse();
 
     sorted.forEach(row=>{
       const tr = document.createElement('tr');
       const when = row.occurred_at ? new Date(row.occurred_at) : null;
       const actionLabel = actionVi(row.action);
-      const actionCls = String(row.action||'').toUpperCase();
+      const actionCls   = String(row.action||'').toUpperCase();
       tr.innerHTML = `
         <td class="text-left whitespace-nowrap">${row.id}</td>
         <td class="text-center whitespace-nowrap">${when ? formatVNDateTime(when) : ''}</td>
@@ -302,7 +327,6 @@
       b.onclick = ()=>{
         const corr = b.dataset.corr || '';
         if (!corr) return;
-        // nhét vào ô Từ khóa để giữ đơn giản (BE đang hỗ trợ q/correlation match)
         const q = document.getElementById('q');
         if (q) q.value = corr;
         state.page = 1;
@@ -828,20 +852,20 @@
   }
 
   async function journalTrack({ action, target_type='ApplicantBatch', target_id=null, detail={} }) {
-  try {
-    const r = await apiFetch('/journal/track', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify({
-        action,              // 'PRINT_IN'
-        target_type,         // tuỳ: 'Applicant', 'ApplicantBatch', ...
-        target_id,           // nếu in 1 hồ sơ cụ thể thì truyền MSSV; in hàng loạt => null
-        new_values: detail,  // metadata: scope, filters, name_mode, count...
-      }),
-    });
-    return r?.ok;
-  } catch { return false; }
-}
+    try {
+      const r = await apiFetch('/journal/track', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          action,
+          target_type,
+          target_id,
+          detail, // <-- đổi tên key cho đẹp
+        }),
+      });
+      return r?.ok;
+    } catch { return false; }
+  }
 
   // Helper: kiểm tra đã bị xóa vĩnh viễn chưa (dựa vào Journal)
   async function alreadyPurgedByLog(targetId){

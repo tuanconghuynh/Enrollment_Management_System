@@ -1,427 +1,290 @@
-<!doctype html>
-<html lang="vi">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Biên nhận hồ sơ nhập học | AMS</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/css/style.css">
-  <link rel="icon" type="image/png" href="/assets/hutech.png" sizes="32x32">
-  <link rel="apple-touch-icon" href="/assets/hutech.png">
-  <meta name="theme-color" content="#2563eb">
-</head>
- <style>
-    /* Hover nhẹ logo */
-    a:hover img { transform: scale(1.05); transition: transform 0.2s ease; }
-  </style>
-<body class="min-h-screen flex flex-col">
+{% extends "layout_ams.html" %}
+{% set active_page = 'compilation' %}
 
-  <!-- Ẩn HTML tới khi check xong /me để tránh nháy -->
-  <script>document.documentElement.style.visibility = 'hidden';</script>
+{% block title %}Biên nhận hồ sơ nhập học | AMS{% endblock %}
 
-  <!-- Toast -->
-  <div id="toast-wrap"></div>
+{% block content %}
+  <div class="space-y-6">
 
-  <!-- HEADER CHUNG AMS -->
-  <header class="w-full bg-white/85 backdrop-blur-sm border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-3">
-      <a href="/ams_home.html"
-         class="flex items-center gap-3 hover:opacity-90 transition"
-         title="Về trang chủ">
-        <img src="/assets/hutech.png" alt="HUTECH" class="h-10 w-10 object-contain select-none" />
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold text-blue-700 leading-tight">
-            ADMISSION MANAGEMENT SYSTEM - AMS
-          </h1>
-          <p class="text-sm sm:text-base text-gray-600 font-medium tracking-wide">
-            V-HT.PTĐT · Biên nhận hồ sơ nhập học
-          </p>
-        </div>
-      </a>
+    {# Thanh nhỏ dưới header: link nhanh + API Base + navHello #}
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <a id="navStudents"
+           href="/students_list.html"
+           class="btn btn-outline">
+          📋 Danh sách hồ sơ
+        </a>
+        <button class="btn btn-outline" id="btnReloadChecklist" title="Tải lại danh sách checklist">
+          ↻ Checklist
+        </button>
+      </div>
 
-      <!-- Góc phải: API base + quick info -->
-      <div class="flex flex-col items-end gap-2">
+      <div class="flex flex-col items-end gap-1">
         <div class="flex flex-wrap items-center gap-2 text-sm">
           <label for="apiBase" class="text-gray-600 font-medium">API Base</label>
-          <input id="apiBase" class="input w-48 md:w-55" placeholder="http://..." />
-          <button class="btn btn-outline" id="btnTestApi" title="Kiểm tra kết nối API">🔍 Test</button>
+          <input id="apiBase" class="input w-48 md:w-56" placeholder="http://..." />
+          <button class="btn btn-outline" id="btnTestApi" title="Kiểm tra kết nối API">
+            🔍 Test
+          </button>
         </div>
         <span id="navHello" class="text-xs text-gray-500 hidden"></span>
       </div>
     </div>
-  </header>
 
-  <!-- MAIN LAYOUT -->
-  <main class="flex-1 flex bg-slate-50/60">
-    <!-- SIDEBAR -->
-    <aside class="hidden md:flex md:flex-col w-64 bg-white/90 border-r border-slate-200 backdrop-blur-sm">
-      <!-- User block + dropdown -->
-      <div class="px-4 pt-4 pb-3 border-b border-slate-200 relative">
-        <button id="userMenuBtn"
-                class="w-full justify-between text-sm text-gray-700 bg-white hover:bg-slate-50 px-3 py-2 rounded-lg shadow border flex items-center gap-2"
-                aria-haspopup="true" aria-expanded="false" aria-controls="userMenu">
-          <span>
-            <span><b id="helloName">—</b></span>
-            <span class="text-gray-500"> (<span id="helloRole">—</span>)</span>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {# Form chính #}
+      <section class="lg:col-span-2 card">
+        <div class="section-title">Biên nhận hồ sơ nhập học</div>
+
+        {# Khối 1: Mã, ngày, khóa, đợt #}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label">Mã hồ sơ</label>
+            <input class="input" id="ma_ho_so" placeholder="0000" readonly />
+          </div>
+          <div>
+            <label class="label">Ngày nhận HS</label>
+            <input class="input" id="ngay_nhan_hs" type="date" readonly disabled />
+          </div>
+          <div>
+            <label class="label" for="khoa">Niên Khóa</label>
+            <select class="input" id="khoa" name="khoa">
+              <option value="">-- Chọn khóa --</option>
+              <option>24</option><option>25</option><option>26</option>
+              <option>27</option><option>28</option><option>29</option><option>30</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Đợt</label>
+            <select class="input" id="dot">
+              <option value="">-- Chọn đợt --</option>
+              <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+              <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+              <option>11</option><option>12</option><option>13</option><option>14</option><option>15</option>
+              <option>16</option><option>17</option><option>18</option><option>19</option><option>20</option>
+            </select>
+          </div>
+        </div>
+
+        {# Thông tin HV #}
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label">Họ đệm</label>
+            <input class="input" id="ho_dem" placeholder="Nguyễn Văn" />
+          </div>
+          <div>
+            <label class="label">Tên</label>
+            <input class="input" id="ten" placeholder="An" />
+          </div>
+
+          <div class="md:col-span-2 text-xs text-gray-500 -mt-2">
+            Họ và tên: <b id="fullNameMirror"></b>
+          </div>
+          <input type="hidden" id="ho_ten" />
+
+          <div>
+            <label class="label">Mã số HV</label>
+            <input class="input" id="ma_so_hv" placeholder="2510200xxx" />
+          </div>
+          <div>
+            <label class="label">Giới tính</label>
+            <select class="input" id="gioi_tinh">
+              <option value="">-- Chọn giới tính --</option>
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Khác">Khác</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Dân tộc</label>
+            <input class="input" id="dan_toc"/>
+          </div>
+          <div>
+            <label class="label">Ngày sinh</label>
+            <input class="input" id="ngay_sinh" type="date" />
+          </div>
+          <div>
+            <label class="label">Số điện thoại</label>
+            <input class="input" id="so_dt"/>
+          </div>
+          <div>
+            <label class="label">Email học viên</label>
+            <input class="input" id="email_hoc_vien" type="email"/>
+          </div>
+          <div>
+            <label class="label">Ngành nhập học</label>
+            <select class="input" id="nganh_nhap_hoc">
+              <option value="">-- Chọn ngành --</option>
+              <option>Tâm lý học</option>
+              <option>Ngôn ngữ Anh</option>
+              <option>Công nghệ thông tin</option>
+              <option>Quản trị kinh doanh</option>
+              <option>Kế toán</option>
+              <option>Luật kinh tế</option>
+              <option>Quản lý xây dựng</option>
+              <option>Tài chính - Ngân hàng</option>
+              <option>Marketing</option>
+              <option>Quản trị khách sạn</option>
+              <option>Quản trị dịch vụ du lịch và lữ hành</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Đã Tốt nghiệp trước đó</label>
+            <select class="input" id="da_tn_truoc_do">
+              <option value="">-- Chọn Đối tượng --</option>
+              <option>THPT</option><option>Trung cấp</option><option>Cao đẳng</option><option>Đại học</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Người nhận (Chữ ký)</label>
+            <div class="relative">
+              <input id="nguoi_nhan_ky_ten"
+                     class="input pr-9 bg-gray-100 text-gray-500 cursor-not-allowed"
+                     readonly />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 select-none" title="Đã khóa">🔒</span>
+            </div>
+          </div>
+        </div>
+
+        {# Checklist #}
+        <div class="mt-6">
+          <div class="section-title">Hồ sơ gồm:</div>
+          <div class="overflow-auto">
+            <table class="min-w-full border bg-white">
+              <thead class="bg-gray-100">
+                <tr>
+                  <th class="p-2 border">STT</th>
+                  <th class="p-2 border text-center">Danh mục</th>
+                  <th class="p-2 border">Có?</th>
+                  <th class="p-2 border">Số lượng</th>
+                </tr>
+              </thead>
+              <tbody id="docsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        {# Ghi chú #}
+        <div class="mt-4">
+          <label class="label">Ghi chú (Các chứng chỉ khác sẽ điền ở đây)</label>
+          <input class="input" id="ghi_chu" />
+        </div>
+
+        <div class="mt-6 flex flex-col items-center gap-2">
+          <button id="btnSaveOrUpdate" class="btn btn-secondary min-w-[160px]">
+            Lưu
+          </button>
+          <span class="text-xs text-gray-500 text-center">
+            Hoặc bấm <b>Ctrl + Enter</b> để lưu nhanh.
           </span>
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" class="text-gray-500" aria-hidden="true">
-            <path fill-rule="evenodd"
-                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.187l3.71-3.956a.75.75 0 011.08 1.04l-4.24 4.52a.75.75 0 01-1.08 0l-4.24-4.52a.75.75 0 01.02-1.06z"
-                  clip-rule="evenodd"/>
-          </svg>
-        </button>
 
-        <div id="userMenu"
-            class="menu absolute right-0 top-[calc(100%+4px)] w-48 md:w-56
-                    bg-white border rounded-lg shadow-md overflow-hidden z-20 text-xs"
-            role="menu">
-          <a href="/account"
-            class="block px-3 py-1.5 hover:bg-gray-50"
-            role="menuitem">
-            🔎 Thông tin tài khoản
-          </a>
-          <a href="/account"
-            class="block px-3 py-1.5 hover:bg-gray-50"
-            role="menuitem">
-            🔐 Đổi mật khẩu
-          </a>
-          <button id="btnMenuLogout"
-                  class="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-red-600"
-                  role="menuitem">
-            ↩️ Đăng xuất
+          <p id="msg" class="text-sm text-emerald-600 text-center"></p>
+        </div>
+      </section>
+
+      {# Panel phải #}
+      <aside class="card space-y-6 lg:sticky lg:top-4">
+        <section>
+          <div class="section-title"><center>TRA CỨU HỒ SƠ</center></div>
+
+          <label class="label">Nhập Mã Số Học Viên</label>
+          <div class="flex gap-2 relative">
+            <input class="input flex-1" id="q_ma_so_hv" placeholder="VD: 2510xxxxxx" />
+            <button id="btnLoadApplicantMSHV" class="btn-print">🔎</button>
+          </div>
+
+          <label class="label mt-3 block">Nhập Họ tên</label>
+          <div class="flex gap-2 relative">
+            <input class="input flex-1" id="q_ho_ten" />
+            <button id="btnSearchByName" class="btn-print">🔎</button>
+
+            {# dropdown gợi ý theo tên #}
+            <div id="nameResults"
+                 class="absolute left-0 top-full mt-1 z-50 w-full max-h-64 overflow-auto
+                        rounded-md border bg-white shadow hidden">
+              <div class="text-xs text-gray-500 mb-1 px-2 pt-2">
+                Chọn một kết quả để tải vào form:
+              </div>
+              <ul id="nameResultsList" class="divide-y"></ul>
+            </div>
+          </div>
+
+          {# In #}
+          <section id="sectionPrintLoaded" class="mt-2">
+            <div class="flex gap-2">
+              <button id="btnPrintLoadedA5" class="btn-print" disabled>In A5</button>
+              <button id="btnPrintLoadedA4" class="btn-print" disabled>In A4</button>
+            </div>
+            <p id="lookupMsg" class="text-sm text-gray-600 mt-2"></p>
+          </section>
+        </section>
+
+        {# TRỢ GIÚP #}
+        <section class="mt-10 pt-4 border-t border-slate-200">
+          <div class="section-title"><center>TRỢ GIÚP</center></div>
+          <ul class="list-disc ml-5 text-sm text-gray-600 space-y-1">
+            <li>Chọn API Base rồi nhấn nút Test cho lần đầu hoặc khi đổi server.</li>
+            <li>Nhấn nút ↻ để tải lại danh sách hồ sơ và checklist từ server.</li>
+            <li>Mã hồ sơ và ngày nhận HS sẽ tự động gán.</li>
+            <li>PDF mở trong tab mới; nếu bị chặn sẽ hiện cảnh báo bật pop-up.</li>
+            <li>Tìm kiếm theo <b>Mã số HV</b> hoặc <b>Họ và tên</b>.</li>
+            <li>Để trống số lượng trong checklist để đánh dấu có/không.</li>
+            <li>Liên hệ Email: <a href="mailto:hc.tuan@hutech.edu.vn">hc.tuan@hutech.edu.vn</a></li>
+            <li>Liên hệ zalo: <a href="http://zalo.me/tuanconghuynh">Huỳnh Công Tuấn tại đây!</a></li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    {# Modal cập nhật lý do #}
+    <div id="modalUpdateReason"
+         class="fixed inset-0 bg-slate-900/50 hidden z-50 backdrop-blur-sm
+                flex items-center justify-center">
+      <div class="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-2xl transform transition-all">
+        <div class="px-6 py-4 border-b flex items-center justify-between bg-blue-50 rounded-t-2xl">
+          <div class="text-lg font-bold text-blue-800">📝 YÊU CẦU CẬP NHẬT HỒ SƠ</div>
+          <button id="urClose"
+                  class="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-300">
+            ❌
           </button>
         </div>
 
-        <!-- Nút login/logout cũ (ẩn) để JS cũ không lỗi nếu có dùng -->
-        <a id="navLogin" href="/auth_login.html"
-           class="hidden"></a>
-        <button id="navLogout" class="hidden" type="button"></button>
-      </div>
-
-      <!-- Menu chính -->
-      <nav class="py-4 text-sm flex-1">
-        <div class="px-4 pb-3 text-xs font-semibold text-gray-500 uppercase">
-          Menu chính
-        </div>
-        <a href="/ams_home.html"         class="nav-item">🏠 Trang chủ</a>
-        <a href="/compilation.html"      class="nav-item nav-item-active">📝 Nhập hồ sơ mới</a>
-        <a href="/students_list.html"    class="nav-item">📋 Danh sách hồ sơ</a>
-        <a href="/import_students.html"  class="nav-item">⬇️ Import học viên</a>
-        <a href="/journal.html"          class="nav-item">🕓 Nhật ký hệ thống</a>
-        <a href="/checklist_admin.html"  class="nav-item">📑 Quản lý danh mục hồ sơ</a>
-        <a href="/admin"                 class="nav-item">👤 Quản lý tài khoản</a>
-        <!-- <a href="/receipt.html"          class="nav-item nav-item-active">🧾 Biên nhận hồ sơ</a> -->
-      </nav>
-    </aside>
-
-    <!-- CONTENT -->
-    <section class="flex-1 flex items-start justify-center">
-      <div class="max-w-7xl mx-auto p-6 space-y-6 w-full">
-
-        <!-- Thanh nhỏ dưới header: link nhanh về DS hồ sơ & reload checklist -->
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <a id="navStudents"
-               href="/students_list.html"
-               class="btn btn-outline">
-              📋 Danh sách hồ sơ
-            </a>
-            <button class="btn btn-outline" id="btnReloadChecklist" title="Tải lại danh sách checklist">
-              ↻ Checklist
-            </button>
+        <div class="p-6 space-y-4 text-base">
+          <div>
+            <label for="updateReasonSelect" class="block font-semibold text-gray-800 mb-2">
+              Yêu cầu cập nhật
+            </label>
+            <select id="updateReasonSelect" class="input w-full h-12 text-base">
+              <option value="">-- Chọn lệnh bổ sung --</option>
+              <option value="capnhat_hoso_moi">Cập nhật hồ sơ mới</option>
+              <option value="bosung_hoso">Bổ sung hồ sơ</option>
+              <option value="capnhat_thongtin">Cập nhật thông tin học viên</option>
+              <option value="capnhat_chungchi">Cập nhật chứng chỉ</option>
+              <option value="chinhsua_hoso">Chỉnh sửa hồ sơ</option>
+              <option value="khac">Lý do khác...</option>
+            </select>
           </div>
-          <div class="hidden sm:flex text-xs text-gray-500">
-            Nhấn <span class="mx-1 px-1 rounded border bg-slate-50 font-mono">Ctrl</span> + <span class="mx-1 px-1 rounded border bg-slate-50 font-mono">Enter</span> để lưu nhanh.
+
+          <div id="reasonOtherWrap" class="hidden">
+            <label for="updateReasonText" class="block font-semibold text-gray-800 mb-2">
+              Nhập lý do khác
+            </label>
+            <textarea id="updateReasonText" rows="3"
+                      class="input w-full text-base"
+                      placeholder="Nhập lý do khác..."></textarea>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Form -->
-          <section class="lg:col-span-2 card">
-            <div class="section-title">Biên nhận hồ sơ nhập học</div>
-
-            <!-- Khối 1: Mã, ngày, khóa, đợt -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="label">Mã hồ sơ</label>
-                <input class="input" id="ma_ho_so" placeholder="0000" readonly />
-              </div>
-              <div>
-                <label class="label">Ngày nhận HS</label>
-                <input class="input" id="ngay_nhan_hs" type="date" readonly disabled />
-              </div>
-              <div>
-                <label class="label" for="khoa">Niên Khóa</label>
-                <select class="input" id="khoa" name="khoa">
-                  <option value="">-- Chọn khóa --</option>
-                  <option>24</option><option>25</option><option>26</option>
-                  <option>27</option><option>28</option><option>29</option><option>30</option>
-                </select>
-              </div>
-              <div>
-                <label class="label">Đợt</label>
-                <select class="input" id="dot">
-                  <option value="">-- Chọn đợt --</option>
-                  <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-                  <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
-                  <option>11</option><option>12</option><option>13</option><option>14</option><option>15</option>
-                  <option>16</option><option>17</option><option>18</option><option>19</option><option>20</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Thông tin HV -->
-            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="label">Họ đệm</label>
-                <input class="input" id="ho_dem" placeholder="Nguyễn Văn" />
-              </div>
-              <div>
-                <label class="label">Tên</label>
-                <input class="input" id="ten" placeholder="An" />
-              </div>
-
-              <div class="md:col-span-2 text-xs text-gray-500 -mt-2">
-                Họ và tên: <b id="fullNameMirror"></b>
-              </div>
-              <input type="hidden" id="ho_ten" />
-
-              <div>
-                <label class="label">Mã số HV</label>
-                <input class="input" id="ma_so_hv" placeholder="2510200xxx" />
-              </div>
-              <div>
-                <label class="label">Giới tính</label>
-                <select class="input" id="gioi_tinh">
-                  <option value="">-- Chọn giới tính --</option>
-                  <option value="Nam">Nam</option>
-                  <option value="Nữ">Nữ</option>
-                  <option value="Khác">Khác</option>
-                </select>
-              </div>
-              <div>
-                <label class="label">Dân tộc</label>
-                <input class="input" id="dan_toc"/>
-              </div>
-              <div>
-                <label class="label">Ngày sinh</label>
-                <input class="input" id="ngay_sinh" type="date" />
-              </div>
-              <div>
-                <label class="label">Số điện thoại</label>
-                <input class="input" id="so_dt"/>
-              </div>
-              <div>
-                <label class="label">Email học viên</label>
-                <input class="input" id="email_hoc_vien" type="email"/>
-              </div>
-              <div>
-                <label class="label">Ngành nhập học</label>
-                <select class="input" id="nganh_nhap_hoc">
-                  <option value="">-- Chọn ngành --</option>
-                  <option>Tâm lý học</option>
-                  <option>Ngôn ngữ Anh</option>
-                  <option>Công nghệ thông tin</option>
-                  <option>Quản trị kinh doanh</option>
-                  <option>Kế toán</option>
-                  <option>Luật kinh tế</option>
-                  <option>Quản lý xây dựng</option>
-                  <option>Tài chính - Ngân hàng</option>
-                  <option>Marketing</option>
-                  <option>Quản trị khách sạn</option>
-                  <option>Quản trị dịch vụ du lịch và lữ hành</option>
-                </select>
-              </div>
-              <div>
-                <label class="label">Đã Tốt nghiệp trước đó</label>
-                <select class="input" id="da_tn_truoc_do">
-                  <option value="">-- Chọn Đối tượng --</option>
-                  <option>THPT</option><option>Trung cấp</option><option>Cao đẳng</option><option>Đại học</option>
-                </select>
-              </div>
-              <div>
-                <label class="label">Người nhận (Chữ ký)</label>
-                <div class="relative">
-                  <input id="nguoi_nhan_ky_ten" class="input pr-9 bg-gray-100 text-gray-500 cursor-not-allowed" readonly />
-                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 select-none" title="Đã khóa">🔒</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Checklist -->
-            <div class="mt-6">
-              <div class="section-title">Hồ sơ gồm:</div>
-              <div class="overflow-auto">
-                <table class="min-w-full border bg-white">
-                  <thead class="bg-gray-100">
-                    <tr>
-                      <th class="p-2 border">STT</th>
-                      <th class="p-2 border text-center">Danh mục</th>
-                      <th class="p-2 border">Có?</th>
-                      <th class="p-2 border">Số lượng</th>
-                    </tr>
-                  </thead>
-                  <tbody id="docsBody"></tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Ghi chú -->
-            <div class="mt-4">
-              <label class="label">Ghi chú (Các chứng chỉ khác sẽ điền ở đây)</label>
-              <input class="input" id="ghi_chu" />
-            </div>
-
-            <div class="mt-6 flex flex-col items-center gap-2">
-              <button id="btnSaveOrUpdate" class="btn btn-secondary min-w-[160px]">
-                Lưu
-              </button>
-              <span class="text-xs text-gray-500 text-center">
-                Hoặc bấm <b>Ctrl + Enter</b> để lưu nhanh.
-              </span>
-
-              <!-- Thông báo trạng thái lưu / cập nhật -->
-              <p id="msg" class="text-sm text-emerald-600 text-center"></p>
-            </div>
-          </section>
-
-          <!-- Panel phải -->
-          <aside class="card space-y-6 lg:sticky lg:top-4">
-            <section>
-              <div class="section-title"><center>TRA CỨU HỒ SƠ</center></div>
-
-              <label class="label">Nhập Mã Số Học Viên</label>
-              <div class="flex gap-2 relative">
-                <input class="input flex-1" id="q_ma_so_hv" placeholder="VD: 2510xxxxxx" />
-                <button id="btnLoadApplicantMSHV" class="btn-print">🔎</button>
-              </div>
-
-              <label class="label mt-3 block">Nhập Họ tên</label>
-              <div class="flex gap-2 relative">
-                <input class="input flex-1" id="q_ho_ten" />
-                <button id="btnSearchByName" class="btn-print">🔎</button>
-
-                <!-- dropdown gợi ý theo tên -->
-                <div id="nameResults" class="absolute left-0 top-full mt-1 z-50 w-full max-h-64 overflow-auto rounded-md border bg-white shadow hidden">
-                  <div class="text-xs text-gray-500 mb-1 px-2 pt-2">Chọn một kết quả để tải vào form:</div>
-                  <ul id="nameResultsList" class="divide-y"></ul>
-                </div>
-              </div>
-
-              <!-- In -->
-              <section id="sectionPrintLoaded" class="mt-2">
-                <div class="flex gap-2">
-                  <button id="btnPrintLoadedA5" class="btn-print" disabled>In A5</button>
-                  <button id="btnPrintLoadedA4" class="btn-print" disabled>In A4</button>
-                </div>
-                <p id="lookupMsg" class="text-sm text-gray-600 mt-2"></p>
-              </section>
-            </section>
-
-            <!-- TRỢ GIÚP: đẩy xuống dưới, có viền trên -->
-            <section class="mt-10 pt-4 border-t border-slate-200">
-              <div class="section-title"><center>TRỢ GIÚP</center></div>
-              <ul class="list-disc ml-5 text-sm text-gray-600 space-y-1">
-                <li>Chọn API Base rồi nhấn nút Test cho lần đầu hoặc khi đổi server.</li>
-                <li>Nhấn nút ↻ để tải lại danh sách hồ sơ và checklist từ server.</li>
-                <li>Mã hồ sơ và ngày nhận HS sẽ tự động gán.</li>
-                <li>PDF mở trong tab mới; nếu bị chặn sẽ hiện cảnh báo bật pop-up.</li>
-                <li>Tìm kiếm theo <b>Mã số HV</b> hoặc <b>Họ và tên</b>.</li>
-                <li>Để trống số lượng trong checklist để đánh dấu có/không.</li>
-                <li>Liên hệ Email: <a href="mailto:hc.tuan@hutech.edu.vn">hc.tuan@hutech.edu.vn</a></li>
-                <li>Liên hệ zalo: <a href="http://zalo.me/tuanconghuynh">Huỳnh Công Tuấn tại đây!</a></li>
-              </ul>
-            </section>
-          </aside>
+        <div class="px-6 py-4 border-t flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
+          <button id="urCancel" class="btn btn-outline">Hủy</button>
+          <button id="urOK" class="btn btn-secondary">Cập nhật</button>
         </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- FOOTER CHUNG -->
-  <footer class="bg-[#1E50B4] text-white">
-    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
-      <div>
-        <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
-        <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
-        <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP. Hồ Chí Minh</p>
-        <p>
-          <b>ĐT:</b> (028) 6686 6465 ·
-          <b>Email:</b> <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">daotaotructuyen@hutech.edu.vn</a>
-        </p>
-      </div>
-      <p class="text-xs">
-        © V-HT.PTĐT HUTECH — Code by
-        <a href="http://zalo.me/tuanconghuynh" target="_blank" rel="noopener noreferrer" class="underline hover:text-yellow-300">
-          HC-Tuấn
-        </a>
-      </p>
-    </div>
-  </footer>
-
-  <!-- Modal cập nhật lý do (ĐỂ NGOÀI, NGAY DƯỚI MAIN/FOOTER) -->
-  <div id="modalUpdateReason"
-       class="fixed inset-0 bg-slate-900/50 hidden z-50 backdrop-blur-sm
-              flex items-center justify-center">
-    <div class="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-2xl transform transition-all">
-      <div class="px-6 py-4 border-b flex items-center justify-between bg-blue-50 rounded-t-2xl">
-        <div class="text-lg font-bold text-blue-800">📝 YÊU CẦU CẬP NHẬT HỒ SƠ</div>
-        <button id="urClose"
-                class="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-300">
-          ❌
-        </button>
-      </div>
-
-      <div class="p-6 space-y-4 text-base">
-        <div>
-          <label for="updateReasonSelect" class="block font-semibold text-gray-800 mb-2">
-            Yêu cầu cập nhật
-          </label>
-          <select id="updateReasonSelect" class="input w-full h-12 text-base">
-            <option value="">-- Chọn lệnh bổ sung --</option>
-            <option value="capnhat_hoso_moi">Cập nhật hồ sơ mới</option>
-            <option value="bosung_hoso">Bổ sung hồ sơ</option>
-            <option value="capnhat_thongtin">Cập nhật thông tin học viên</option>
-            <option value="capnhat_chungchi">Cập nhật chứng chỉ</option>
-            <option value="chinhsua_hoso">Chỉnh sửa hồ sơ</option>
-            <option value="khac">Lý do khác...</option>
-          </select>
-        </div>
-
-        <div id="reasonOtherWrap" class="hidden">
-          <label for="updateReasonText" class="block font-semibold text-gray-800 mb-2">
-            Nhập lý do khác
-          </label>
-          <textarea id="updateReasonText" rows="3"
-                    class="input w-full text-base"
-                    placeholder="Nhập lý do khác..."></textarea>
-        </div>
-      </div>
-
-      <div class="px-6 py-4 border-t flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
-        <button id="urCancel" class="btn btn-outline">Hủy</button>
-        <button id="urOK" class="btn btn-secondary">Cập nhật</button>
       </div>
     </div>
+
   </div>
+{% endblock %}
 
-  <!-- Modal xác nhận Đăng xuất dùng chung -->
-  <div class="overlay" id="logoutModal" role="dialog" aria-modal="true" aria-labelledby="lgTitle">
-    <div class="modal max-w-md" id="logoutBox" tabindex="-1">
-      <div class="px-6 py-4 border-b flex items-center justify-between">
-        <div id="lgTitle" class="font-semibold text-gray-800">Xác nhận</div>
-        <button class="btn btn-outline btn-xs" id="lgClose" aria-label="Đóng">✕</button>
-      </div>
-      <div class="px-6 py-5" id="lgDesc">
-        <p class="text-gray-700">Bạn có chắc chắn muốn đăng xuất không?</p>
-      </div>
-      <div class="px-6 py-4 border-t flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
-        <button class="btn btn-outline" id="lgCancel">Hủy</button>
-        <button class="btn btn-primary" id="lgOK">Đăng xuất</button>
-      </div>
-    </div>
-  </div>
-
-<script src="/js/compilation.js"></script>
-</body>
-</html>
+{% block scripts %}
+  <script src="/js/compilation.js"></script>
+{% endblock %}

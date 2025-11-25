@@ -16,7 +16,7 @@
 
       <!-- cờ từ BE -->
       <div id="acct-flags"
-           data-first="{{ '1' if first_login else '0' }}"
+           data-first="{{ '1' if first else '0' }}"
            data-must-change="{{ '1' if (me.must_change_password or not me.password_changed_at) else '0' }}">
       </div>
 

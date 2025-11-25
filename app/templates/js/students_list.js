@@ -1709,10 +1709,10 @@ async function openEmailModal(mshv) {
     const a5on   = rawTpl === 'confirmation'; // chỉ khi là template Biên nhận HS mới có A5
 
     // nhật ký: mở nháp (log theo FE chọn cho dễ đọc)
-    journalTrack({
-      action: 'EMAIL_DRAFT_OPEN',
-      detail: { scope: 'SINGLE', mshv, tpl: rawTpl, a5: a5on }
-    });
+    // journalTrack({
+    //   action: 'EMAIL_DRAFT_OPEN',
+    //   detail: { scope: 'SINGLE', mshv, tpl: rawTpl, a5: a5on }
+    // });
 
     const r = await apiFetch(
       `/applicants/${encodeURIComponent(mshv)}/email-draft?a5=${a5on?'true':'false'}&tpl=${encodeURIComponent(tplKey)}`
@@ -1812,6 +1812,15 @@ async function sendEmail(){
   const isHS   = (rawTpl === 'confirmation');                      // chỉ Biên nhận HS mới có A5/đính kèm
   const attach = isHS ? !!$('chk_attach')?.checked : false;
 
+  const to   = $('email_to')?.value || '';
+  const msgEl = $('msg');
+
+  // 🟡 1. Báo trạng thái "đang gửi"
+  if (msgEl) {
+    msgEl.textContent = `📨 Đang gửi email tới ${to || 'học viên'} (MSHV ${mshv})...`;
+  }
+  showToast('Đang gửi email, vui lòng đợi...', 'info', 2000);
+
   try {
     const path = `/applicants/${encodeURIComponent(mshv)}/send-email?tpl=${encodeURIComponent(tplKey)}&a5=${isHS?'true':'false'}`;
     const r = await apiFetch(path, {
@@ -1832,14 +1841,18 @@ async function sendEmail(){
       detail: { scope:'SINGLE', mshv, subject:subj, tpl: rawTpl, attach, a5: isHS, status:'OK' }
     });
 
-    showToast('✅ Đã gửi email thành công.', 'success', 2600);
-    const msgEl = $('msg');
+    // 🟢 2. Báo đã gửi thành công
     if (msgEl) {
-      const to = $('email_to')?.value || '';
-      msgEl.textContent = `✅ Đã gửi email tới ${to} (MSHV ${mshv}).`;
+      msgEl.textContent = `✅ Đã gửi email tới ${to || 'học viên'} (MSHV ${mshv})`;
     }
+    showToast('✅ Đã gửi email thành công', 'success', 2600);
+
     closeEmailModal();
   } catch(e){
+    // 🔴 3. Báo lỗi
+    if (msgEl) {
+      msgEl.textContent = `❌ Gửi email thất bại${mshv ? ` (MSHV ${mshv})` : ''}: ${e.message || ''}`;
+    }
     showToast(e.message || 'Lỗi gửi email', 'error', 2800);
   }
 }
@@ -1919,13 +1932,21 @@ $('btnSendBulk')?.addEventListener('click', async ()=>{
       }
     }
 
-    // Bind nút “Gửi” (chọn endpoint theo FE selection)
+      // Bind nút “Gửi” (chọn endpoint theo FE selection)
     const btn = $('bulkSendBtn');
     btn.onclick = async ()=>{
+      const ids = [...selectedMSHV];
+      const subject = $('bulk_subject').value;
+      const msgEl = $('msg');
+
+      // 🟡 1. Báo đang gửi hàng loạt
+      if (msgEl) {
+        msgEl.textContent = `📨 Đang gửi email cho ${ids.length} học viên...`;
+      }
+      showToast('Đang gửi email hàng loạt, vui lòng đợi...', 'info', 2200);
+
       btn.disabled = true;
       try{
-        const subject = $('bulk_subject').value;
-        const ids = [...selectedMSHV];
         const rawTpl = ($('email_tpl')?.value || 'confirmation').trim();
         const tplKey = mapTplKey(rawTpl);
         const a5 = rawTpl === 'confirmation';
@@ -1946,18 +1967,23 @@ $('btnSendBulk')?.addEventListener('click', async ()=>{
           detail: { scope: 'BATCH', count: ids.length, sample: ids.slice(0, 10), subject, tpl: rawTpl, a5, status: 'OK' }
         });
 
+        // 🟢 2. Báo xong hàng loạt
+        if (msgEl) {
+          msgEl.textContent = `✅ Đã gửi email cho ${ids.length} học viên.`;
+        }
         showToast('✅ Đã gửi email hàng loạt thành công.', 'success', 2800);
-        const msgEl = document.getElementById('msg');
-        if (msgEl) msgEl.textContent = `✅ Đã gửi email cho ${ids.length} học viên.`;
         closeBulkModal();
       }catch(e){
+        if (msgEl) {
+          msgEl.textContent = `❌ Gửi email hàng loạt thất bại: ${e.message || ''}`;
+        }
         showToast(e.message || 'Lỗi batch gửi', 'error');
-    } finally { btn.disabled = false; }
+      } finally { btn.disabled = false; }
     };
-
+    // mở modal sau khi chuẩn bị xong
     showBulkModal();
-  } catch(e){
-    showToast(e.message || 'Lỗi mở preview hàng loạt', 'error');
+  } catch (e) {
+    showToast(e.message || 'Lỗi chuẩn bị email hàng loạt', 'error');
   }
 });
 // ===== Sidebar user dropdown + mở modal logout =====
@@ -2030,3 +2056,4 @@ function hideLoading() {
   if (!box) return;
   box.classList.add("hidden");
 }
+

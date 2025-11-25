@@ -29,9 +29,17 @@
         </div>
 
         <div class="md:col-span-2">
-          <label class="label" for="c_fullname">Họ và tên</label>
-          <input class="input" id="c_fullname" name="full_name" placeholder="Họ tên đầy đủ"
-                 maxlength="255" autocomplete="name">
+          <label class="label" for="c_lastname">Họ và tên lót</label>
+          <input class="input" id="c_lastname" name="last_name"
+                placeholder="Ví dụ: Nguyễn Văn"
+                maxlength="255" autocomplete="family-name">
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="label" for="c_firstname">Tên</label>
+          <input class="input" id="c_firstname" name="first_name"
+                placeholder="Ví dụ: A"
+                maxlength="100" autocomplete="given-name">
         </div>
 
         <div class="md:col-span-2">
@@ -58,10 +66,10 @@
 
         <div class="md:col-span-2">
           <label class="label" for="c_role">Phân quyền</label>
-          <select class="input" id="c_role" name="role">
-            <option value="Admin">Admin</option>
-            <option value="NhanVien">Nhân viên</option>
+          <select class="input" id="c_role" name="role">  
             <option value="CongTacVien">Cộng tác viên</option>
+            <option value="NhanVien">Nhân viên</option>            
+            <option value="Admin">Admin</option>
           </select>
         </div>
 
@@ -102,12 +110,20 @@
           <tbody>
             {% for u in users %}
             <tr class="odd:bg-gray-50"
-                data-username="{{ (u.username or '')|e }}"
-                data-fullname="{{ (u.full_name or '')|e }}"
-                data-role="{{ (u.role or '')|e }}">
+              data-username="{{ (u.username or '')|e }}"
+              data-fullname="{{ (u.full_name or '')|e }}"
+              data-last_name="{{ (u.last_name or '')|e }}"
+              data-first_name="{{ (u.first_name or '')|e }}"
+              data-role="{{ (u.role or '')|e }}">
               <td class="p-2 border-b text-center">{{ u.id }}</td>
               <td class="p-2 border-b ">{{ u.username }}</td>
-              <td class="p-2 border-b">{{ u.full_name or "" }}</td>
+              <td class="p-2 border-b">
+                {%- if u.first_name or u.last_name -%}
+                  {{ (u.last_name ~ ' ' ~ u.first_name)|trim }}
+                {%- else -%}
+                  {{ u.full_name or "" }}
+                {%- endif -%}
+              </td>
               <td class="p-2 border-b" data-dateonly>{{ u.dob or "—" }}</td>
               <td class="p-2 border-b text-center">{{ u.role }}</td>
               <td class="p-2 border-b text-center">{{ "✅" if u.is_active else "⛔" }}</td>
@@ -128,6 +144,8 @@
                   data-id="{{ u.id }}"
                   data-username="{{ (u.username or '')|e }}"
                   data-full_name="{{ (u.full_name or '')|e }}"
+                  data-last_name="{{ (u.last_name or '')|e }}"
+                  data-first_name="{{ (u.first_name or '')|e }}"
                   data-email="{{ (u.email or '')|e }}"
                   data-dob="{{ ((u.dob|string)[:10] if u.dob else '')|e }}"
                   data-role="{{ (u.role or '')|e }}"
@@ -162,9 +180,17 @@
             <label class="label">Username</label>
             <input class="input" id="e_username" readonly>
           </div>
+
           <div class="md:col-span-3">
-            <label class="label">Họ và tên</label>
-            <input class="input" name="full_name" id="e_full_name" maxlength="255" autocomplete="name">
+            <label class="label">Họ và tên lót</label>
+            <input class="input" name="last_name" id="e_last_name"
+                  maxlength="255" autocomplete="family-name">
+          </div>
+
+          <div class="md:col-span-3">
+            <label class="label">Tên</label>
+            <input class="input" name="first_name" id="e_first_name"
+                  maxlength="100" autocomplete="given-name">
           </div>
           <div class="md:col-span-3">
             <label class="label">Email</label>

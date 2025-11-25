@@ -191,9 +191,27 @@ function safeSubDate(s){ return (s||'').substring(0,10); }
 document.querySelectorAll('button[data-id]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const g = a => (btn.getAttribute(a) || '');
+
+    // Lấy sẵn các trường tên
+    let ln = g('data-last_name') || g('data-last-name') || '';
+    let fn = g('data-first_name') || g('data-first-name') || '';
+    const full = g('data-full_name') || g('data-full-name') || '';
+
+    // Nếu DB cũ chưa có last/first thì tách tạm từ full_name
+    if (!ln && !fn && full) {
+      const parts = full.trim().split(/\s+/);
+      fn = parts.pop() || '';
+      ln = parts.join(' ');
+    }
+
     document.getElementById('e_id').value         = g('data-id');
     document.getElementById('e_username').value   = g('data-username');
-    document.getElementById('e_full_name').value  = g('data_full_name') || g('data-full_name');
+    // 🆕 gán vào ô Họ + Tên mới
+    const elLast  = document.getElementById('e_last_name');
+    const elFirst = document.getElementById('e_first_name');
+    if (elLast)  elLast.value  = ln;
+    if (elFirst) elFirst.value = fn;
+
     document.getElementById('e_email').value      = g('data-email');
     document.getElementById('e_dob').value        = safeSubDate(g('data-dob'));
     document.getElementById('e_role').value       = g('data-role') || 'CongTacVien';

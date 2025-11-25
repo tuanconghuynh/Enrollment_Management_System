@@ -1,355 +1,242 @@
-<!doctype html>
-<html lang="vi">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Danh sách hồ sơ | Admission_Management_System</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+{% extends "layout_ams.html" %}
+{% set active_page = 'students_list' %}
+
+{% block title %}Danh sách hồ sơ | AMS{% endblock %}
+
+{% block extra_head %}
+  {# XLSX lib #}
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="icon" type="image/png" href="/assets/hutech.png" sizes="32x32">
-  <link rel="apple-touch-icon" href="/assets/hutech.png">
-  <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="/css/style.css">
-  <!-- Flatpickr datepicker -->
+
+  {# Flatpickr datepicker #}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/vn.js"></script>
-   <style>
-    /* Hover nhẹ logo */
-    a:hover img { transform: scale(1.05); transition: transform 0.2s ease; }
-  </style>
-</head>
-<body class="min-h-screen flex flex-col bg-gray-50">
-  <!-- Header -->
-  <header class="w-full bg-white/85 backdrop-blur-sm border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-6 py-3
-                flex flex-col gap-3
-                sm:flex-row sm:items-center sm:justify-between">
+{% endblock %}
 
-      <!-- Logo + tiêu đề -->
-      <a href="/ams_home.html"
-        class="flex items-center gap-3 hover:opacity-90 transition"
-        title="Về trang chủ">
-        <img src="/assets/hutech.png" class="h-10 w-10" alt="HUTECH" />
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold text-blue-700 leading-tight">
-            ADMISSION MANAGEMENT SYSTEM - AMS
-          </h1>
-          <p class="text-sm sm:text-base text-gray-600 font-medium tracking-wide">
-            V-HT.PTĐT - Hệ Thống Quản Lý Hồ Sơ Nhập Học (AMS)
-          </p>
-        </div>
-      </a>
+{% block content %}
+  <div class="space-y-6" id="pageContentInner">
 
-      <!-- API Base (bên phải tiêu đề) -->
+    {# TIÊU ĐỀ TRANG + API Base #}
+    <section class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-bold text-gray-800">
+          Danh sách hồ sơ
+        </h2>
+        <p class="text-gray-600 mt-1 text-sm">
+          Tra cứu nhanh & thao tác in/xuất, gửi email xác nhận cho học viên.
+        </p>
+      </div>
+
       <div class="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
         <label for="apiBase" class="whitespace-nowrap">API Base</label>
         <input id="apiBase"
-              class="input w-52 sm:w-64"
-              placeholder="" />
-      </div>
-    </div>
-  </header>
-  <!-- Main -->
-  <main class="flex-1 flex">
-    <!-- SIDEBAR -->
-    <aside class="hidden md:flex md:flex-col w-64 bg-white/85 border-r border-slate-200 backdrop-blur-sm">
-
-      <!-- Khối user ở trên cùng sidebar (helloName / helloRole) -->
-      <div class="px-4 pt-4 pb-3 border-b border-slate-200 relative">
-        <button id="userMenuBtn"
-          class="w-full justify-between text-sm text-gray-700 bg-white hover:bg-slate-50 px-3 py-2 rounded-lg shadow border flex items-center gap-2"
-          aria-haspopup="true" aria-expanded="false" aria-controls="userMenu">
-          <span>
-            <b id="helloName">—</b>
-            <span class="text-gray-500">(<span id="helloRole">—</span>)</span>
-          </span>
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" class="text-gray-500" aria-hidden="true">
-            <path fill-rule="evenodd"
-              d="M5.23 7.21a.75.75 0 011.06.02L10 11.187l3.71-3.956a.75.75 0 011.08 1.04l-4.24 4.52a.75.75 0 01-1.08 0l-4.24-4.52a.75.75 0 01.02-1.06z"
-              clip-rule="evenodd"/>
-          </svg>
-        </button>
-
-        <!-- Dropdown user -->
-        <div id="userMenu"
-             class="menu absolute right-0 top-[calc(100%+4px)] w-48 md:w-56
-            bg-white border rounded-lg shadow-md overflow-hidden z-20 text-xs"
-             role="menu">
-          <a href="/account" class="block px-4 py-2 hover:bg-gray-50" role="menuitem">
-            🔎 Thông tin tài khoản
-          </a>
-          <a href="/account" class="block px-4 py-2 hover:bg-gray-50" role="menuitem">
-            🔐 Đổi mật khẩu
-          </a>
-          <button id="btnMenuLogout"
-                  class="w-full text-left px-4 py-2 hover:bg-gray-50 text-red-600"
-                  role="menuitem">
-            ↩️ Đăng xuất
-          </button>
-        </div>
-
-        <!-- Các element cũ cho script /me hiện tại (ẩn đi) -->
-        <div id="userBox" class="hidden">
-          <span id="meText">
-            ✌️ Xin chào: <b id="meName"></b> (<span id="meRole"></span>)
-          </span>
-          <a id="loginLink" href="/login">Đăng nhập</a>
-          <button id="btnLogout">LogOut</button>
-        </div>
-      </div>
-
-      <!-- Menu chính -->
-      <nav class="py-4 text-sm flex-1">
-        <div class="px-4 pb-3 text-xs font-semibold text-gray-500 uppercase">
-          Menu chính
-        </div>
-        <a href="/ams_home.html"        class="nav-item">🏠 Trang chủ</a>
-        <a href="/compilation.html"     class="nav-item">📝 Nhập hồ sơ mới</a>
-        <a href="/students_list.html"   class="nav-item nav-item-active">📋 Danh sách hồ sơ</a>
-        <a href="/import_students.html" class="nav-item">⬇️ Import học viên</a>
-        <a href="/journal.html"         class="nav-item" id="journalLink">🕓 Nhật ký hệ thống</a>
-        <a href="/checklist_admin.html" class="nav-item">📑 Quản lý danh mục hồ sơ</a>
-        <a href="/admin"                class="nav-item">👤 Quản lý tài khoản</a>
-      </nav>
-    </aside>
-
-    <!-- CONTENT -->
-    <section class="flex-1 flex items-start justify-center">
-      <div class="max-w-7xl mx-auto px-6 py-6 w-full" id="pageContent">
-
-        <!-- TIÊU ĐỀ TRANG -->
-        <section class="mb-4">
-          <h2 class="text-2xl font-bold text-gray-800">
-            Danh sách hồ sơ
-          </h2>
-          <p class="text-gray-600 mt-1 text-sm">
-            Tra cứu nhanh & thao tác in/xuất, gửi email xác nhận cho học viên.
-          </p>
-        </section>
-
-        <!-- TOOLBAR + EXCEL + KẾT QUẢ (GIỮ Y NGUYÊN NỘI DUNG CŨ) -->
-        <!-- Toolbar -->
-        <section class="card space-y-4">
-          <!-- Hàng 1: Tìm kiếm + Lọc đợt/khóa -->
-          <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 items-end">
-            <div class="xl:col-span-2">
-              <div class="flex items-center gap-2">
-                <div class="relative flex-1 min-w-[240px]">
-                  <input id="q" class="input w-full pl-10"
-                         placeholder="Nhập họ và tên hoặc MSHV..."
-                         aria-label="Từ khóa" />
-                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true">🔎</span>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <select id="filterKhoa" class="input" title="Lọc theo Khóa">
-                    <option value="">Tất cả khóa</option>
-                  </select>
-                  <select id="filterDot" class="input" title="Lọc theo Đợt">
-                    <option value="">Tất cả đợt</option>
-                  </select>
-                </div>
-                <button id="btnSearch" class="btn btn-outline shrink-0" aria-label="Tìm">🔎 Tìm</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Tiêu đề + nút Excel -->
-          <div class="flex items-center justify-between">
-            <h2 class="font-bold">IN / XUẤT DỮ LIỆU</h2>
-            <button id="btnExcelToggle" class="btn btn-outline btn-xs" aria-expanded="false">
-              ⚙️ Cập nhật từ Excel
-            </button>
-          </div>
-
-          <!-- Bulk actions -->
-          <div class="flex items-center justify-between mb-2">
-            <div class="text-sm text-gray-600">
-              Đã chọn: <span id="bulkCount" class="font-semibold">0</span> học viên
-            </div>
-            <div class="flex items-center gap-2">
-              <button id="btnSendBulk" class="btn btn-primary disabled:opacity-50 disabled:pointer-events-none" disabled>
-                ✉️ Gửi email hàng loạt
-              </button>
-            </div>
-          </div>
-
-          <!-- Dải tác vụ đẹp hơn -->
-          <div class="grid gap-3 md:grid-cols-2">
-            <!-- Theo NGÀY -->
-            <div class="rounded-2xl border bg-white/70 p-3 shadow-sm">
-              <div class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Theo ngày</div>
-              <div class="flex flex-wrap items-end gap-2">
-                <input id="day" type="text" class="input w-60" placeholder="Chọn ngày..." />
-                <div class="ml-auto flex items-center gap-2">
-                  <button id="btnPrintDay"  class="btn btn-outline">🖨️ In</button>
-                  <button id="btnExportDay" class="btn btn-outline">⬇️ Xuất Excel</button>
-                </div>
-              </div>
-            </div>
-            <!-- Theo ĐỢT / KHÓA -->
-            <div class="rounded-2xl border bg-white/70 p-3 shadow-sm">
-              <div class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Theo đợt / khóa</div>
-              <div class="flex flex-wrap items-end gap-2">
-                <select id="dotKhoa" class="input w-40">
-                  <option value="">-- Chọn khóa --</option>
-                </select>
-                <select id="dot" class="input w-40">
-                  <option value="">-- Chọn đợt --</option>
-                </select>
-                <div class="ml-auto flex items-center gap-2">
-                  <button id="btnPrintDot"  class="btn btn-outline">🖨️ In</button>
-                  <button id="btnExportDot" class="btn btn-outline">⬇️ Xuất Excel</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Khối Excel -->
-          <div id="excelBox" class="hidden mt-5 border-t pt-4">
-            <h3 class="font-semibold mb-2">TOOL EDIT INFO • Excel</h3>
-            <div class="flex flex-wrap items-center gap-2 mt-2">
-              <input id="batchFile" type="file" accept=".xlsx" class="input w-72" />
-              <button id="btnDownloadTemplate" class="btn btn-outline">⬇️ Tải mẫu .xlsx</button>
-              <button id="btnBatchPreview" class="btn btn-outline">👀Preview</button>
-              <button id="btnBatchApply" class="btn btn-primary">💾 Áp dụng</button>
-              <label class="ml-3 inline-flex items-center gap-2 text-sm">
-                <input id="stopOnError" type="checkbox" class="accent-blue-600" />
-                Dừng khi gặp lỗi
-              </label>
-            </div>
-
-            <div id="batchMsg" class="mt-2 text-sm text-gray-600"></div>
-
-            <div id="batchPreviewWrap" class="hidden mt-2 overflow-auto border rounded-xl">
-              <table class="table min-w-full">
-                <thead>
-                  <tr>
-                    <th class="text-left">MSHV</th>
-                    <th class="text-left">Trạng thái</th>
-                    <th class="text-left">Trường thay đổi</th>
-                  </tr>
-                </thead>
-                <tbody id="batchPreviewBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Results -->
-        <section class="card space-y-3 mt-6">
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="text-sm text-gray-600">
-              Kết quả: <span id="count" class="badge">0</span>
-            </div>
-            <div id="msg" class="text-sm text-gray-600" role="status" aria-live="polite"></div>
-          </div>
-
-          <!-- Pagination toolbar (top) -->
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2 text-sm">
-              <span>Hiển thị</span>
-              <select id="pageSize" class="input w-24">
-                <option selected>10</option><option>20</option><option>50</option><option>100</option>
-              </select>
-              <span>dòng/trang</span>
-            </div>
-            <div class="flex items-center gap-1 text-sm pager" data-position="top">
-              <button class="btn btn-outline btn-xs pager-first"  title="Trang đầu">⏮️</button>
-              <button class="btn btn-outline btn-xs pager-prev"   title="Trang trước">⏪</button>
-              <span class="mx-2 min-w-[160px] text-center pager-info">Trang 1/1 • 0 mục</span>
-              <button class="btn btn-outline btn-xs pager-next"   title="Trang sau">⏩</button>
-              <button class="btn btn-outline btn-xs pager-last"   title="Trang cuối">⏭️</button>
-            </div>
-          </div>
-
-          <div class="overflow-hidden border rounded-xl">
-            <div id="emptyState" class="p-10 text-center text-gray-500 hidden">
-              <div class="text-4xl mb-2">❌🧾</div>
-              <div class="font-semibold">Không tìm thấy trong danh sách</div>
-              <div class="text-sm">Nhập từ khóa khác để tìm kiếm!</div>
-            </div>
-
-            <div id="tableWrap" class="overflow-auto hidden">
-              <table class="table min-w-full">
-                <thead>
-                  <tr>
-                    <th class="text-center">
-                      <input id="chkAll" type="checkbox" class="accent-blue-600" title="Chọn tất cả trên trang" />
-                    </th>
-                    <th class="text-left">Mã HS</th>
-                    <th class="text-left th-sortable" data-sort="ho_dem" role="button" tabindex="0" aria-label="Sắp xếp theo Họ đệm">
-                      Họ đệm <span class="arrow"></span>
-                    </th>
-                    <th class="text-left th-sortable" data-sort="ten" role="button" tabindex="0" aria-label="Sắp xếp theo Tên">
-                      Tên <span class="arrow"></span>
-                    </th>
-                    <th class="text-left th-sortable" data-sort="ma_so_hv" role="button" tabindex="0" aria-label="Sắp xếp theo MSHV">
-                      MSHV <span class="arrow"></span>
-                    </th>
-                    <th class="th-sortable" data-sort="ngay_nhan_hs" role="button" tabindex="0" aria-label="Sắp xếp theo Ngày nhận">
-                      Ngày nhận <span class="arrow"></span>
-                    </th>
-                    <th class="th-sortable" data-sort="nganh" role="button" tabindex="0" aria-label="Sắp xếp theo Ngành">
-                      Ngành <span class="arrow"></span>
-                    </th>
-                    <th class="th-sortable" data-sort="dot" role="button" tabindex="0" aria-label="Sắp xếp theo Đợt">
-                      Đợt <span class="arrow"></span>
-                    </th>
-                    <th class="th-sortable" data-sort="khoa" role="button" tabindex="0" aria-label="Sắp xếp theo Khóa">
-                      Khóa <span class="arrow"></span>
-                    </th>
-                    <th class="th-sortable" data-sort="nguoi_nhan" role="button" tabindex="0" aria-label="Sắp xếp theo Người nhận">
-                      Người nhận <span class="arrow"></span>
-                    </th>
-                    <th class="text-center">Email</th>
-                    <th class="text-center">In</th>
-                    <th class="text-center">Sửa/Xóa</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody"></tbody>
-              </table>
-            </div>
-
-            <div id="loading" class="p-8 text-center text-gray-500 hidden">
-              <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin align-[-2px]" aria-hidden="true"></span>
-              <span class="ml-2">Đang tải…</span>
-            </div>
-          </div>
-
-          <!-- Pagination toolbar (bottom) -->
-          <div class="flex items-center gap-1 text-sm pager" data-position="bottom">
-            <button class="btn btn-outline btn-xs pager-first" title="Trang đầu">⏮️</button>
-            <button class="btn btn-outline btn-xs pager-prev"  title="Trang trước">⏪</button>
-            <span class="mx-2 min-w-[160px] text-center pager-info">Trang 1/1 • 0 mục</span>
-            <button class="btn btn-outline btn-xs pager-next"  title="Trang sau">⏩</button>
-            <button class="btn btn-outline btn-xs pager-last"  title="Trang cuối">⏭️</button>
-          </div>
-        </section>
+               class="input w-52 sm:w-64"
+               placeholder="" />
       </div>
     </section>
-  </main>
 
-  <!-- Footer -->
-  <footer class="bg-[#1E50B4] text-white mt-auto">
-    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-sm">
-      <div>
-        <p class="font-semibold uppercase">VIỆN HỢP TÁC VÀ PHÁT TRIỂN ĐÀO TẠO</p>
-        <p class="uppercase">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TPHCM (HUTECH)</p>
-        <p><b>Sài Gòn Campus:</b> 475A Điện Biên Phủ, Phường Thạnh Mỹ Tây, TP. Hồ Chí Minh</p>
-        <p><b>ĐT:</b> (028) 6686 6465 · 
-          <b>Email:</b> <a href="mailto:daotaotructuyen@hutech.edu.vn" class="underline hover:text-yellow-300">daotaotructuyen@hutech.edu.vn</a>
-        </p>
+    {# TOOLBAR + EXCEL + KẾT QUẢ #}
+    <section class="card space-y-4">
+      {# Hàng 1: Tìm kiếm + Lọc đợt/khóa #}
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 items-end">
+        <div class="xl:col-span-2">
+          <div class="flex items-center gap-2">
+            <div class="relative flex-1 min-w-[240px]">
+              <input id="q" class="input w-full pl-10"
+                     placeholder="Nhập họ và tên hoặc MSHV..."
+                     aria-label="Từ khóa" />
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true">🔎</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="filterKhoa" class="input" title="Lọc theo Khóa">
+                <option value="">Tất cả khóa</option>
+              </select>
+              <select id="filterDot" class="input" title="Lọc theo Đợt">
+                <option value="">Tất cả đợt</option>
+              </select>
+            </div>
+            <button id="btnSearch" class="btn btn-outline shrink-0" aria-label="Tìm">🔎 Tìm</button>
+          </div>
+        </div>
       </div>
-      <p class="text-xs">© V-HT.PTĐT HUTECH — Code by HC-Tuấn</p>
-    </div>
-  </footer>
 
-  <!-- Toast wrap (nếu anh cần xài kiểu khác) -->
-  <div id="toast-wrap" class="fixed top-4 right-4 z-[9999] space-y-2 pointer-events-none"></div>
+      {# Tiêu đề + nút Excel #}
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold">IN / XUẤT DỮ LIỆU</h2>
+        <button id="btnExcelToggle" class="btn btn-outline btn-xs" aria-expanded="false">
+          ⚙️ Cập nhật từ Excel
+        </button>
+      </div>
 
-  <!-- Modal nhập lý do xoá -->
+      {# Bulk actions #}
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-sm text-gray-600">
+          Đã chọn: <span id="bulkCount" class="font-semibold">0</span> học viên
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnSendBulk" class="btn btn-primary disabled:opacity-50 disabled:pointer-events-none" disabled>
+            ✉️ Gửi email hàng loạt
+          </button>
+        </div>
+      </div>
+
+      {# Dải tác vụ: Theo ngày / theo đợt-khóa #}
+      <div class="grid gap-3 md:grid-cols-2">
+        <!-- Theo NGÀY -->
+        <div class="rounded-2xl border bg-white/70 p-3 shadow-sm">
+          <div class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Theo ngày</div>
+          <div class="flex flex-wrap items-end gap-2">
+            <input id="day" type="text" class="input w-60" placeholder="Chọn ngày..." />
+            <div class="ml-auto flex items-center gap-2">
+              <button id="btnPrintDay"  class="btn btn-outline">🖨️ In</button>
+              <button id="btnExportDay" class="btn btn-outline">⬇️ Xuất Excel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Theo ĐỢT / KHÓA -->
+        <div class="rounded-2xl border bg-white/70 p-3 shadow-sm">
+          <div class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Theo đợt / khóa</div>
+          <div class="flex flex-wrap items-end gap-2">
+            <select id="dotKhoa" class="input w-40">
+              <option value="">-- Chọn khóa --</option>
+            </select>
+            <select id="dot" class="input w-40">
+              <option value="">-- Chọn đợt --</option>
+            </select>
+            <div class="ml-auto flex items-center gap-2">
+              <button id="btnPrintDot"  class="btn btn-outline">🖨️ In</button>
+              <button id="btnExportDot" class="btn btn-outline">⬇️ Xuất Excel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# Khối Excel #}
+      <div id="excelBox" class="hidden mt-5 border-t pt-4">
+        <h3 class="font-semibold mb-2">TOOL EDIT INFO • Excel</h3>
+        <div class="flex flex-wrap items-center gap-2 mt-2">
+          <input id="batchFile" type="file" accept=".xlsx" class="input w-72" />
+          <button id="btnDownloadTemplate" class="btn btn-outline">⬇️ Tải mẫu .xlsx</button>
+          <button id="btnBatchPreview" class="btn btn-outline">👀Preview</button>
+          <button id="btnBatchApply" class="btn btn-primary">💾 Áp dụng</button>
+          <label class="ml-3 inline-flex items-center gap-2 text-sm">
+            <input id="stopOnError" type="checkbox" class="accent-blue-600" />
+            Dừng khi gặp lỗi
+          </label>
+        </div>
+
+        <div id="batchMsg" class="mt-2 text-sm text-gray-600"></div>
+
+        <div id="batchPreviewWrap" class="hidden mt-2 overflow-auto border rounded-xl">
+          <table class="table min-w-full">
+            <thead>
+              <tr>
+                <th class="text-left">MSHV</th>
+                <th class="text-left">Trạng thái</th>
+                <th class="text-left">Trường thay đổi</th>
+              </tr>
+            </thead>
+            <tbody id="batchPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    {# KẾT QUẢ #}
+    <section class="card space-y-3 mt-6">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div class="text-sm text-gray-600">
+          Kết quả: <span id="count" class="badge">0</span>
+        </div>
+        <div id="msg" class="text-sm text-gray-600" role="status" aria-live="polite"></div>
+      </div>
+
+      {# Pagination toolbar (top) #}
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 text-sm">
+          <span>Hiển thị</span>
+          <select id="pageSize" class="input w-24">
+            <option selected>10</option><option>20</option><option>50</option><option>100</option>
+          </select>
+          <span>dòng/trang</span>
+        </div>
+        <div class="flex items-center gap-1 text-sm pager" data-position="top">
+          <button class="btn btn-outline btn-xs pager-first"  title="Trang đầu">⏮️</button>
+          <button class="btn btn-outline btn-xs pager-prev"   title="Trang trước">⏪</button>
+          <span class="mx-2 min-w-[160px] text-center pager-info">Trang 1/1 • 0 mục</span>
+          <button class="btn btn-outline btn-xs pager-next"   title="Trang sau">⏩</button>
+          <button class="btn btn-outline btn-xs pager-last"   title="Trang cuối">⏭️</button>
+        </div>
+      </div>
+
+      <div class="overflow-hidden border rounded-xl">
+        <div id="emptyState" class="p-10 text-center text-gray-500 hidden">
+          <div class="text-4xl mb-2">❌🧾</div>
+          <div class="font-semibold">Không tìm thấy trong danh sách</div>
+          <div class="text-sm">Nhập từ khóa khác để tìm kiếm!</div>
+        </div>
+
+        <div id="tableWrap" class="overflow-auto hidden">
+          <table class="table min-w-full">
+            <thead>
+              <tr>
+                <th class="text-center">
+                  <input id="chkAll" type="checkbox" class="accent-blue-600" title="Chọn tất cả trên trang" />
+                </th>
+                <th class="text-left">Mã HS</th>
+                <th class="text-left th-sortable" data-sort="ho_dem" role="button" tabindex="0" aria-label="Sắp xếp theo Họ đệm">
+                  Họ đệm <span class="arrow"></span>
+                </th>
+                <th class="text-left th-sortable" data-sort="ten" role="button" tabindex="0" aria-label="Sắp xếp theo Tên">
+                  Tên <span class="arrow"></span>
+                </th>
+                <th class="text-left th-sortable" data-sort="ma_so_hv" role="button" tabindex="0" aria-label="Sắp xếp theo MSHV">
+                  MSHV <span class="arrow"></span>
+                </th>
+                <th class="th-sortable" data-sort="ngay_nhan_hs" role="button" tabindex="0" aria-label="Sắp xếp theo Ngày nhận">
+                  Ngày nhận <span class="arrow"></span>
+                </th>
+                <th class="th-sortable" data-sort="nganh" role="button" tabindex="0" aria-label="Sắp xếp theo Ngành">
+                  Ngành <span class="arrow"></span>
+                </th>
+                <th class="th-sortable" data-sort="dot" role="button" tabindex="0" aria-label="Sắp xếp theo Đợt">
+                  Đợt <span class="arrow"></span>
+                </th>
+                <th class="th-sortable" data-sort="khoa" role="button" tabindex="0" aria-label="Sắp xếp theo Khóa">
+                  Khóa <span class="arrow"></span>
+                </th>
+                <th class="th-sortable" data-sort="nguoi_nhan" role="button" tabindex="0" aria-label="Sắp xếp theo Người nhận">
+                  Người nhận <span class="arrow"></span>
+                </th>
+                <th class="text-center">Email</th>
+                <th class="text-center">In</th>
+                <th class="text-center">Sửa/Xóa</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <div id="loading" class="p-8 text-center text-gray-500 hidden">
+          <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin align-[-2px]" aria-hidden="true"></span>
+          <span class="ml-2">Đang tải…</span>
+        </div>
+      </div>
+
+      {# Pagination toolbar (bottom) #}
+      <div class="flex items-center gap-1 text-sm pager" data-position="bottom">
+        <button class="btn btn-outline btn-xs pager-first" title="Trang đầu">⏮️</button>
+        <button class="btn btn-outline btn-xs pager-prev"  title="Trang trước">⏪</button>
+        <span class="mx-2 min-w-[160px] text-center pager-info">Trang 1/1 • 0 mục</span>
+        <button class="btn btn-outline btn-xs pager-next"  title="Trang sau">⏩</button>
+        <button class="btn btn-outline btn-xs pager-last"  title="Trang cuối">⏭️</button>
+      </div>
+    </section>
+  </div>
+
+  {# Modal nhập lý do xoá #}
   <div id="delModal" class="overlay" aria-modal="true" role="dialog">
     <div class="modal">
       <div class="hd">Xóa hồ sơ</div>
@@ -366,15 +253,13 @@
     </div>
   </div>
 
-  <!-- Modal gửi email (Preview + Template) -->
+  {# Modal gửi email (Preview + Template) #}
   <div id="emailModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/40">
     <div class="w-[920px] max-w-[95vw] rounded-2xl bg-white shadow-xl">
-      <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b">
         <h3 class="text-lg font-semibold">Gửi email xác nhận</h3>
         <button class="p-2 rounded-md hover:bg-gray-100" onclick="closeEmailModal()">✕</button>
       </div>
-      <!-- Body -->
       <div class="p-4 space-y-4">
         <div class="grid grid-cols-12 gap-3">
           <div class="col-span-8">
@@ -398,13 +283,11 @@
           </div>
         </div>
 
-        <!-- Preview only -->
         <div class="mt-1 h-[45vh]">
           <textarea id="email_body" hidden></textarea>
           <iframe id="email_preview" class="w-full h-full rounded-lg border bg-white"></iframe>
         </div>
 
-        <!-- Attach options -->
         <div class="flex items-center gap-4 text-sm">
           <label class="inline-flex items-center gap-2">
             <input id="chk_attach" type="checkbox" class="accent-blue-600" checked>
@@ -417,7 +300,6 @@
         </div>
       </div>
 
-      <!-- Footer -->
       <div class="flex justify-end gap-3 p-4 border-t">
         <button class="btn btn-outline" onclick="closeEmailModal()">Đóng</button>
         <button class="btn btn-primary" onclick="sendEmail()">Gửi</button>
@@ -425,7 +307,7 @@
     </div>
   </div>
 
-  <!-- Modal preview gửi hàng loạt -->
+  {# Modal preview gửi hàng loạt #}
   <div id="bulkEmailModal" class="fixed inset-0 z-[10000] hidden items-center justify-center bg-black/40">
     <div class="w-[960px] max-w-[95vw] rounded-2xl bg-white shadow-xl">
       <div class="flex items-center justify-between p-4 border-b">
@@ -440,7 +322,7 @@
         <div class="max-h-24 overflow-auto rounded border p-2 bg-gray-50 text-sm">
           <div id="bulkListLabel" class="font-mono whitespace-pre-wrap"></div>
         </div>
-        <!-- Chọn học viên để xem mẫu -->
+
         <div>
           <label class="text-sm text-gray-600 block mb-1">Xem mẫu của học viên</label>
           <select id="bulkPreviewSelect" class="input w-full"></select>
@@ -467,150 +349,123 @@
     </div>
   </div>
 
-  <!-- Modal logout (giống import) -->
-  <div class="overlay" id="logoutModal" role="dialog" aria-modal="true" aria-labelledby="lgTitle">
-    <div class="modal" role="document" aria-describedby="lgDesc" tabindex="-1" id="logoutBox">
-      <div class="px-6 py-4 border-b flex items-center justify-between">
-        <div id="lgTitle" class="font-semibold text-gray-800">Xác nhận</div>
-        <button class="btn btn-outline btn-xs" id="lgClose" aria-label="Đóng">✕</button>
-      </div>
-      <div class="px-6 py-5" id="lgDesc">
-        <p class="text-gray-700">Bạn có chắc chắn muốn đăng xuất không?</p>
-      </div>
-      <div class="px-6 py-4 border-t flex justify-end gap-2 bg-gray-50 rounded-b-2xl">
-        <button class="btn btn-outline" id="lgCancel">Hủy</button>
-        <button class="btn btn-primary" id="lgOK">Đăng xuất</button>
-      </div>
-    </div>
-  </div>
+  {# Drawer xem chi tiết hồ sơ #}
+  <div id="detailDrawer" class="fixed inset-0 z-[9500] hidden">
+    <div class="absolute inset-0 bg-black/40" id="detailBackdrop"></div>
 
-  <!-- Drawer xem chi tiết hồ sơ -->
-<div id="detailDrawer" class="fixed inset-0 z-[9500] hidden">
-  <!-- Nền mờ -->
-  <div class="absolute inset-0 bg-black/40" id="detailBackdrop"></div>
-
-  <!-- Panel phải -->
-  <div class="absolute right-0 top-0 h-full w-full sm:w-[520px] bg-white shadow-2xl flex flex-col">
-    <!-- Header -->
-    <div class="px-5 py-4 border-b flex items-start justify-between gap-3">
-      <div>
-        <div class="text-xs uppercase text-gray-400 tracking-wide">HỒ SƠ HỌC VIÊN</div>
-        <h3 id="detailName" class="text-lg font-semibold text-gray-900">
-          Đang tải…
-        </h3>
-        <p class="text-sm text-gray-600 mt-1">
-          MSHV: <span id="detailMSHV" class="font-mono text-gray-800">—</span>
-          • Mã HS: <span id="detailMaHS" class="font-mono text-gray-800">—</span>
-        </p>
-      </div>
-      <div class="flex flex-col items-end gap-2">
-        <span id="detailStatusBadge"
-              class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-          Đang tải…
-        </span>
-        <button id="detailCloseBtn"
-                class="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-gray-500"
-                aria-label="Đóng">
-          ✕
-        </button>
-      </div>
-    </div>
-
-    <!-- Nội dung -->
-    <div class="flex-1 overflow-auto px-5 py-4 space-y-4 text-sm">
-      <!-- Thông tin chung -->
-      <section class="border rounded-xl p-3 bg-gray-50/60">
-        <div class="flex items-center justify-between mb-2">
-          <h4 class="font-semibold text-gray-800">Thông tin chung</h4>
-          <span id="detailGenderBadge"
-                class="inline-flex px-2 py-0.5 rounded-full text-[11px] bg-blue-50 text-blue-700 border border-blue-100">
-            —
+    <div class="absolute right-0 top-0 h-full w-full sm:w-[520px] bg-white shadow-2xl flex flex-col">
+      <div class="px-5 py-4 border-b flex items-start justify-between gap-3">
+        <div>
+          <div class="text-xs uppercase text-gray-400 tracking-wide">HỒ SƠ HỌC VIÊN</div>
+          <h3 id="detailName" class="text-lg font-semibold text-gray-900">
+            Đang tải…
+          </h3>
+          <p class="text-sm text-gray-600 mt-1">
+            MSHV: <span id="detailMSHV" class="font-mono text-gray-800">—</span>
+            • Mã HS: <span id="detailMaHS" class="font-mono text-gray-800">—</span>
+          </p>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <span id="detailStatusBadge"
+                class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+            Đang tải…
           </span>
+          <button id="detailCloseBtn"
+                  class="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-gray-500"
+                  aria-label="Đóng">
+            ✕
+          </button>
         </div>
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-          <div><span class="text-gray-500">Họ đệm:</span> <span id="detailHoDem" class="font-medium">—</span></div>
-          <div><span class="text-gray-500">Tên:</span> <span id="detailTen" class="font-medium">—</span></div>
-          <div><span class="text-gray-500">Ngày sinh:</span> <span id="detailNgaySinh">—</span></div>
-          <div><span class="text-gray-500">Giới tính:</span> <span id="detailGioiTinh">—</span></div>
-          <div><span class="text-gray-500">Dân tộc:</span> <span id="detailDanToc">—</span></div>
-        </div>
-      </section>
+      </div>
 
-      <!-- Liên hệ -->
-      <section class="border rounded-xl p-3">
-        <h4 class="font-semibold text-gray-800 mb-2">Thông tin liên hệ</h4>
-        <div class="space-y-1">
-          <div><span class="text-gray-500">Số điện thoại:</span> <span id="detailSoDT" class="font-mono">—</span></div>
-          <div><span class="text-gray-500">Email học viên:</span>
-            <a id="detailEmail" href="#" class="text-blue-600 hover:underline break-all">—</a>
+      <div class="flex-1 overflow-auto px-5 py-4 space-y-4 text-sm">
+        <section class="border rounded-xl p-3 bg-gray-50/60">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="font-semibold text-gray-800">Thông tin chung</h4>
+            <span id="detailGenderBadge"
+                  class="inline-flex px-2 py-0.5 rounded-full text-[11px] bg-blue-50 text-blue-700 border border-blue-100">
+              —
+            </span>
           </div>
-        </div>
-      </section>
-
-      <!-- Thông tin nhập học -->
-      <section class="border rounded-xl p-3 bg-gray-50/60">
-        <h4 class="font-semibold text-gray-800 mb-2">Thông tin nhập học</h4>
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-          <div><span class="text-gray-500">Ngành:</span> <span id="detailNganh" class="font-medium">—</span></div>
-          <div><span class="text-gray-500">Khóa:</span> <span id="detailKhoa" class="font-medium">—</span></div>
-          <div><span class="text-gray-500">Đợt:</span> <span id="detailDot">—</span></div>
-          <div><span class="text-gray-500">Ngày nhận HS:</span> <span id="detailNgayNhan">—</span></div>
-          <div class="col-span-2">
-            <span class="text-gray-500">Người nhận/kiểm:</span>
-            <span id="detailNguoiNhan" class="font-medium">—</span>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+            <div><span class="text-gray-500">Họ đệm:</span> <span id="detailHoDem" class="font-medium">—</span></div>
+            <div><span class="text-gray-500">Tên:</span> <span id="detailTen" class="font-medium">—</span></div>
+            <div><span class="text-gray-500">Ngày sinh:</span> <span id="detailNgaySinh">—</span></div>
+            <div><span class="text-gray-500">Giới tính:</span> <span id="detailGioiTinh">—</span></div>
+            <div><span class="text-gray-500">Dân tộc:</span> <span id="detailDanToc">—</span></div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Tình trạng hồ sơ -->
-      <section class="border rounded-xl p-3">
-        <div class="flex items-center justify-between mb-1.5">
-          <h4 class="font-semibold text-gray-800">Tình trạng hồ sơ</h4>
-          <span id="detailChecklistSummary" class="text-xs text-gray-500">—</span>
-        </div>
-        <ul id="detailChecklist" class="space-y-1 text-sm">
-          <!-- sẽ render từ BE -->
-          <li class="text-gray-500 italic">Đang tải danh mục hồ sơ…</li>
-        </ul>
-      </section>
+        <section class="border rounded-xl p-3">
+          <h4 class="font-semibold text-gray-800 mb-2">Thông tin liên hệ</h4>
+          <div class="space-y-1">
+            <div><span class="text-gray-500">Số điện thoại:</span> <span id="detailSoDT" class="font-mono">—</span></div>
+            <div><span class="text-gray-500">Email học viên:</span>
+              <a id="detailEmail" href="#" class="text-blue-600 hover:underline break-all">—</a>
+            </div>
+          </div>
+        </section>
 
-      <!-- Ghi chú & nhật ký -->
-      <section class="border rounded-xl p-3">
-        <h4 class="font-semibold text-gray-800 mb-2">Ghi chú</h4>
-        <p id="detailGhiChu" class="text-sm text-gray-700 whitespace-pre-line">
-          —
-        </p>
-        <div class="mt-3 text-xs text-gray-500">
-          <div>Cập nhật lần cuối: <span id="detailUpdatedAt">—</span></div>
-          <div>Người cập nhật: <span id="detailUpdatedBy">—</span></div>
-        </div>
-      </section>
-    </div>
+        <section class="border rounded-xl p-3 bg-gray-50/60">
+          <h4 class="font-semibold text-gray-800 mb-2">Thông tin nhập học</h4>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+            <div><span class="text-gray-500">Ngành:</span> <span id="detailNganh" class="font-medium">—</span></div>
+            <div><span class="text-gray-500">Khóa:</span> <span id="detailKhoa" class="font-medium">—</span></div>
+            <div><span class="text-gray-500">Đợt:</span> <span id="detailDot">—</span></div>
+            <div><span class="text-gray-500">Ngày nhận HS:</span> <span id="detailNgayNhan">—</span></div>
+            <div class="col-span-2">
+              <span class="text-gray-500">Người nhận/kiểm:</span>
+              <span id="detailNguoiNhan" class="font-medium">—</span>
+            </div>
+          </div>
+        </section>
 
-    <!-- Footer action -->
-    <div class="px-5 py-3 border-t bg-gray-50 flex items-center justify-between">
-      <button id="detailOpenEditBtn"
-              class="btn btn-outline btn-xs">
-        ✏️ Mở trang Sửa hồ sơ
-      </button>
-      <div class="flex gap-2">
-        <button id="detailPrintA5Btn" class="btn btn-soft btn-xs">🖨️ In A5</button>
-        <button id="detailPrintA4Btn" class="btn btn-primary btn-xs">🖨️ In A4</button>
+        <section class="border rounded-xl p-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <h4 class="font-semibold text-gray-800">Tình trạng hồ sơ</h4>
+            <span id="detailChecklistSummary" class="text-xs text-gray-500">—</span>
+          </div>
+          <ul id="detailChecklist" class="space-y-1 text-sm">
+            <li class="text-gray-500 italic">Đang tải danh mục hồ sơ…</li>
+          </ul>
+        </section>
+
+        <section class="border rounded-xl p-3">
+          <h4 class="font-semibold text-gray-800 mb-2">Ghi chú</h4>
+          <p id="detailGhiChu" class="text-sm text-gray-700 whitespace-pre-line">
+            —
+          </p>
+          <div class="mt-3 text-xs text-gray-500">
+            <div>Cập nhật lần cuối: <span id="detailUpdatedAt">—</span></div>
+            <div>Người cập nhật: <span id="detailUpdatedBy">—</span></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="px-5 py-3 border-t bg-gray-50 flex items-center justify-between">
+        <button id="detailOpenEditBtn"
+                class="btn btn-outline btn-xs">
+          ✏️ Mở trang Sửa hồ sơ
+        </button>
+        <div class="flex gap-2">
+          <button id="detailPrintA5Btn" class="btn btn-soft btn-xs">🖨️ In A5</button>
+          <button id="detailPrintA4Btn" class="btn btn-primary btn-xs">🖨️ In A4</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- GLOBAL LOADING OVERLAY -->
-<div id="globalLoading"
-     class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden
-            flex items-center justify-center z-[9999]">
-  <div class="bg-white px-6 py-4 rounded-xl shadow-lg text-center animate-fade">
-    <div class="loader mb-3"></div>
-    <div class="font-semibold text-gray-700">Đang tải dữ liệu, vui lòng đợi...</div>
+  {# GLOBAL LOADING OVERLAY #}
+  <div id="globalLoading"
+       class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden
+              flex items-center justify-center z-[9999]">
+    <div class="bg-white px-6 py-4 rounded-xl shadow-lg text-center animate-fade">
+      <div class="loader mb-3"></div>
+      <div class="font-semibold text-gray-700">Đang tải dữ liệu, vui lòng đợi...</div>
+    </div>
   </div>
-</div>
+{% endblock %}
 
-<script src="/js/students_list.js"></script>
-</body>
-</html>
+{% block scripts %}
+  <script src="/js/students_list.js"></script>
+{% endblock %}
