@@ -1,3 +1,4 @@
+/*JS code for import_students.html*/
 /* ===== Toast (Tailwind) ===== */
 function showToast(msg, type='info', ms=4000) {
     const wrap = document.getElementById('toast-wrap');
@@ -579,74 +580,131 @@ function nowTag(){
     const pad = n => String(n).padStart(2,"0");
     return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
+
 function toAoAFull(list){
     const header = [
-    "MaHS","Họ đệm","Tên","MSSV","Giới tính","Dân tộc","Ngày sinh","Số ĐT","Email",
-    "Ngành nhập học","Đợt","Khóa","Đối tượng TN","Ngày nhận","Kết quả","Ghi chú kết quả"
+        "MaHS","Họ đệm","Tên","MSSV","Giới tính","Dân tộc","Ngày sinh","Số ĐT","Email",
+        "Ngành nhập học","Đợt","Khóa","Đối tượng TN","Ngày nhận","Kết quả","Ghi chú kết quả"
     ];
     const aoa = [header];
     for (const r of list){
-    const d = r.data || {};
-    const label = r.type === 'OK' ? 'THÀNH CÔNG' : (r.type === 'SKIP' ? 'BỎ QUA' : 'LỖI');
-    aoa.push([
-        d.ma_ho_so || "",
-        d.ho_dem || "",
-        d.ten || "",
-        d.ma_so_hv || "",
-        d.gioi_tinh || "",
-        d.dan_toc || "",
-        anyToVNDate(d.ngay_sinh),
-        d.so_dt || "",
-        d.email_hoc_vien || "",
-        d.nganh_nhap_hoc || "",
-        d.dot || "",
-        d.khoa || "",
-        d.da_tn_truoc_do || "",
-        anyToVNDate(d.ngay_nhan_hs),
-        label,
-        (r.msg ? translateMessage(r.msg) : "")
-    ]);
+        const d = r.data || {};
+        const label = r.type === 'OK' ? 'THÀNH CÔNG' : (r.type === 'SKIP' ? 'BỎ QUA' : 'LỖI');
+        aoa.push([
+            d.ma_ho_so || "",
+            d.ho_dem || "",
+            d.ten || "",
+            d.ma_so_hv || "",
+            d.gioi_tinh || "",
+            d.dan_toc || "",
+            anyToVNDate(d.ngay_sinh),
+            d.so_dt || "",
+            d.email_hoc_vien || "",
+            d.nganh_nhap_hoc || "",
+            d.dot || "",
+            d.khoa || "",
+            d.da_tn_truoc_do || "",
+            anyToVNDate(d.ngay_nhan_hs),
+            label,
+            (r.msg ? translateMessage(r.msg) : "")
+        ]);
     }
     return aoa;
 }
+
 function exportResults(onlyErrors=false){
     const data = onlyErrors ? results.filter(r=>r.type !== 'OK') : results.slice();
     if (!data.length) return;
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(toAoAFull(data));
     ws['!cols'] = [
-    {wch:12},{wch:28},{wch:12},{wch:12},{wch:12},{wch:12},{wch:18},
-    {wch:26},{wch:24},{wch:8},{wch:8},{wch:16},{wch:12},{wch:60},{wch:60}
+        {wch:12},{wch:28},{wch:12},{wch:12},{wch:12},{wch:12},{wch:18},
+        {wch:26},{wch:24},{wch:8},{wch:8},{wch:16},{wch:12},{wch:60},{wch:60}
     ];
     XLSX.utils.book_append_sheet(wb, ws, "KetQuaImport");
     const fname = onlyErrors ? `import_errors_${nowTag()}.xlsx` : `import_result_${nowTag()}.xlsx`;
     XLSX.writeFile(wb, fname);
 }
+
+/* ===== Template headers & sample rows cho file mẫu ===== */
+function buildTemplateHeaders(){
+    return [
+        "Mã hồ sơ", "Họ đệm", "Tên", "Mã số HV", "Giới tính", "Dân tộc", 
+        "Ngày sinh", "Số ĐT", "Email học viên", "Ngành nhập học", "Đợt", "Khóa", "Đối tượng TN", 
+        "Ghi chú"
+    ];
+}
+
+function sampleRows(){
+    return [
+        {
+            ma_ho_so:"",ho_dem:"Nguyễn Văn",ten:"A",ma_so_hv:"1234567890",gioi_tinh:"Nam",dan_toc:"Kinh",
+            ngay_sinh:"15/01/2005",so_dt:"0901234567",email_hoc_vien:"vana@example.com",
+            nganh_nhap_hoc:"Công nghệ thông tin",dot:"1",khoa:"25",da_tn_truoc_do:"THPT",ghi_chu:""
+        },
+        {
+            ma_ho_so:"",ho_dem:"Trần Thị",ten:"B",ma_so_hv:"0987654321",gioi_tinh:"Nữ",dan_toc:"Hoa",
+            ngay_sinh:"20/12/2004",so_dt:"0912345678",email_hoc_vien:"tran@example.com",
+            nganh_nhap_hoc:"Quản trị kinh doanh",dot:"1",khoa:"25",da_tn_truoc_do:"Cao đẳng",ghi_chu:""
+        }
+    ];
+}
+
+/* ===== Template Excel mẫu ===== */
+function exportTemplate(withSample = false) {
+    const headers = buildTemplateHeaders();
+    const aoa = [headers];
+
+    if (withSample) {
+        const samples = sampleRows();
+        for (const row of samples) {
+            const line = headers.map(h => {
+                const key = KEY_BY_LABEL[h] || null;  // dùng map label → key có sẵn
+                return key ? (row[key] ?? "") : "";
+            });
+            aoa.push(line);
+        }
+    }
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // set width cho cột cho dễ đọc
+    ws['!cols'] = [
+        {wch:12}, // Mã hồ sơ
+        {wch:20}, // Họ đệm
+        {wch:12}, // Tên
+        {wch:14}, // Mã số HV
+        {wch:10}, // Giới tính
+        {wch:12}, // Dân tộc
+        {wch:12}, // Ngày sinh
+        {wch:16}, // Số ĐT
+        {wch:26}, // Email học viên
+        {wch:24}, // Ngành nhập học
+        {wch:8},  // Đợt
+        {wch:8},  // Khóa
+        {wch:18}, // Đối tượng TN
+        {wch:24}  // Ghi chú
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+
+    const fname = withSample
+        ? "template_import_hoc_vien_sample.xlsx"
+        : "template_import_hoc_vien.xlsx";
+
+    XLSX.writeFile(wb, fname);
+}
+
+// Gán event cho nút template (nếu có trên trang)
+$("btnTemplateEmpty")?.addEventListener("click", () => exportTemplate(false));
+$("btnTemplateSample")?.addEventListener("click", () => exportTemplate(true));
+
+// Gán event export kết quả (chỉ 1 lần)
 $("btnExportAll").addEventListener("click", () => exportResults(false));
 $("btnExportErr").addEventListener("click", () => exportResults(true));
 
-function buildTemplateHeaders(){
-    return [
-    "Mã hồ sơ", "Họ đệm", "Tên", "Mã số HV", "Giới tính", "Dân tộc", 
-    "Ngày sinh", "Số ĐT", "Email học viên", "Ngành nhập học", "Đợt", "Khóa", "Đối tượng TN", 
-    "Ghi chú"
-    ];
-}
-function sampleRows(){
-    return [
-    {ma_ho_so:"",ho_dem:"Nguyễn Văn",ten:"A",ma_so_hv:"1234567890",gioi_tinh:"Nam",dan_toc:"Kinh",
-        ngay_sinh:"15/01/2005",so_dt:"0901234567",email_hoc_vien:"vana@example.com",
-        nganh_nhap_hoc:"Công nghệ thông tin",dot:"1",khoa:"25",da_tn_truoc_do:"THPT",ghi_chu:""},
-    {ma_ho_so:"",ho_dem:"Trần Thị",ten:"B",ma_so_hv:"0987654321",gioi_tinh:"Nữ",dan_toc:"Hoa",
-        ngay_sinh:"20/12/2004",so_dt:"0912345678",email_hoc_vien:"tran@example.com",
-        nganh_nhap_hoc:"Quản trị kinh doanh",dot:"1",khoa:"25",da_tn_truoc_do:"Cao đẳng",ghi_chu:""}
-    ];
-}
-
-// nếu anh muốn giữ nút template: thêm 2 nút và event giống bản cũ
-// (hiện tại em bỏ 2 nút đó cho gọn; anh có thể thêm lại dễ dàng)
-
-// Khởi động
+/* ===== Khởi động ===== */
 window.addEventListener("load", async () => {
     await ensureNguoiNhanFromSession();
     await fetchActiveChecklist();
@@ -655,11 +713,11 @@ window.addEventListener("load", async () => {
     const byQuery = params.get('expired') === '1';
     const byCookie = document.cookie.split(';').some(c => c.trim().startsWith('__session_expired=1'));
     if (byQuery || byCookie) {
-    if (typeof showToast === 'function') {
-        showToast('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 'warn', 4500);
-    } else {
-        alert('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
-    }
-    document.cookie = '__session_expired=; Max-Age=0; Path=/; SameSite=Lax';
+        if (typeof showToast === 'function') {
+            showToast('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 'warn', 4500);
+        } else {
+            alert('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
+        }
+        document.cookie = '__session_expired=; Max-Age=0; Path=/; SameSite=Lax';
     }
 });

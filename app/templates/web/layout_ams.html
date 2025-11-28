@@ -40,6 +40,10 @@
     #btnToggleSidebar {
       transition: all .2s ease;
     }
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
   </style>
 
   {% block extra_head %}{% endblock %}
@@ -65,7 +69,7 @@
   </header>
 
   <!-- MAIN LAYOUT -->
-  <main class="flex-1 flex relative">
+  <main class="flex-1 flex flex-col md:flex-row relative">
 
     <!-- Nút thu gọn sidebar -->
     <button id="btnToggleSidebar"
@@ -78,7 +82,7 @@
 
     <!-- SIDEBAR CHUNG -->
     <aside id="sidebar"
-           class="flex flex-col w-56 md:w-64 bg-white/85 border-r border-slate-200 backdrop-blur-sm">
+          class="flex flex-col w-full md:w-64 shrink-0 bg-white/85 border-b md:border-b-0 md:border-r border-slate-200 backdrop-blur-sm">
 
       <!-- Khối user -->
       <div class="px-4 pt-4 pb-3 border-b border-slate-200 relative">

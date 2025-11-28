@@ -11,7 +11,7 @@ class ChecklistVersion(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     version_name = Column(String(64), unique=True, index=True)
-    active = Column(Boolean, default=False, server_default="false")
+    active = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())
 
     items = relationship("ChecklistItem", back_populates="version", cascade="all, delete-orphan")
