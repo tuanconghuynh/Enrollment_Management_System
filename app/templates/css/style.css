@@ -341,6 +341,36 @@ select.input::-ms-expand{display:none;}
   border-color:#93c5fd;
 }
 
+/* ====== Journal – modal xem chi tiết (responsive) ======================= */
+
+/* Nội dung trong #d_view: cho chữ xuống dòng, không bị cắt */
+#d_view {
+  font-size: 0.875rem;           /* text-sm cho dễ đọc */
+  overflow-x: auto;              /* nếu vẫn rộng thì cho kéo ngang */
+}
+
+#d_view table {
+  width: 100%;
+  table-layout: auto;
+}
+
+#d_view th,
+#d_view td {
+  white-space: normal;           /* KHÔNG nowrap */
+  word-break: break-word;        /* bẻ từ nếu quá dài */
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Modal detail full-width hơn trên mobile, tránh bó hẹp nên nhìn như bị cắt */
+@media (max-width: 640px) {
+  #detail > div {
+    width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;            /* nếu anh muốn vẫn bo góc thì bỏ dòng này */
+  }
+}
+
 /* ====== Toast (top-center) ============================================== */
 #toast-wrap{
   position: fixed;
@@ -1042,3 +1072,22 @@ select.input::-ms-expand{display:none;}
   box-shadow: 0 10px 22px rgba(99,102,241,0.28);
   transform: translateY(-1px);
 }
+#previewBox {
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: block;
+}
+
+#previewBox thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: #f1f5f9;
+}
+
+#batchPreviewWrap {
+  height: 300px;
+  overflow-y: auto;
+}
+

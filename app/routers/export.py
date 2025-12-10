@@ -255,7 +255,7 @@ def export_excel(
     date_q: str | None = Query(None, alias="date", description="dd/MM/YYYY"),
     name: str = Query("split", description="Kiểu cột tên: 'full' hoặc 'split'"),
     db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin", "NhanVien")),
+    user=Depends(require_roles("Admin", "NhanVien", "Manager")),
 ):
     raw = date_q or day
     if not raw:
@@ -323,7 +323,7 @@ def export_excel_dot(
     khoa: str | None = Query(None, description="(Tuỳ chọn) Lọc theo Khóa, ví dụ: '27'"),
     name: str = Query("split", description="Kiểu cột tên: 'full' hoặc 'split'"),
     db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin", "NhanVien")),
+    user=Depends(require_roles("Admin", "NhanVien", "Manager")),
 ):
     key = (dot or "").strip()
     if not key:

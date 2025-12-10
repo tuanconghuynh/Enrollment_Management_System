@@ -25,4 +25,5 @@ pandas>=2.2,<3.0
 
 # Email
 aiosmtplib
-fastapi-mail jinja2
+fastapi-mail 
+jinja2

@@ -117,9 +117,8 @@ def _list_items(db: Session, version_id: int):
     return q.all()
 
 # ==================== APIs ====================
-
 @router.get("/active")
-def get_active_checklist(db: Session = Depends(get_db)):
+def get_active_checklist(db: Session = Depends(get_db), me=Depends(require_roles("Admin", "NhanVien", "Manager"))):
     v = _get_active(db)
     items = _list_items(db, v.id)
     return {
@@ -136,7 +135,6 @@ def get_active_checklist(db: Session = Depends(get_db)):
             for it in items
         ],
     }
-
 
 @router.get("/versions")
 def list_versions(db: Session = Depends(get_db)):
@@ -156,7 +154,7 @@ def list_versions(db: Session = Depends(get_db)):
 def get_version_items(
     version_id: int,
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin", "NhanVien")),  # cho xem cả nhân viên
+    me=Depends(require_roles("Admin", "Manager")),
 ):
     v = db.query(ChecklistVersion).filter(ChecklistVersion.id == version_id).first()
     if not v:
@@ -182,7 +180,7 @@ def get_version_items(
 def delete_version(
     version_id: int,
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin")),
+    me=Depends(require_roles("Admin", "Manager")),
 ):
     v = db.query(ChecklistVersion).filter(ChecklistVersion.id == version_id).first()
     if not v:
@@ -206,7 +204,7 @@ def delete_version(
 def create_version(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin")),
+    me=Depends(require_roles("Admin", "Manager"))  # Thêm kiểm tra Admin và Manager
 ):
     name = (payload.get("version_name") or "").strip()
     if not name:
@@ -257,7 +255,7 @@ def create_version(
 def activate_version(
     version_id: int,
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin")),
+    me=Depends(require_roles("Admin", "Manager")),
 ):
     v = db.query(ChecklistVersion).filter(ChecklistVersion.id == version_id).first()
     if not v:
@@ -278,7 +276,7 @@ def activate_version(
 def add_item(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin")),
+    me=Depends(require_roles("Admin", "Manager")),
 ):
     code = (payload.get("code") or "").strip()
     name = (payload.get("display_name") or "").strip()
@@ -320,7 +318,7 @@ def update_item(
     code: str,
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin")),
+    me=Depends(require_roles("Admin", "Manager")),
 ):
     v = _get_active(db)
     it = (
@@ -345,7 +343,7 @@ def update_item(
 def delete_item(
     code: str,
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin")),
+    me=Depends(require_roles("Admin", "Manager")),
 ):
     v = _get_active(db)
     it = (
@@ -372,7 +370,7 @@ def delete_item(
 def reorder_items(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin")),
+    me=Depends(require_roles("Admin", "Manager")),
 ):
     codes = payload.get("codes") or []
     if not isinstance(codes, list) or not codes:

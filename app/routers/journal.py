@@ -23,8 +23,8 @@ from app.models.applicant import Applicant, ApplicantDoc
 
 router = APIRouter(prefix="/journal", tags=["Journal"])
 
-# Chỉ Admin hoặc Nhân viên được phép thao tác với nhật ký
-RequireAdmin = Depends(require_roles("Admin", "NhanVien"))
+# Chỉ Admin, Nhân viên, Manager được phép thao tác với nhật ký
+RequireAdmin = Depends(require_roles("Admin", "NhanVien", "Manager"))
 
 # ---------------- helpers tên ----------------
 def _display_name_from_obj(a: Applicant) -> str:

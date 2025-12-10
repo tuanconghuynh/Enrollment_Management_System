@@ -331,26 +331,44 @@ function labelForPreview(h){
     const k = String(h||"").trim();
     return LABEL_BY_KEY[k] || k;
 }
-function preview(headers, rows){
-    $('thead').innerHTML = `<tr>${headers.map(h=>`<th class="text-left">${labelForPreview(h)}</th>`).join("")}</tr>`;
-    $('tbody').innerHTML = rows.slice(0,5).map(r=>`<tr>${headers.map(h=>`<td>${(r[h]??"")}</td>`).join("")}</tr>`).join("");
-    requestAnimationFrame(adjustPreviewHeight);
+function preview(headers, rows) {
+  // Hiển thị tiêu đề bảng
+  $('thead').innerHTML = `<tr>${headers.map(h => `<th class="text-left">${labelForPreview(h)}</th>`).join("")}</tr>`;
+
+  // Hiển thị tất cả các dòng
+  $('tbody').innerHTML = rows.map(r => 
+    `<tr>${headers.map(h => `<td>${(r[h] ?? "")}</td>`).join("")}</tr>`
+  ).join("");
+
+  // Hiển thị số dòng dữ liệu
+  const rowCount = rows.length;
+  document.getElementById('dataCount').textContent = `Đã tải lên ${rowCount} dòng dữ liệu`;
+
+  // Gọi hàm điều chỉnh chiều cao cho phép cuộn
+  requestAnimationFrame(adjustPreviewHeight);
 }
+
 function adjustPreviewHeight() {
-    const box = document.getElementById('previewBox');
-    if (!box) return;
-    box.style.maxHeight = 'none';
-    const thead = document.querySelector('#thead');
-    const tbody = document.querySelector('#tbody');
-    const headerH = thead ? thead.getBoundingClientRect().height : 36;
-    let rowH = 40;
-    const firstRow = tbody?.querySelector('tr');
-    if (firstRow) rowH = firstRow.getBoundingClientRect().height || rowH;
-    const desired = headerH + rowH * 5 + 8;
-    const maxByViewport = Math.floor(window.innerHeight * 0.7);
-    box.style.maxHeight = Math.min(desired, maxByViewport) + 'px';
-    box.style.overflowY = 'auto';
-    box.style.overflowX = 'auto';
+  const box = document.getElementById('previewBox');
+  if (!box) return;
+
+  box.style.maxHeight = 'none';  // Hủy bỏ chiều cao tối đa cũ
+
+  const thead = document.querySelector('#thead');
+  const tbody = document.querySelector('#tbody');
+  
+  const headerH = thead ? thead.getBoundingClientRect().height : 36;  // Chiều cao tiêu đề
+  let rowH = 40;  // Chiều cao mỗi hàng mặc định
+
+  const firstRow = tbody?.querySelector('tr');
+  if (firstRow) rowH = firstRow.getBoundingClientRect().height || rowH;  // Lấy chiều cao thực tế của dòng đầu tiên
+
+  const desiredHeight = headerH + rowH * 5 + 8;  // Tính chiều cao tối thiểu để hiển thị 5 dòng
+  const maxByViewport = Math.floor(window.innerHeight * 0.7);  // Giới hạn chiều cao theo viewport
+
+  box.style.maxHeight = Math.min(desiredHeight, maxByViewport) + 'px';  // Đảm bảo chiều cao không vượt quá 70% viewport
+  box.style.overflowY = 'auto';  // Bật cuộn dọc
+  box.style.overflowX = 'auto';  // Bật cuộn ngang
 }
 window.addEventListener('resize', adjustPreviewHeight);
 
@@ -525,7 +543,7 @@ async function ensureNguoiNhanFromSession(){
     $('nguoiNhan').value = name;
     $('nguoiNhan').setAttribute("readonly", "readonly");
 
-    if (me.role === "Admin" || me.role === "NhanVien") {
+    if (me.role === "Admin" || me.role === "NhanVien" || me.role === "Manager") {
         $('meStatus').textContent = `Đã gắn tự động: ${name} (${me.role})`;
         $('btnUpload').disabled = false;
         $('btnPreview').disabled = false;
@@ -580,8 +598,7 @@ function nowTag(){
     const pad = n => String(n).padStart(2,"0");
     return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
-
-function toAoAFull(list){
+function toAoAFull(list) {
     const header = [
         "MaHS","Họ đệm","Tên","MSSV","Giới tính","Dân tộc","Ngày sinh","Số ĐT","Email",
         "Ngành nhập học","Đợt","Khóa","Đối tượng TN","Ngày nhận","Kết quả","Ghi chú kết quả"
@@ -592,8 +609,8 @@ function toAoAFull(list){
         const label = r.type === 'OK' ? 'THÀNH CÔNG' : (r.type === 'SKIP' ? 'BỎ QUA' : 'LỖI');
         aoa.push([
             d.ma_ho_so || "",
-            d.ho_dem || "",
-            d.ten || "",
+            d.ho_dem || "", // Cột "Họ đệm"
+            d.ten || "", // Cột "Tên"
             d.ma_so_hv || "",
             d.gioi_tinh || "",
             d.dan_toc || "",

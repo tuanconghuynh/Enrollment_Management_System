@@ -227,7 +227,7 @@ def get_by_code(
     key: str,
     request: Request,
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien", "Manager")),
 ):
     k = (key or "").strip()
     if not k:
@@ -325,7 +325,7 @@ def get_by_mshv(
     ma_so_hv: str,
     request: Request,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
+    user=Depends(require_roles("Admin", "NhanVien", "CongTacVien", "Manager")),
 ):
     key = (ma_so_hv or "").strip()
     if not key:
@@ -471,7 +471,7 @@ def create_applicant(
     request: Request,
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien", "Manager")),
 ):
     version_name = (payload.get("checklist_version_name") or "").strip() or "v1"
     v = db.query(ChecklistVersion).filter(
@@ -608,7 +608,7 @@ def search_applicants(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=1000),
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien", "Manager")),
 ):
     qn = (q or "").strip() or None
 
@@ -677,7 +677,7 @@ def search_applicants(
 def find_by_ma_ho_so(
     ma_ho_so: str = Query(...),
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien", "Manager")),
 ):
     code = (ma_ho_so or "").strip()
     a = (
@@ -738,7 +738,7 @@ def update_applicant(
     request: Request,
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien", "Manager")),
 ):
     ensure_mssv(ma_so_hv)
 
@@ -939,7 +939,7 @@ def delete_applicant(
     request: Request,
     body: dict | None = Body(None, embed=False),
     db: Session = Depends(get_db),
-    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
+    me=Depends(require_roles("Admin", "NhanVien", "CongTacVien", "Manager")),
 ):
     """
     Soft-delete: cần {"reason": "..."} trong body.
@@ -1097,7 +1097,7 @@ def get_applicant_detail(
     ma_so_hv: str,
     request: Request,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin", "NhanVien", "CongTacVien")),
+    user=Depends(require_roles("Admin", "NhanVien", "CongTacVien", "Manager")),
 ):
     # dùng lại y chang get_by_mshv
     return get_by_mshv(ma_so_hv=ma_so_hv, request=request, db=db, user=user)

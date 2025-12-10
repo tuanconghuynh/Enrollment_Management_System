@@ -54,7 +54,7 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "change-me-please"),
-    max_age=60 * 60 * 24 * 7,  # 7 ngày
+    max_age=60 * 60 * 24 * 7,
     same_site="lax",
 )
 

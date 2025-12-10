@@ -45,7 +45,8 @@ def require_roles(*roles: str):
         request: Request,
         user: User = Depends(require_user)
     ) -> User:
-        if roles and user.role not in roles:
+        # Kiểm tra nếu user có vai trò là Admin hoặc Manager
+        if roles and user.role not in roles and user.role != "Manager":  # Thêm kiểm tra vai trò 'Manager'
             raise HTTPException(HTTP_403_FORBIDDEN, "Forbidden")
 
         # Bơm đầy đủ thông tin vào session cho chắc
@@ -154,7 +155,8 @@ def login(
 @router.post("/api/logout")
 def logout(request: Request):
     request.session.clear()
-    return {"ok": True}
+    # Redirect đến trang login với thông báo "expired=1"
+    return RedirectResponse(url="/login?expired=1", status_code=302)
 
 @router.get("/me")
 @router.get("/api/me")

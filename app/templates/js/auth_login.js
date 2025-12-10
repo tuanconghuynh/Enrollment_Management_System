@@ -15,10 +15,10 @@
       err.textContent = msg || '';
       err.classList.toggle('hidden', !msg);
     }
-    function showMsg(msg, type='info'){
+    function showMsg(msg, type='info') {
       alertBox.textContent = msg || '';
-      alertBox.className = 'min-h-[1.25rem] mb-2 text-sm ' + (type==='error'
-        ? 'text-red-700' : type==='success' ? 'text-emerald-700' : 'text-gray-600');
+      alertBox.className = 'min-h-[1.25rem] mb-2 text-sm ' + (type === 'error' 
+        ? 'text-red-700' : type === 'success' ? 'text-emerald-700' : 'text-gray-600');
     }
     function setLoading(on){
       if(!btn) return;
@@ -147,16 +147,16 @@
       }
     });
 /* ========== Thông báo khi phiên đăng nhập đã hết hạn (redirect về login) ========== */
-    (function () {
-      const params = new URLSearchParams(location.search);
-      const byQuery  = params.get('expired') === '1';
-      const byCookie = document.cookie.split(';').some(c => c.trim().startsWith('__session_expired=1'));
+(function () {
+  const params = new URLSearchParams(location.search);
+  const byQuery  = params.get('expired') === '1';  // Kiểm tra trong query string
+  const byCookie = document.cookie.split(';').some(c => c.trim().startsWith('__session_expired=1'));  // Kiểm tra trong cookie
 
-      if (byQuery || byCookie) {
-        // Dùng showMsg để hiện thông báo ngay trên form login
-        showMsg('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 'info');
+  if (byQuery || byCookie) {
+    // Dùng showMsg để hiển thị thông báo hết hạn ngay trên form login
+    showMsg('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 'info');
 
-        // Xoá cookie flag để F5 lại không hiện nữa
-        document.cookie = '__session_expired=; Max-Age=0; Path=/; SameSite=Lax';
-      }
-    })();
+    // Xóa cookie flag để không hiển thị thông báo khi F5 lại
+    document.cookie = '__session_expired=; Max-Age=0; Path=/; SameSite=Lax';
+  }
+})();

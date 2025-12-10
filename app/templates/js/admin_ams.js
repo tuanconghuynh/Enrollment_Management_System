@@ -1,27 +1,44 @@
 /* ===== Helpers API (chung toàn hệ thống) ===== */
 async function api(path, opt = {}) {
   try {
-    return await fetch('/api' + path, { credentials:'include', ...opt });
+    const response = await fetch('/api' + path, { credentials: 'include', ...opt });
+    if (!response.ok) {
+      if (response.status === 403) {
+        showToast('Bạn không có quyền truy cập trang này.', 'error', 4000);
+      }
+      return response;
+    }
+    return response;
   } catch (e) {
     console.error('API error:', e);
+    showToast('Đã xảy ra lỗi khi kết nối đến máy chủ.', 'error', 3500);
     return null;
   }
 }
 
 /* ===== Toast helper (dùng chung, khớp style.css) ===== */
-function showToast(msg, type='info', ms=3200){
-  const wrap=document.getElementById('toast-wrap'); if(!wrap) return alert(msg);
-  const el=document.createElement('div');
-  el.className=`toast ${type}`;
-  el.textContent=String(msg);
+function showToast(msg, type = 'info', ms = 3200) {
+  const wrap = document.getElementById('toast-wrap'); 
+  if (!wrap) {
+    // Fallback: Hiển thị thông báo trong alert nếu không có container
+    return alert(msg);  
+  }
+
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = String(msg);
   wrap.appendChild(el);
-  requestAnimationFrame(()=>el.classList.add('show'));
-  const close=()=>{
+  
+  // Hiển thị thông báo với animation
+  requestAnimationFrame(() => el.classList.add('show'));
+  
+  const close = () => {
     el.classList.remove('show');
-    el.addEventListener('transitionend',()=>el.remove(),{once:true});
+    el.addEventListener('transitionend', () => el.remove(), { once: true });
   };
-  const t=setTimeout(close,ms);
-  el.addEventListener('click',()=>{clearTimeout(t); close();});
+  
+  const t = setTimeout(close, ms);  // Đóng sau thời gian timeout
+  el.addEventListener('click', () => { clearTimeout(t); close(); });  // Đóng khi click vào thông báo
 }
 
 /* ===== Dropdown menu user (giống trang chủ) ===== */
@@ -86,16 +103,32 @@ function showToast(msg, type='info', ms=3200){
   box.addEventListener('keydown', trap);
 })();
 
-/* ===== Boot: load /me cho sidebar ===== */
-async function boot(){
+async function boot() {
   const r = await api('/me');
-  if (!r || !r.ok) { location.href = '/auth_login.html'; return; }
+  if (!r || !r.ok) {
+    location.href = '/auth_login.html'; 
+    return;
+  }
   const me = await r.json();
   const name = me.full_name || me.username || 'Người dùng';
-  (document.getElementById('helloName')||{}).textContent = name;
-  (document.getElementById('helloRole')||{}).textContent = me.role || '';
+  const role = me.role || 'Chưa có vai trò';
+
+  // Cập nhật tên và vai trò trên trang chủ
+  (document.getElementById('helloName') || {}).textContent = name;  // Tên người dùng
+  (document.getElementById('helloRole') || {}).textContent = role;  // Vai trò người dùng
+  (document.getElementById('dashName') || {}).textContent  = name;  // Tên người dùng trên thanh bên
+
+  // Nếu người dùng là Manager và cố gắng truy cập trang "Quản lý tài khoản"
+  if (me.role === "Manager" && window.location.pathname === '/account_management.html') {
+    // Hiển thị thông báo lỗi Toast
+    showToast('Bạn không có quyền truy cập vào trang này.', 'error', 4500);
+    
+    // Chuyển hướng về trang chủ sau 5 giây
+    setTimeout(() => { 
+      location.href = '/ams_home.html'; 
+    }, 5000);  
+  }
 }
-boot();
 
 /* ========= Helpers format thời gian theo VN ========= */
 function parseToDate(raw) {

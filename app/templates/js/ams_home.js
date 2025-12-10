@@ -54,20 +54,22 @@
   })();
 
   /* ===== Boot (load /me) ===== */
-  async function boot(){
+  async function boot() {
     const r = await api('/me');
-    if (!r || !r.ok) { location.href = '/auth_login.html'; return; }
-    const me = await r.json();
-    const name = me.full_name || me.username || 'Người dùng';
-    (document.getElementById('helloName')||{}).textContent = name;
-    (document.getElementById('helloRole')||{}).textContent = me.role || '';
-    (document.getElementById('dashName')||{}).textContent  = name;
-
-    if (me.must_change_password) {
-      location.href = '/account?first=1';
+    if (!r || !r.ok) {
+      location.href = '/auth_login.html'; 
       return;
     }
+    const me = await r.json();
+    const name = me.full_name || me.username || 'Người dùng';
+    const role = me.role || 'Chưa có vai trò';
+
+    // Cập nhật tên và vai trò trên trang chủ
+    (document.getElementById('helloName') || {}).textContent = name;  // Tên người dùng
+    (document.getElementById('helloRole') || {}).textContent = role;  // Vai trò người dùng
+    (document.getElementById('dashName') || {}).textContent  = name;  // Tên người dùng trên thanh bên
   }
+
   boot();
 
   /* ================== HÀM VẼ DASHBOARD GỐC =================== */

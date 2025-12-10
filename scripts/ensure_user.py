@@ -3,8 +3,6 @@ from app.db.session import SessionLocal, engine
 from app.models.user import User
 from passlib.hash import bcrypt
 
-
-
 USERS_TO_ENSURE = [
     ("admin", "admin123", "Admin", "Administrator", "admin@local"),
     ("vhtpt@hutech.edu.vn", "VHTPT@hutech123", "Admin", "V-HT.PTĐT", "vhtpt@hutech.edu.vn"),

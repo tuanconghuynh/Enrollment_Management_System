@@ -66,9 +66,10 @@
 
         <div class="md:col-span-2">
           <label class="label" for="c_role">Phân quyền</label>
-          <select class="input" id="c_role" name="role">  
+          <select class="input" id="c_role" name="role">
             <option value="CongTacVien">Cộng tác viên</option>
-            <option value="NhanVien">Nhân viên</option>            
+            <option value="NhanVien">Nhân viên</option>
+            <option value="Manager">Manager</option>
             <option value="Admin">Admin</option>
           </select>
         </div>
@@ -88,6 +89,7 @@
           <select id="roleFilter" class="input">
             <option value="">Tất cả vai trò</option>
             <option value="Admin">Admin</option>
+            <option value="Manager">Manager</option>
             <option value="NhanVien">Nhân viên</option>
             <option value="CongTacVien">Cộng tác viên</option>
           </select>
@@ -205,6 +207,7 @@
             <label class="label">Quyền</label>
             <select class="input" name="role" id="e_role">
               <option value="Admin">Admin</option>
+              <option value="Manager">Manager</option>
               <option value="NhanVien">Nhân viên</option>
               <option value="CongTacVien">Cộng tác viên</option>
             </select>

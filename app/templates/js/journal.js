@@ -308,15 +308,6 @@
           ${row.status === 'SUCCESS' ? '<span class="status-ok">OK</span>' : '<span class="status-fail">FAIL</span>'}
         </td>
         <td class="text-center">
-          ${
-            row.correlation_id
-              ? `<button class="btn btn-outline btn-xxs" data-corr="${row.correlation_id}" title="Lọc theo đợt">
-                  ${String(row.correlation_id).slice(0,8)}
-                </button>`
-              : '—'
-          }
-        </td>
-        <td class="text-center">
           <button class="btn btn-outline btn-xs" data-id="${row.id}">View👁️‍🗨️</button>
         </td>`;
       tb.appendChild(tr);
@@ -691,7 +682,7 @@
       }
 
       // Nút "Xóa vĩnh viễn"
-      const showHardDel = IS_ADMIN && isApplicant && canTarget && isSoftDeleteAction && !isHardDeleted && !purgedNow;
+      const showHardDel = (IS_ADMIN || IS_MANAGER) && isApplicant && canTarget && isSoftDeleteAction && !isHardDeleted && !purgedNow;
       btnHardDelete.style.display = showHardDel ? '' : 'none';
 
       // Render chi tiết
@@ -838,7 +829,7 @@
       $('#d_view').innerHTML = infoHtml + currentHtml + diffHtml + docsHtml;
 
       const isDel = ['DELETE','DELETE_SOFT'].includes(action);
-      if (!(isDel && IS_ADMIN)) {
+      if (!(isDel && (IS_ADMIN || IS_MANAGER))) {
         $('#btnHardDelete').style.display = 'none';
       }
 
@@ -887,95 +878,106 @@
     document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && overlay.style.display === 'flex') overlay.style.display = 'none'; });
   })();
 
-  /* ====== Restore ====== */
-  async function restore(){
-    const log = state.currentLog;
-    const logId = log?.id;
-    const mssv  = log?.target_id || '—';
-    if (!logId) return;
+/* ====== Restore ====== */
+async function restore(){
+  const log = state.currentLog;
+  const logId = log?.id;
+  const mssv  = log?.target_id || '—';
+  if (!logId) return;
 
-    const box = document.getElementById('confirmRestore');
-    const yes = document.getElementById('btnConfirmRestoreYes');
-    const no  = document.getElementById('btnConfirmRestoreNo');
-    const lbl = document.getElementById('restoreMSSV');
+  const box = document.getElementById('confirmRestore');
+  const yes = document.getElementById('btnConfirmRestoreYes');
+  const no  = document.getElementById('btnConfirmRestoreNo');
+  const lbl = document.getElementById('restoreMSSV');
 
-    if (lbl) lbl.textContent = String(mssv);
-    box.classList.remove('hidden');
+  if (lbl) lbl.textContent = String(mssv);
+  box.classList.remove('hidden');
 
-    const closeBox = ()=> box.classList.add('hidden');
+  const closeBox = ()=> box.classList.add('hidden');
 
-    const doRestore = async () => {
-      closeBox();
-      try{
-        const r = await apiFetch('/journal/restore/' + logId, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:'{}'
-        });
-        if (!r) throw new Error('Không kết nối được máy chủ!');
-        if (!r.ok){
-          let msg = 'Khôi phục thất bại!', reason='';
-          try{
-            const ct = r.headers?.get?.('content-type') || '';
-            if (ct.includes('application/json')){
-              const dataErr = await r.json().catch(()=>null);
-              if (dataErr){ reason=dataErr.reason||dataErr.code||''; if (dataErr.message) msg=dataErr.message; }
-            }else{
-              const t = await r.text().catch(()=> '');
-              if (/hard[_\s-]?deleted/i.test(t)) reason='hard_deleted';
-            }
-          }catch(_){}
-          if (r.status===410 || reason==='hard_deleted' || reason==='HARD_DELETED') msg='Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục!';
-          else if (r.status===404) msg='Không tìm thấy dữ liệu để khôi phục.';
-          throw new Error(msg);
-        }
-
-        let data = null;
-        try {
-          const ctOk = r.headers?.get?.('content-type') || '';
-          if (ctOk.includes('application/json')) data = await r.json().catch(()=>null);
-        } catch(_) {}
-
-        showNoti(`Đã khôi phục cho MSSV ${mssv} từ thùng rác!`, 'success');
-        document.getElementById('detail').style.display='none';
-
-        const actionSel = document.getElementById('qActionSel');
-        if (actionSel) actionSel.value = '';
-
-        state.page = 1;
-        grabFilters();
-        load();
-
-        try {
-          const focusMssv = String(data?.item?.ma_so_hv || mssv || '');
-          if (focusMssv) {
-            try {
-              const bc = new BroadcastChannel('app-events');
-              bc.postMessage({ type:'APPLICANT_RESTORED', mssv: focusMssv, item: data?.item || null });
-              bc.close?.();
-            } catch(_) {}
-            localStorage.setItem('restored.mssv', focusMssv);
+  const doRestore = async () => {
+    closeBox();
+    try{
+      const r = await apiFetch('/journal/restore/' + logId, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:'{}'
+      });
+      if (!r) throw new Error('Không kết nối được máy chủ!');
+      if (!r.ok){
+        let msg = 'Khôi phục thất bại!', reason='';
+        try{
+          const ct = r.headers?.get?.('content-type') || '';
+          if (ct.includes('application/json')){
+            const dataErr = await r.json().catch(()=>null);
+            if (dataErr){ reason=dataErr.reason||dataErr.code||''; if (dataErr.message) msg=dataErr.message; }
+          }else{
+            const t = await r.text().catch(()=> '');
+            if (/hard[_\s-]?deleted/i.test(t)) reason='hard_deleted';
           }
-        } catch(_) {}
+        }catch(_){}
 
-      }catch(e){
-        showNoti('Lỗi khôi phục: ' + (e.message || 'unknown'), 'error');
-      }finally{
-        yes.removeEventListener('click', onYes);
-        no.removeEventListener('click', onNo);
+        if (r.status === 410 || reason === 'hard_deleted' || reason === 'HARD_DELETED') 
+          msg = 'Dữ liệu đã bị xóa vĩnh viễn, không thể khôi phục!';
+        else if (r.status === 404) 
+          msg = 'Không tìm thấy dữ liệu để khôi phục.';
+        
+        throw new Error(msg);
       }
-    };
 
-    const onYes = () => doRestore();
-    const onNo  = () => {
-      closeBox();
+      let data = null;
+      try {
+        const ctOk = r.headers?.get?.('content-type') || '';
+        if (ctOk.includes('application/json')) data = await r.json().catch(()=>null);
+      } catch(_) {}
+
+      showNoti(`Đã khôi phục cho MSSV ${mssv} từ thùng rác!`, 'success');
+      document.getElementById('detail').style.display = 'none';
+
+      const actionSel = document.getElementById('qActionSel');
+      if (actionSel) actionSel.value = '';
+
+      state.page = 1;
+      grabFilters();
+      load();
+
+      try {
+        const focusMssv = String(data?.item?.ma_so_hv || mssv || '');
+        if (focusMssv) {
+          try {
+            const bc = new BroadcastChannel('app-events');
+            bc.postMessage({ type: 'APPLICANT_RESTORED', mssv: focusMssv, item: data?.item || null });
+            bc.close?.();
+          } catch(_) {}
+          localStorage.setItem('restored.mssv', focusMssv);
+        }
+      } catch(_) {}
+
+    }catch(e){
+      showNoti('Lỗi khôi phục: ' + (e.message || 'unknown'), 'error');
+    }finally{
       yes.removeEventListener('click', onYes);
       no.removeEventListener('click', onNo);
-    };
-
-    yes.addEventListener('click', onYes, { once:true });
-    no.addEventListener('click', onNo,   { once:true });
+    }
   };
+
+  const onYes = () => doRestore();
+  const onNo  = () => {
+    closeBox();
+    yes.removeEventListener('click', onYes);
+    no.removeEventListener('click', onNo);
+  };
+
+  // Kiểm tra quyền của Admin hoặc Manager
+  if (!(IS_ADMIN || IS_MANAGER)) {
+    showNoti('Bạn không có quyền khôi phục.', 'error');
+    closeBox();
+    return;
+  }
+
+  yes.addEventListener('click', onYes, { once: true });
+  no.addEventListener('click', onNo, { once: true });
+};
 
   /* ====== Filters / UI ====== */
   function grabFilters(){
@@ -1026,27 +1028,48 @@
   }
 
   $('#btnClose').onclick = ()=> $('#detail').style.display='none';
-  $('#btnCopy').onclick  = ()=>{ if(!state.currentLog) return; const text = JSON.stringify(state.currentLog, null, 2); navigator.clipboard.writeText(text).then(()=> showNoti('Đã sao chép JSON chi tiết','success')); };
+  // Button sao chép
+  $('#btnCopy').onclick = () => {
+    if (!state.currentLog) return; // Kiểm tra nếu không có dữ liệu cần sao chép
+    
+    // Chuyển dữ liệu chi tiết thành định dạng JSON đẹp
+    const text = JSON.stringify(state.currentLog, null, 2);
+    
+    // Sử dụng Clipboard API để sao chép vào clipboard
+    navigator.clipboard.writeText(text).then(() => {
+      showNoti('Đã sao chép JSON chi tiết', 'success'); // Hiển thị thông báo thành công
+    }).catch((err) => {
+      showNoti('Lỗi sao chép: ' + (err.message || 'unknown'), 'error'); // Hiển thị thông báo lỗi nếu có
+    });
+  };
   $('#btnRestore').onclick = restore;
 
   /* ====== ROLE ====== */
   let CURRENT_ROLE = null;
   let IS_ADMIN = false;
+  let IS_MANAGER = false;
 
-  window.addEventListener('load', async ()=>{
-    try {
-      const meRes = await apiFetch('/me');
-      if (meRes?.ok) {
-        const me = await meRes.json();
-        if (!['Admin','NhanVien'].includes(me.role)) { alert('Quyền tài khoản không được phép truy cập trang Nhật ký.'); location.href = '/students_list.html'; return; }
-        CURRENT_ROLE = me.role || null; IS_ADMIN = CURRENT_ROLE === 'Admin';
-        document.documentElement.dataset.role = CURRENT_ROLE;
-        const helloNameEl = document.getElementById('helloName');
-        const helloRoleEl = document.getElementById('helloRole');
-        if (helloNameEl) helloNameEl.textContent = me.full_name || me.username || 'Người dùng';
-        if (helloRoleEl) helloRoleEl.textContent = me.role || '';
-      } else { location.href = '/login'; return; }
-    } catch (_) { alert('Không kiểm tra được quyền truy cập.'); location.href = '/students_list.html'; return; }
+window.addEventListener('load', async () => {
+  try {
+    const meRes = await apiFetch('/me');
+    if (meRes?.ok) {
+      const me = await meRes.json();
+      if (!['Admin', 'Manager', 'NhanVien'].includes(me.role) && window.location.pathname === '/journal.html') {
+        showToast('Bạn không có quyền truy cập vào trang này.', 'error', 4500);
+        setTimeout(() => { 
+          location.href = '/ams_home.html'; 
+        }, 5000);  
+      }
+      CURRENT_ROLE = me.role || null;
+      IS_ADMIN = CURRENT_ROLE === 'Admin';
+      IS_MANAGER = CURRENT_ROLE === 'Manager'; // Thêm phần kiểm tra quyền Manager
+      document.documentElement.dataset.role = CURRENT_ROLE;
+      const helloNameEl = document.getElementById('helloName');
+      const helloRoleEl = document.getElementById('helloRole');
+      if (helloNameEl) helloNameEl.textContent = me.full_name || me.username || 'Người dùng';
+      if (helloRoleEl) helloRoleEl.textContent = me.role || '';
+    } else { location.href = '/login'; return; }
+  } catch (_) { alert('Không kiểm tra được quyền truy cập.'); location.href = '/students_list.html'; return; }
 
     await detectPrefix();
     try { localStorage.removeItem('purged.mssv'); } catch(_) {}
@@ -1095,7 +1118,7 @@
   }
 
   btnHardDelete.onclick = () => {
-    if (!IS_ADMIN) { showNoti('Chỉ Admin mới được xóa vĩnh viễn.', 'error'); return; }
+    if (!(IS_ADMIN || IS_MANAGER)) { showNoti('Chỉ Admin và Manager mới được xóa vĩnh viễn.', 'error'); return; }
     if (hardDelConfirmChk)  hardDelConfirmChk.checked = false;
     if (hardDelReasonSel)   hardDelReasonSel.value = '';
     if (hardDelReasonText)  hardDelReasonText.value = '';
@@ -1165,7 +1188,7 @@
   }
 
   btnHardDeleteGo.onclick = async () => {
-    if (!IS_ADMIN) { showNoti('Chỉ Admin mới được xóa vĩnh viễn.', 'error'); return; }
+    if (!(IS_ADMIN || IS_MANAGER)) { showNoti('Chỉ Admin và Manager mới được xóa vĩnh viễn.', 'error'); return; }
     const log = state.currentLog; if (!log) return;
     if (!hardDelConfirmChk?.checked) { showNoti('Bạn chưa xác nhận xóa vĩnh viễn.', 'warning'); return; }
     const { code, text } = getHardDelReason();
@@ -1216,23 +1239,34 @@
     if (!btn || !menu) return;
 
     function openMenu(on) {
-      menu.classList.toggle('hidden', !on);
-      btn.setAttribute('aria-expanded', String(on));
+      if (on) {
+        menu.classList.add('show');     // dùng class show đúng với CSS .menu.show
+      } else {
+        menu.classList.remove('show');
+      }
+      btn.setAttribute('aria-expanded', on ? 'true' : 'false');
     }
 
+    // Bấm vào khối user -> toggle menu
     btn.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      openMenu(menu.classList.contains('hidden'));
+      e.stopPropagation(); // để click không chạy lên document
+      const isOpen = menu.classList.contains('show');
+      openMenu(!isOpen);
+    }, true); // capture để chặn sớm
+
+    // Bấm ra ngoài -> đóng menu
+    document.addEventListener('click', (e)=>{
+      if (!menu.classList.contains('show')) return;
+      if (btn.contains(e.target) || menu.contains(e.target)) return;
+      openMenu(false);
     });
 
-    document.addEventListener('click', ()=>{
-      if (!menu.classList.contains('hidden')) openMenu(false);
-    });
-
+    // Esc -> đóng menu
     document.addEventListener('keydown', (e)=>{
       if (e.key === 'Escape') openMenu(false);
     });
 
+    // Đăng xuất
     logoutBtn?.addEventListener('click', async ()=>{
       openMenu(false);
       try {

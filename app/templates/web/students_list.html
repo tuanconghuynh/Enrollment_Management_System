@@ -41,7 +41,7 @@
       {# Hàng 1: Tìm kiếm + Lọc đợt/khóa #}
       <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 items-end">
         <div class="xl:col-span-2">
-          <div class="flex items-center gap-2">
+          <div class="flex flex-col sm:flex-row gap-2">
             <div class="relative flex-1 min-w-[240px]">
               <input id="q" class="input w-full pl-10"
                      placeholder="Nhập họ và tên hoặc MSHV..."
@@ -86,11 +86,22 @@
         <!-- Theo NGÀY -->
         <div class="rounded-2xl border bg-white/70 p-3 shadow-sm">
           <div class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Theo ngày</div>
-          <div class="flex flex-wrap items-end gap-2">
-            <input id="day" type="text" class="input w-60" placeholder="Chọn ngày..." />
-            <div class="ml-auto flex items-center gap-2">
-              <button id="btnPrintDay"  class="btn btn-outline">🖨️ In</button>
-              <button id="btnExportDay" class="btn btn-outline">⬇️ Xuất Excel</button>
+
+          <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-2">
+            <input id="day"
+                  type="text"
+                  class="input w-full sm:w-60"
+                  placeholder="Chọn ngày..." />
+
+            <div class="flex flex-col sm:flex-row sm:ml-auto gap-2 w-full sm:w-auto">
+              <button id="btnPrintDay"
+                      class="btn btn-outline w-full sm:w-auto">
+                🖨️ In
+              </button>
+              <button id="btnExportDay"
+                      class="btn btn-outline w-full sm:w-auto">
+                ⬇️ Xuất Excel
+              </button>
             </div>
           </div>
         </div>
@@ -98,16 +109,24 @@
         <!-- Theo ĐỢT / KHÓA -->
         <div class="rounded-2xl border bg-white/70 p-3 shadow-sm">
           <div class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Theo đợt / khóa</div>
-          <div class="flex flex-wrap items-end gap-2">
-            <select id="dotKhoa" class="input w-40">
+
+          <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-2">
+            <select id="dotKhoa" class="input w-full sm:w-40">
               <option value="">-- Chọn khóa --</option>
             </select>
-            <select id="dot" class="input w-40">
+            <select id="dot" class="input w-full sm:w-40">
               <option value="">-- Chọn đợt --</option>
             </select>
-            <div class="ml-auto flex items-center gap-2">
-              <button id="btnPrintDot"  class="btn btn-outline">🖨️ In</button>
-              <button id="btnExportDot" class="btn btn-outline">⬇️ Xuất Excel</button>
+
+            <div class="flex flex-col sm:flex-row sm:ml-auto gap-2 w-full sm:w-auto">
+              <button id="btnPrintDot"
+                      class="btn btn-outline w-full sm:w-auto">
+                🖨️ In
+              </button>
+              <button id="btnExportDot"
+                      class="btn btn-outline w-full sm:w-auto">
+                ⬇️ Xuất Excel
+              </button>
             </div>
           </div>
         </div>
@@ -154,7 +173,7 @@
       </div>
 
       {# Pagination toolbar (top) #}
-      <div class="flex items-center justify-between gap-3">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-2 text-sm">
           <span>Hiển thị</span>
           <select id="pageSize" class="input w-24">
@@ -162,10 +181,14 @@
           </select>
           <span>dòng/trang</span>
         </div>
-        <div class="flex items-center gap-1 text-sm pager" data-position="top">
+
+        <div class="flex flex-wrap items-center justify-center gap-1 text-xs sm:text-sm pager"
+            data-position="top">
           <button class="btn btn-outline btn-xs pager-first"  title="Trang đầu">⏮️</button>
           <button class="btn btn-outline btn-xs pager-prev"   title="Trang trước">⏪</button>
-          <span class="mx-2 min-w-[160px] text-center pager-info">Trang 1/1 • 0 mục</span>
+          <span class="mx-2 min-w-[120px] sm:min-w-[160px] text-center pager-info">
+            Trang 1/1 • 0 mục
+          </span>
           <button class="btn btn-outline btn-xs pager-next"   title="Trang sau">⏩</button>
           <button class="btn btn-outline btn-xs pager-last"   title="Trang cuối">⏭️</button>
         </div>
@@ -226,10 +249,13 @@
       </div>
 
       {# Pagination toolbar (bottom) #}
-      <div class="flex items-center gap-1 text-sm pager" data-position="bottom">
+      <div class="flex flex-wrap items-center justify-center gap-1 text-xs sm:text-sm pager"
+          data-position="bottom">
         <button class="btn btn-outline btn-xs pager-first" title="Trang đầu">⏮️</button>
         <button class="btn btn-outline btn-xs pager-prev"  title="Trang trước">⏪</button>
-        <span class="mx-2 min-w-[160px] text-center pager-info">Trang 1/1 • 0 mục</span>
+        <span class="mx-2 min-w-[120px] sm:min-w-[160px] text-center pager-info">
+          Trang 1/1 • 0 mục
+        </span>
         <button class="btn btn-outline btn-xs pager-next"  title="Trang sau">⏩</button>
         <button class="btn btn-outline btn-xs pager-last"  title="Trang cuối">⏭️</button>
       </div>

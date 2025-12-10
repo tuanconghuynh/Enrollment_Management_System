@@ -94,17 +94,24 @@ function showToast(msg, type = 'info', ms = 3200) {
 /* Boot: load /me cho header sidebar */
 async function boot() {
   const r = await api('/me');
-  if (!r || !r.ok) { location.href = '/auth_login.html'; return; }
+  if (!r || !r.ok) {
+    location.href = '/auth_login.html'; 
+    return;
+  }
   const me = await r.json();
   const name = me.full_name || me.username || 'Người dùng';
-  (document.getElementById('helloName') || {}).textContent = name;
-  (document.getElementById('helloRole') || {}).textContent = me.role || '';
+  (document.getElementById('helloName')||{}).textContent = name;
+  (document.getElementById('helloRole')||{}).textContent = me.role || '';
+  (document.getElementById('dashName')||{}).textContent  = name;
 
-  if (me.must_change_password) {
-    // với trang account, vẫn cho vào đây, phần dưới sẽ bật form đổi mật khẩu
-    console.log('must_change_password flag from /me');
+  // Nếu người dùng là Manager và cố gắng truy cập trang nhật ký
+  if (me.role === "Manager" && window.location.pathname === '/journal.html') {
+    // Hiển thị thông báo lỗi Toast
+    showToast('Bạn không có quyền truy cập vào trang này.', 'error', 4500);
+    setTimeout(() => { location.href = '/ams_home.html'; }, 5000);  // Chuyển hướng về trang chủ sau 5 giây
   }
 }
+
 boot();
 
 /* ====== Định dạng thời gian VN cho account ====== */

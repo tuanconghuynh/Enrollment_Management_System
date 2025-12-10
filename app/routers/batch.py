@@ -133,7 +133,7 @@ def batch_print(
     day: str | None = Query(None, description="YYYY-MM-DD (tùy chọn)"),
     date_q: str | None = Query(None, alias="date", description="dd/MM/YYYY (khuyến nghị)"),
     db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin", "NhanVien")),
+    user=Depends(require_roles("Admin", "NhanVien", "Manager")),
 ):
     raw = date_q or day
     if not raw:
@@ -202,7 +202,7 @@ def batch_print_dot(
     dot: str = Query(..., description="Tên đợt, ví dụ: 'Đợt 1/2025' hoặc '9'"),
     khoa: str | None = Query(None, description="(Tuỳ chọn) Lọc theo Khóa, ví dụ: '27'"),
     db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin", "NhanVien")),
+    user=Depends(require_roles("Admin", "NhanVien", "Manager")),
 ):
     dot_norm = (dot or "").strip()
     if not dot_norm:
@@ -270,6 +270,6 @@ def batch_print_by_dot_compat(
     request: Request,
     dot: str = Query(..., description="Tên đợt cũ"),
     db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin", "NhanVien")),
+    user=Depends(require_roles("Admin", "NhanVien", "Manager")),
 ):
     return batch_print_dot(request=request, dot=dot, db=db, user=user)

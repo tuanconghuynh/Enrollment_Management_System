@@ -196,7 +196,9 @@ async function showErrorFromResponse(r, fallback='Thao tác thất bại'){
 
 /* ---------- Auth & role banner + fill sidebar name ---------- */
 let IS_ADMIN = false;
-async function ensureAdmin(){
+let IS_MANAGER = false;  // Thêm biến kiểm tra quyền Manager
+
+async function ensureAdmin() {
   await detectPrefix();
   const r = await apiFetch('/me');
   if (!r || !r.ok) { 
@@ -222,21 +224,32 @@ async function ensureAdmin(){
     rawRoles.push('Admin');
   }
 
+  // Kiểm tra quyền Manager và Admin
+  if (me.role === "Manager" || (me.roles && me.roles.includes("Manager"))) {
+    rawRoles.push('Manager');
+  }
+
   // Nếu rỗng thì cho default
   const roles = rawRoles.length ? rawRoles : ['User'];
 
-  // Chuẩn hóa lower để check admin
+  // Chuẩn hóa lower để check quyền
   const rolesLower = roles.map(r => String(r).toLowerCase());
 
+  // Kiểm tra quyền Admin
   IS_ADMIN = rolesLower.some(r =>
     r === 'admin' ||
     r === 'administrator' ||
     r.includes('admin')
   );
 
-  console.log('[/me]', me, 'roles =', roles, 'IS_ADMIN =', IS_ADMIN);
+  // Kiểm tra quyền Manager
+  IS_MANAGER = rolesLower.some(r =>
+    r === 'manager' || r.includes('manager')
+  );
 
-  // Fill sidebar user info
+  console.log('[/me]', me, 'roles =', roles, 'IS_ADMIN =', IS_ADMIN, 'IS_MANAGER =', IS_MANAGER);
+
+  // Cập nhật lại thông tin người dùng và quyền
   const name = me.full_name || me.username || 'Người dùng';
   const helloNameEl = document.getElementById('helloName');
   const helloRoleEl = document.getElementById('helloRole');
@@ -247,7 +260,8 @@ async function ensureAdmin(){
   const t = document.getElementById('roleText');
   const controlIds = ['btnAdd','btnSaveOrder','btnCreateVer'];
 
-  if (IS_ADMIN) {
+  // Nếu là Admin hoặc Manager đều có quyền thao tác
+  if (IS_ADMIN || IS_MANAGER) {  
     // Ẩn banner, bật nút
     if (banner) banner.classList.add('hidden');
     if (t) t.textContent = '';
@@ -279,7 +293,7 @@ const verActivate = document.getElementById('verActivate');
 const btnCreateVer = document.getElementById('btnCreateVer');
 const activeVerChip = document.getElementById('activeVer');
 
-function renderVersionsList(list){
+function renderVersionsList(list) {
   verWrap.innerHTML = '';
   if (!list.length) {
     verWrap.appendChild(el('div', {
@@ -321,7 +335,7 @@ function renderVersionsList(list){
         el('button', {
           class: 'btn btn-outline btn-xs',
           type: 'button',
-          disabled: isActive || !IS_ADMIN,
+          disabled: isActive || !(IS_ADMIN || IS_MANAGER),
           onclick: () => handleActivateVersion(v.id)
         }, 'Kích hoạt'),
 
@@ -329,7 +343,7 @@ function renderVersionsList(list){
         el('button', {
           class: 'btn btn-outline btn-xs border-rose-600 text-rose-600 hover:bg-rose-600 hover:text-white',
           type: 'button',
-          disabled: isActive || !IS_ADMIN,
+          disabled: isActive || !(IS_ADMIN || IS_MANAGER),
           onclick: () => handleDeleteVersion(v.id)
         }, 'Xóa')
       ])
@@ -347,7 +361,7 @@ function handleViewVersion(id) {
 }
 
 async function handleActivateVersion(id) {
-  if (!IS_ADMIN) {
+  if (!(IS_ADMIN || IS_MANAGER)) {
     toast('Bạn không có quyền kích hoạt phiên bản.', 'error');
     return;
   }
@@ -355,15 +369,9 @@ async function handleActivateVersion(id) {
   if (!id) return;
 
   console.log('activate version', id);
-  const btnText = 'Kích hoạt version';
-
   const r = await apiFetch(`/checklist/versions/${id}/activate`, { method: 'POST' });
   if (!r || !r.ok) {
-    if (r && r.status === 400) {
-      toast(`Không thể kích hoạt: thiếu cột 'active'/'is_active'`, 'error');
-    } else {
-      await showErrorFromResponse(r, 'Kích hoạt thất bại');
-    }
+    await showErrorFromResponse(r, 'Kích hoạt thất bại');
   } else {
     toast('Đã kích hoạt version', 'success');
     await loadVersions();
@@ -372,7 +380,7 @@ async function handleActivateVersion(id) {
 }
 
 async function handleDeleteVersion(id) {
-  if (!IS_ADMIN) {
+  if (!(IS_ADMIN || IS_MANAGER)) {
     toast('Bạn không có quyền xóa phiên bản.', 'error');
     return;
   }
@@ -417,7 +425,7 @@ async function loadVersions(){
 }
 
 btnCreateVer.addEventListener('click', async ()=>{
-  if (!IS_ADMIN) return;
+  if (!IS_ADMIN && !IS_MANAGER) return;
   const name = verName.value.trim();
   if (!name) { toast('Nhập tên phiên bản','warn'); verName.focus(); return; }
   btnCreateVer.disabled = true;
@@ -442,29 +450,33 @@ const btnAdd = document.getElementById('btnAdd');
 const btnSaveOrder = document.getElementById('btnSaveOrder');
 const emptyHint = document.getElementById('empty');
 
-function setDirty(on){
+function setDirty(on) {
   DIRTY_ORDER = !!on;
-  btnSaveOrder.disabled = !IS_ADMIN || !DIRTY_ORDER;
+  btnSaveOrder.disabled = !(IS_ADMIN || IS_MANAGER) || !DIRTY_ORDER;
 }
 
 window.addEventListener('beforeunload', (e)=>{
   if (DIRTY_ORDER) { e.preventDefault(); e.returnValue = ''; }
 });
 
-async function loadItems(){
+async function loadItems() {
   const r = await apiFetch('/checklist/active');
   if (!r || !r.ok) {
-    tbody.innerHTML=''; emptyHint.classList.remove('hidden');
-    toast('Không tải được danh mục active','error'); return;
+    tbody.innerHTML = ''; 
+    emptyHint.classList.remove('hidden');
+    toast('Không tải được danh mục active', 'error'); 
+    return;
   }
   const j = await r.json();
-  ITEMS = (j.items||[]).slice().sort((a,b)=>{
+  ITEMS = (j.items || []).slice().sort((a, b) => {
     const ga = a.order_index ?? a.order_no ?? 0;
     const gb = b.order_index ?? b.order_no ?? 0;
     return ga - gb;
   });
+
   activeVerChip.textContent = j.version_name || '—';
   ACTIVE_VERSION_ID = j.version_id || ACTIVE_VERSION_ID;
+
   renderItems();
   setDirty(false);
 }
@@ -486,14 +498,14 @@ function rowTemplate(it, idx){
   // order
   tr.appendChild(el('td', {class:'text-center text-gray-500'}, `${idx+1}/${ITEMS.length}`));
   // actions
-  const upBtn   = el('button', {class:'btn btn-outline btn-xs act-up',   dataset:{i:String(idx)}, disabled:!IS_ADMIN}, '↑');
-  const downBtn = el('button', {class:'btn btn-outline btn-xs act-down', dataset:{i:String(idx)}, disabled:!IS_ADMIN}, '↓');
-  const editBtn = el('button', {class:'btn btn-outline btn-xs act-edit', dataset:{code:it.code}, disabled:!IS_ADMIN}, 'Sửa');
-  const delBtn  = el('button', {class:'btn btn-outline btn-xs border-rose-600 text-rose-600 hover:bg-rose-600 hover:text-white act-del', dataset:{code:it.code}, disabled:!IS_ADMIN}, 'Xóa');
+  const upBtn   = el('button', {class:'btn btn-outline btn-xs act-up',   dataset:{i:String(idx)}, disabled:!(IS_ADMIN || IS_MANAGER)}, '↑');
+  const downBtn = el('button', {class:'btn btn-outline btn-xs act-down', dataset:{i:String(idx)}, disabled:!(IS_ADMIN || IS_MANAGER)}, '↓');
+  const editBtn = el('button', {class:'btn btn-outline btn-xs act-edit', dataset:{code:it.code}, disabled:!(IS_ADMIN || IS_MANAGER)}, 'Sửa');
+  const delBtn  = el('button', {class:'btn btn-outline btn-xs border-rose-600 text-rose-600 hover:bg-rose-600 hover:text-white act-del', dataset:{code:it.code}, disabled:!(IS_ADMIN || IS_MANAGER)}, 'Xóa');
   tr.appendChild(el('td', {class:'text-right'}, el('div', {class:'inline-flex gap-2'}, [upBtn,downBtn,editBtn,delBtn])));
 
   // keyboard reorder (focus on handle)
-  if (IS_ADMIN) {
+  if (IS_ADMIN || IS_MANAGER) {
     handle.addEventListener('keydown', (e)=>{
       const i = Array.from(tbody.children).indexOf(tr);
       if (i < 0) return;
@@ -506,7 +518,7 @@ function rowTemplate(it, idx){
   }
 
   // DnD
-  if (IS_ADMIN) {
+  if (IS_ADMIN || IS_MANAGER) {
     handle.addEventListener('dragstart', (e)=> {
       tr.classList.add('dragging');
       e.dataTransfer?.setData('text/plain', it.code || '');
@@ -527,30 +539,81 @@ function rowTemplate(it, idx){
   return tr;
 }
 
-function renderItems(){
+function renderItems() {
   tbody.innerHTML = '';
-  if (!ITEMS.length){ emptyHint.classList.remove('hidden'); return; }
+  if (!ITEMS.length) { 
+    emptyHint.classList.remove('hidden'); 
+    return; 
+  }
   emptyHint.classList.add('hidden');
 
-  ITEMS.forEach((it, idx)=> tbody.appendChild(rowTemplate(it, idx)));
+  ITEMS.forEach((it, idx) => {
+    const tr = el('tr', {'data-code': it.code});
+    // # (Hiển thị thứ tự)
+    tr.appendChild(el('td', {class: 'text-center select-none'}, String(idx + 1)));
 
-  tbody.querySelectorAll('.act-up').forEach(b=> b.addEventListener('click', ()=>{
+    // handle (Kéo để sắp xếp)
+    const handle = el('span', {
+      class: `handle inline-flex items-center justify-center w-8 h-8 rounded-lg border hover:bg-slate-50 ${IS_ADMIN || IS_MANAGER ? '' : 'opacity-40'}`,
+      title: 'Kéo để sắp xếp', draggable: IS_ADMIN || IS_MANAGER ? 'true' : 'false', 
+      role: 'button', tabindex: IS_ADMIN || IS_MANAGER ? '0' : '-1', 'aria-label': 'Kéo để sắp xếp'
+    }, '☰');
+    tr.appendChild(el('td', {class: 'text-left'}, handle));
+
+    // Mã code
+    tr.appendChild(el('td', {class: 'font-mono'}, it.code || ''));
+
+    // Tên hiển thị
+    tr.appendChild(el('td', {}, it.display_name || ''));
+
+    // Hiển thị thứ tự
+    tr.appendChild(el('td', {class: 'text-center text-gray-500'}, `${idx + 1}/${ITEMS.length}`));
+
+    // Các nút thao tác
+    const upBtn = el('button', {
+      class: 'btn btn-outline btn-xs act-up',
+      dataset: { i: String(idx) },
+      disabled: !(IS_ADMIN || IS_MANAGER),
+    }, '↑');
+    const downBtn = el('button', {
+      class: 'btn btn-outline btn-xs act-down',
+      dataset: { i: String(idx) },
+      disabled: !(IS_ADMIN || IS_MANAGER),
+    }, '↓');
+    const editBtn = el('button', {
+      class: 'btn btn-outline btn-xs act-edit',
+      dataset: { code: it.code },
+      disabled: !(IS_ADMIN || IS_MANAGER),
+    }, 'Sửa');
+    const delBtn = el('button', {
+      class: 'btn btn-outline btn-xs border-rose-600 text-rose-600 hover:bg-rose-600 hover:text-white act-del',
+      dataset: { code: it.code },
+      disabled: !(IS_ADMIN || IS_MANAGER),
+    }, 'Xóa');
+
+    tr.appendChild(el('td', {class: 'text-right'}, el('div', {class: 'inline-flex gap-2'}, [upBtn, downBtn, editBtn, delBtn])));
+
+    tbody.appendChild(tr);
+  });
+
+  // Thêm sự kiện cho các nút điều chỉnh thứ tự
+  tbody.querySelectorAll('.act-up').forEach(b => b.addEventListener('click', () => {
     const i = +b.dataset.i;
-    if (i>0) { swapItems(i, i-1); }
+    if (i > 0) { swapItems(i, i - 1); }
   }));
-  tbody.querySelectorAll('.act-down').forEach(b=> b.addEventListener('click', ()=>{
+  tbody.querySelectorAll('.act-down').forEach(b => b.addEventListener('click', () => {
     const i = +b.dataset.i;
-    if (i<ITEMS.length-1) { swapItems(i, i+1); }
+    if (i < ITEMS.length - 1) { swapItems(i, i + 1); }
   }));
-  tbody.querySelectorAll('.act-edit').forEach(b=> b.addEventListener('click', ()=> openModalChecklist('edit', b.dataset.code)));
-  tbody.querySelectorAll('.act-del').forEach(b=> b.addEventListener('click', ()=> onDelete(b.dataset.code)));
+  tbody.querySelectorAll('.act-edit').forEach(b => b.addEventListener('click', () => openModalChecklist('edit', b.dataset.code)));
+  tbody.querySelectorAll('.act-del').forEach(b => b.addEventListener('click', () => onDelete(b.dataset.code)));
 }
 
-function swapItems(i, j){
+function swapItems(i, j) {
   [ITEMS[i], ITEMS[j]] = [ITEMS[j], ITEMS[i]];
   renderItems();
   setDirty(true);
-  // focus lại vào handle của hàng vừa di chuyển
+  // Focus lại vào handle của hàng vừa di chuyển
   const targetRow = tbody.children[j];
   targetRow?.querySelector('.handle')?.focus();
 }
@@ -562,24 +625,24 @@ function rebuildItemsFromDOM(){
   renderItems();
 }
 
-async function onDelete(code){
-  if (!IS_ADMIN) return;
+async function onDelete(code) {
+  if (!(IS_ADMIN || IS_MANAGER)) return;
   if (DIRTY_ORDER && !confirm('Bạn đang thay đổi thứ tự chưa lưu. Vẫn tiếp tục xoá?')) return;
   if (!confirm(`Xóa mục '${code}' ?`)) return;
-  const r = await apiFetch(`/checklist/items/${encodeURIComponent(code)}`, {method:'DELETE'});
-  if (!r || !r.ok){ await showErrorFromResponse(r,'Xóa thất bại'); return; }
-  toast('Đã xóa','success');
+  const r = await apiFetch(`/checklist/items/${encodeURIComponent(code)}`, { method: 'DELETE' });
+  if (!r || !r.ok) { await showErrorFromResponse(r, 'Xóa thất bại'); return; }
+  toast('Đã xóa', 'success');
   await loadItems();
 }
 
-btnSaveOrder.addEventListener('click', async ()=>{
-  if (!IS_ADMIN) return;
-  const codes = [...tbody.querySelectorAll('tr')].map(tr=> tr.dataset.code);
+btnSaveOrder.addEventListener('click', async () => {
+  if (!(IS_ADMIN || IS_MANAGER)) return;
+  const codes = [...tbody.querySelectorAll('tr')].map(tr => tr.dataset.code);
   const r = await apiFetch('/checklist/reorder', {
-    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ codes })
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codes })
   });
-  if (!r || !r.ok){ await showErrorFromResponse(r,'Lưu thứ tự thất bại'); return; }
-  toast('Đã lưu thứ tự','success');
+  if (!r || !r.ok) { await showErrorFromResponse(r, 'Lưu thứ tự thất bại'); return; }
+  toast('Đã lưu thứ tự', 'success');
   setDirty(false);
   await loadItems();
 });
@@ -610,7 +673,7 @@ function trapFocus(container, e){
 }
 
 function openModalChecklist(mode, code=null){
-  if (!IS_ADMIN) return;
+  if (!IS_ADMIN && !IS_MANAGER) return;
   MODAL_MODE = mode; MODAL_CODE = code;
   lastFocusedBeforeModal = document.activeElement;
 

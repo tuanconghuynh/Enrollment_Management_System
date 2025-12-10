@@ -32,16 +32,15 @@ def _split_vn(fullname: str):
 @router.get("/import", response_class=HTMLResponse)
 def import_page(
     request: Request,
-    me: User = Depends(require_roles("Admin", "NhanVien")),
+    me: User = Depends(require_roles("Admin", "NhanVien", "Manager")),  # Chỉ cho phép Admin, NhanVien, Manager
 ):
     return templates.TemplateResponse("import_students.html", {"request": request, "me": me, "msg": None})
-
 
 @router.post("/import", response_class=HTMLResponse)
 def import_students(
     request: Request,
     file: UploadFile = File(...),
-    me: User = Depends(require_roles("Admin", "NhanVien")),
+    me: User = Depends(require_roles("Admin", "NhanVien", "Manager")),  # Chỉ cho phép Admin, NhanVien, Manager
     db: Session = Depends(get_db),
 ):
     # Đọc file
@@ -62,9 +61,6 @@ def import_students(
         raise HTTPException(status_code=400, detail="Thiếu cột bắt buộc: student_code")
 
     # Các cột tên có thể dùng:
-    #   A) ho_dem + ten
-    #   B) last_name + first_name
-    #   C) full_name / ho_ten
     has_split = ("ho_dem" in cols and "ten" in cols) or ("last_name" in cols and "first_name" in cols)
     has_full = "full_name" in cols or "ho_ten" in cols
 
@@ -115,9 +111,9 @@ def import_students(
         # Tạo đối tượng học viên
         s = Student(
             student_code=code,
-            last_name=ho_dem or None,     # Họ đệm
-            first_name=ten or None,       # Tên
-            full_name=full_name or None,  # Họ tên đầy đủ
+            last_name=ho_dem or None,
+            first_name=ten or None,
+            full_name=full_name or None,
             dob=dob_val,
             gender=(row.get("gender") or "").strip(),
             phone=(row.get("phone") or "").strip(),
