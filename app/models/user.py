@@ -21,8 +21,8 @@ class User(Base):
     full_name = Column(String(128), nullable=True)
 
     # MỚI: tách tên
-    last_name = Column(String(128), nullable=True, index=True)   # Họ + tên đệm (ho_dem)
-    first_name = Column(String(64), nullable=True, index=True)   # Tên (given name)
+    last_name = Column(String(128), nullable=True, index=True)
+    first_name = Column(String(64), nullable=True, index=True)
 
     email = Column(String(128))
     dob = Column(Date)

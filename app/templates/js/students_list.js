@@ -2056,4 +2056,3 @@ function hideLoading() {
   if (!box) return;
   box.classList.add("hidden");
 }
-

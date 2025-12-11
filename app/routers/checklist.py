@@ -118,7 +118,7 @@ def _list_items(db: Session, version_id: int):
 
 # ==================== APIs ====================
 @router.get("/active")
-def get_active_checklist(db: Session = Depends(get_db), me=Depends(require_roles("Admin", "NhanVien", "Manager"))):
+def get_active_checklist(db: Session = Depends(get_db), me=Depends(require_roles("Admin", "NhanVien", "Manager", "CongTacVien"))):
     v = _get_active(db)
     items = _list_items(db, v.id)
     return {

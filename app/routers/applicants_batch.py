@@ -17,7 +17,7 @@ from app.services.audit import write_audit
 # ------------------------------------------------------------
 router = APIRouter(prefix="/applicants", tags=["Applicants (batch)"])
 
-RequireStaff = Depends(require_roles("Admin", "NhanVien"))
+RequireStaff = Depends(require_roles("Admin", "NhanVien", "Manager"))
 
 PHONE_RE = re.compile(r"^[0-9 +().-]{8,20}$")
 

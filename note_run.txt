@@ -88,7 +88,7 @@ ALTER TABLE students AUTO_INCREMENT = 1;
 
 Chạy test:
 
-Mở CMD chạy lệnh: C:\laragon\bin\ngrok\ngrok.exe" http 8000
+Mở CMD chạy lệnh: "C:\laragon\bin\ngrok\ngrok.exe" http 8000
 
 Tại server chạy lệnh: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips="*"
 

@@ -16,8 +16,8 @@ class Applicant(Base):
     ho_ten = Column(String(255), nullable=True)
 
     # Mới: tách tên
-    ho_dem = Column(String(255), nullable=True, index=True)  # họ + tên đệm
-    ten    = Column(String(100), nullable=True, index=True)  # tên (given name)
+    ho_dem = Column(String(255), nullable=True, index=True)
+    ten    = Column(String(100), nullable=True, index=True)
 
     gioi_tinh = Column(String(10), nullable=True)
     email_hoc_vien = Column(String(255), nullable=True)
