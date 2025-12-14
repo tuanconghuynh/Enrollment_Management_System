@@ -1,16 +1,22 @@
-# ================================
 # app/services/export_service.py
-# ================================
 from __future__ import annotations
-from typing import List, Dict, Iterable, Any, Optional, Tuple, Union, Callable
+from typing import List, Dict, Iterable, Any, Optional, Tuple, Union
 from io import BytesIO
 from datetime import date, datetime
+import unicodedata
+import re
 
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
 
-from ..models import Applicant, ApplicantDoc, ChecklistItem
+# TYPE IMPORTS (may be used for attributes; fallback to Any if import fails)
+try:
+    from ..models import Applicant, ApplicantDoc, ChecklistItem  # type: ignore
+except Exception:
+    Applicant = Any
+    ApplicantDoc = Any
+    ChecklistItem = Any
 
 DOC_PREFIX = "doc_"
 
@@ -25,16 +31,12 @@ def _parse_to_date(v: Optional[object]) -> Optional[date]:
     s = str(v).strip()
     for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
         try:
-            return datetime.strptime(s, fmt).date()
+            return datetime.strptime(s[:10], fmt).date()
         except ValueError:
             continue
     return None
 
 def _norm_gender(v: Optional[object]) -> str:
-    """
-    Chuẩn hoá giới tính về: 'Nam' | 'Nữ' | 'Khác' | ''.
-    Hỗ trợ các biến thể: M/F, male/female, 1/0, nam/nu, ...
-    """
     if v in (None, ""):
         return ""
     s = str(v).strip().lower()
@@ -44,16 +46,13 @@ def _norm_gender(v: Optional[object]) -> str:
         return "Nữ"
     if s in {"other", "khac", "khác"}:
         return "Khác"
-    if s == "nam":
-        return "Nam"
-    if s in {"nu", "nữ"}:
-        return "Nữ"
-    return s.capitalize()  # fallback
+    return s.capitalize()
 
 def _autosize(ws):
     ws.freeze_panes = "A2"
     for col in ws.columns:
-        w = max(10, *(len(str(c.value)) if c.value else 0 for c in col)) + 2
+        lengths = [len(str(c.value)) if c.value is not None else 0 for c in col]
+        w = max(10, *(lengths or [10])) + 2
         ws.column_dimensions[col[0].column_letter].width = min(w, 40)
 
 def _get(obj: Union[dict, Any], key: str, default=None):
@@ -62,26 +61,17 @@ def _get(obj: Union[dict, Any], key: str, default=None):
     return getattr(obj, key, default)
 
 def _display_name_from_obj(obj: Union[dict, Any]) -> str:
-    """
-    Ưu tiên ho_dem + ten; fallback ho_ten.
-    Hỗ trợ cả dict (từ query thô) lẫn ORM object.
-    """
-    hd = (_get(obj, "ho_dem") or "").strip() if _get(obj, "ho_dem") is not None else ""
-    t = (_get(obj, "ten") or "").strip() if _get(obj, "ten") is not None else ""
+    hd = (_get(obj, "ho_dem") or "").strip()
+    t = (_get(obj, "ten") or "").strip()
     if hd or t:
         return f"{hd} {t}".strip()
     return (_get(obj, "ho_ten") or "").strip()
 
 def _split_name_cells(obj: Union[dict, Any]) -> Tuple[str, str]:
-    """
-    Trả về (ho_dem, ten) (có thể rỗng). Nếu chỉ có ho_ten mà không có tách,
-    sẽ cố gắng tách nhẹ theo khoảng trắng cuối (không quá gắt).
-    """
-    ln = (_get(obj, "ho_dem") or "").strip() if _get(obj, "ho_dem") is not None else ""
-    fn = (_get(obj, "ten") or "").strip() if _get(obj, "ten") is not None else ""
+    ln = (_get(obj, "ho_dem") or "").strip()
+    fn = (_get(obj, "ten") or "").strip()
     if ln or fn:
         return ln, fn
-    # Fallback tách từ ho_ten (best-effort)
     full = (_get(obj, "ho_ten") or "").strip()
     if not full:
         return "", ""
@@ -91,10 +81,6 @@ def _split_name_cells(obj: Union[dict, Any]) -> Tuple[str, str]:
     return " ".join(parts[:-1]), parts[-1]
 
 def _set_date_format_by_header(ws, headers: List[str], header_names: Iterable[str]):
-    """
-    Đặt number_format = dd/mm/yyyy + căn giữa cho các cột ngày
-    dựa trên tên header (an toàn khi thêm/bớt cột).
-    """
     name_to_idx = {h: i + 1 for i, h in enumerate(headers)}  # 1-based
     for hn in header_names:
         col = name_to_idx.get(hn)
@@ -106,7 +92,127 @@ def _set_date_format_by_header(ws, headers: List[str], header_names: Iterable[st
                     c.number_format = "dd/mm/yyyy"
                     c.alignment = Alignment(horizontal="center")
 
-# ---------- Export 1: có cột checklist ----------
+# ---------- Normalization helpers ----------
+def _normalize_text(s: Optional[str]) -> str:
+    """Lowercase, remove diacritics, remove non-alphanumeric (keep letters+digits)."""
+    if not s:
+        return ""
+    s = str(s)
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9]", "", s)
+    return s
+
+# ---------- Document allocation rules ----------
+# Use the exact column names you provided; normalization + fuzzy will handle variants
+SPECIAL_DOCS = [
+    "Bằng tốt nghiệp Đại học",
+    "Bảng điểm toàn khoá học Đại học",
+    "Bằng tốt nghiệp Cao đẳng",
+    "Bảng điểm toàn khóa học Cao đẳng",
+    "Bằng tốt nghiệp Trung Cấp",
+    "Bảng điểm toàn khóa Trung Cấp",
+]
+EXEMPT_DOC = "Đơn miễn giảm"
+
+_SPECIAL_DOCS_N = {_normalize_text(x) for x in SPECIAL_DOCS}
+_EXEMPT_DOC_N = _normalize_text(EXEMPT_DOC)
+
+def _is_special_item(it: Any) -> bool:
+    code = getattr(it, "code", None)
+    disp = getattr(it, "display_name", None)
+    return (_normalize_text(code) in _SPECIAL_DOCS_N) or (_normalize_text(disp) in _SPECIAL_DOCS_N)
+
+def _is_exempt_item(it: Any) -> bool:
+    code = getattr(it, "code", None)
+    disp = getattr(it, "display_name", None)
+    return (_normalize_text(code) == _EXEMPT_DOC_N) or (_normalize_text(disp) == _EXEMPT_DOC_N)
+
+def _get_item_qty_from_dm(dm: Dict[str, int], it: Any) -> int:
+    """
+    Robust lookup of qty for item `it` in dm (mapping keys -> qty).
+    Try (in order):
+      1) exact dm[it.code]
+      2) exact dm[it.display_name]
+      3) normalized exact of code/display_name
+      4) fuzzy substring match between normalized keys
+    """
+    if not dm:
+        return 0
+
+    code = getattr(it, "code", None)
+    disp = getattr(it, "display_name", None)
+
+    # direct exact matches
+    try:
+        if code is not None and code in dm:
+            return int(dm.get(code, 0) or 0)
+        if disp is not None and disp in dm:
+            return int(dm.get(disp, 0) or 0)
+    except Exception:
+        pass
+
+    code_n = _normalize_text(code)
+    disp_n = _normalize_text(disp)
+
+    # normalized exact
+    try:
+        if code_n and code_n in dm:
+            return int(dm.get(code_n, 0) or 0)
+        if disp_n and disp_n in dm:
+            return int(dm.get(disp_n, 0) or 0)
+    except Exception:
+        pass
+
+    # fuzzy: try match against any dm key normalized
+    try:
+        # build normalized map of dm keys to qty (cache)
+        for k, v in dm.items():
+            kn = _normalize_text(k)
+            if not kn:
+                continue
+            # if normalized dm key is substring of item normalized OR vice versa
+            if (code_n and (kn in code_n or code_n in kn)) or (disp_n and (kn in disp_n or disp_n in kn)):
+                return int(v or 0)
+    except Exception:
+        pass
+
+    # fallback 0
+    return 0
+
+def split_doc_rows(dm: Dict[str, int], items_all: List[ChecklistItem]) -> Tuple[List[int], List[int]]:
+    """
+    For one applicant's dm (code->qty) and ordered items_all returns:
+      - main_row: numbers for 'Hồ sơ Nhập học'
+      - reduced_row: numbers for 'Hồ sơ miễn giảm'
+    Rules:
+      - SPECIAL_DOCS: main = 1 if qty>0 else 0; reduced = qty - main
+      - EXEMPT_DOC: main = 0; reduced = qty
+      - other: main = qty; reduced = 0
+    Keep zeros as integers.
+    """
+    main_row: List[int] = []
+    reduced_row: List[int] = []
+
+    for it in items_all or []:
+        qty = _get_item_qty_from_dm(dm or {}, it)
+        if _is_special_item(it):
+            main_qty = 1 if qty > 0 else 0
+            reduced_qty = qty - main_qty if qty > 0 else 0
+        elif _is_exempt_item(it):
+            main_qty = 0
+            reduced_qty = qty
+        else:
+            main_qty = qty
+            reduced_qty = 0
+
+        main_row.append(main_qty)
+        reduced_row.append(reduced_qty)
+
+    return main_row, reduced_row
+
+# ---------- Export builder ----------
 def build_excel_bytes_by_items(
     apps: List[Applicant],
     docs: List[ApplicantDoc],
@@ -115,142 +221,138 @@ def build_excel_bytes_by_items(
     split_name: bool = False,
 ) -> bytes:
     """
-    Xuất bảng có cột checklist.
-    - split_name=False: 1 cột 'Họ tên'
-    - split_name=True : 2 cột 'Họ và tên đệm' + 'Tên'
+    Build Excel with two sheets:
+      - 'Hồ sơ Nhập học' (main_row)
+      - 'Hồ sơ miễn giảm' (reduced_row)
     """
+    # Build mapping applicant_ma_so_hv -> {key_variant -> qty}
     docs_by_mssv: Dict[str, Dict[str, int]] = {}
-    for d in docs:
-        docs_by_mssv.setdefault(d.applicant_ma_so_hv, {})[d.code] = int(d.so_luong or 0)
+    for d in docs or []:
+        m = docs_by_mssv.setdefault(d.applicant_ma_so_hv, {})
+        key = d.code
+        # store original key
+        m[key] = int(d.so_luong or 0)
+        # store normalized key too for faster direct lookup
+        key_n = _normalize_text(key)
+        if key_n:
+            # only set normalized key if not already present (preserve original if duplicate)
+            if key_n not in m:
+                m[key_n] = int(d.so_luong or 0)
 
     base_headers = [
-        "Ngày nhận HS", "Niên Khóa", "Mã hồ sơ", "Mã số HV",
+        "STT", "Mã hồ sơ", "Ngày nhận", "Email học viên"
     ]
     if split_name:
-        base_headers += ["Họ và tên đệm", "Tên"]
+        base_headers += ["Họ và tên", "Họ đệm", "Tên"]
     else:
-        base_headers += ["Họ tên"]
+        base_headers += ["Họ và tên"]
 
     base_headers += [
-        "Giới tính", "Dân tộc",
-        "Email học viên", "Ngày sinh", "Số ĐT", "Ngành nhập học",
-        "Đợt", "Đối tượng", "Ghi chú", "Printed"
+        "MSHV", "Ngày sinh", "Số ĐT", "Ngành nhập học", "Đợt", "Khóa",
+        "Đã TN trước đó", "Ghi chú", "Người nhận (ký tên)", "Dân tộc"
     ]
-    doc_headers = [f"{DOC_PREFIX}{it.code}" for it in (items or [])]
-    headers = base_headers + doc_headers
+
+    item_headers = [getattr(it, "display_name", None) or it.code for it in (items or [])]
+    headers = base_headers + item_headers
 
     wb = Workbook()
+
+    # Sheet 1: Hồ sơ Nhập học
     ws = wb.active
-    ws.title = "Data_TongNgay"
+    ws.title = "Hồ sơ Nhập học"
     ws.append(headers)
 
-    for a in apps:
-        dm = docs_by_mssv.get(a.ma_so_hv, {})
-
-        prefix = [
-            _parse_to_date(a.ngay_nhan_hs),
-            getattr(a, "khoa", ""),
+    for idx, a in enumerate(apps or [], start=1):
+        common_prefix = [
+            idx,
             a.ma_ho_so or "",
-            a.ma_so_hv or "",
+            _parse_to_date(getattr(a, "ngay_nhan_hs", None)),
+            a.email_hoc_vien or "",
         ]
 
         if split_name:
+            full = _display_name_from_obj(a)
             ln, fn = _split_name_cells(a)
-            name_cells = [ln, fn]
+            name_cells = [full, ln, fn]
         else:
             name_cells = [_display_name_from_obj(a)]
 
-        suffix = [
-            _norm_gender(getattr(a, "gioi_tinh", "")),
-            getattr(a, "dan_toc", "") or "",
-            getattr(a, "email_hoc_vien", "") or "",
+        common_suffix = [
+            a.ma_so_hv or "",
             _parse_to_date(getattr(a, "ngay_sinh", None)),
             a.so_dt or "",
             getattr(a, "nganh_nhap_hoc", None) or getattr(a, "nganh", None) or "",
             a.dot or "",
+            getattr(a, "khoa", "") or "",
             a.da_tn_truoc_do or "",
             a.ghi_chu or "",
-            bool(a.printed),
+            a.nguoi_nhan_ky_ten or "",
+            getattr(a, "dan_toc", None) or "",
         ]
 
-        row = prefix + name_cells + suffix
-        for it in items or []:
-            qty = int(dm.get(it.code, 0))
-            row.append("" if qty == 0 else qty)
+        dm = docs_by_mssv.get(a.ma_so_hv, {})
+
+        main_row, _reduced_row = split_doc_rows(dm, items or [])
+
+        # Keep zeros as integers
+        row = common_prefix + name_cells + common_suffix + main_row
         ws.append(row)
 
-    # format cột ngày theo tên header
-    _set_date_format_by_header(ws, headers, header_names=["Ngày nhận HS", "Ngày sinh"])
+    # Sheet 2: Hồ sơ miễn giảm
+    ws2 = wb.create_sheet("Hồ sơ miễn giảm")
+    ws2.append(headers)
 
-    _autosize(ws)
-    out = BytesIO()
-    wb.save(out)
-    out.seek(0)
-    return out.getvalue()
+    for idx, a in enumerate(apps or [], start=1):
+        common_prefix = [
+            idx,
+            a.ma_ho_so or "",
+            _parse_to_date(getattr(a, "ngay_nhan_hs", None)),
+            a.email_hoc_vien or "",
+        ]
 
-
-# ---------- Export 2: bảng đơn giản ----------
-def build_excel_bytes_simple(
-    rows: Iterable[Any],
-    *,
-    split_name: bool = False,
-) -> bytes:
-    """
-    Xuất bảng tổng hợp đơn giản.
-    - split_name=False: 1 cột 'Họ tên'
-    - split_name=True : 2 cột 'Họ và tên đệm' + 'Tên'
-    """
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "TongHop"
-
-    headers = [
-        "Mã HS",
-    ]
-    if split_name:
-        headers += ["Họ và tên đệm", "Tên"]
-    else:
-        headers += ["Họ tên"]
-
-    headers += [
-        "MSHV", "Giới tính", "Dân tộc",
-        "Email học viên",
-        "Ngày nhận HS", "Ngày sinh", "Ngành", "Đợt",
-        "Khóa", "Người nhận", "Ghi chú"
-    ]
-    ws.append(headers)
-
-    for a in rows:
-        get = a.get if isinstance(a, dict) else lambda k, d=None: getattr(a, k, d)
-
-        prefix = [get("ma_ho_so")]
         if split_name:
+            full = _display_name_from_obj(a)
             ln, fn = _split_name_cells(a)
-            name_cells = [ln, fn]
+            name_cells = [full, ln, fn]
         else:
             name_cells = [_display_name_from_obj(a)]
 
-        suffix = [
-            get("ma_so_hv"),
-            _norm_gender(get("gioi_tinh", "")),
-            get("dan_toc", "") or "",
-            get("email_hoc_vien", ""),
-            _parse_to_date(get("ngay_nhan_hs")),
-            _parse_to_date(get("ngay_sinh")),
-            get("nganh_nhap_hoc") or get("nganh"),
-            get("dot"),
-            get("khoa"),
-            get("nguoi_nhan_ky_ten"),
-            get("ghi_chu"),
+        common_suffix = [
+            a.ma_so_hv or "",
+            _parse_to_date(getattr(a, "ngay_sinh", None)),
+            a.so_dt or "",
+            getattr(a, "nganh_nhap_hoc", None) or getattr(a, "nganh", None) or "",
+            a.dot or "",
+            getattr(a, "khoa", "") or "",
+            a.da_tn_truoc_do or "",
+            a.ghi_chu or "",
+            a.nguoi_nhan_ky_ten or "",
+            getattr(a, "dan_toc", None) or "",
         ]
 
-        ws.append(prefix + name_cells + suffix)
+        dm = docs_by_mssv.get(a.ma_so_hv, {})
+        _main_row, reduced_row = split_doc_rows(dm, items or [])
 
-    # format cột ngày theo tên header
-    _set_date_format_by_header(ws, headers, header_names=["Ngày nhận HS", "Ngày sinh"])
+        row = common_prefix + name_cells + common_suffix + reduced_row
+        ws2.append(row)
 
-    _autosize(ws)
-    out = BytesIO()
-    wb.save(out)
-    out.seek(0)
-    return out.getvalue()
+    # Freeze & autosize both sheets
+    for ws_sheet in (ws, ws2):
+        ws_sheet.freeze_panes = "A2"
+        for col in range(1, len(headers) + 1):
+            letter = get_column_letter(col)
+            max_len = 0
+            for cell in ws_sheet[letter]:
+                val = "" if cell.value is None else str(cell.value)
+                if len(val) > max_len:
+                    max_len = len(val)
+            ws_sheet.column_dimensions[letter].width = min(max(10, max_len + 2), 40)
+
+    # Set date formats for date columns
+    _set_date_format_by_header(ws, headers, header_names=["Ngày nhận", "Ngày sinh"])
+    _set_date_format_by_header(ws2, headers, header_names=["Ngày nhận", "Ngày sinh"])
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.getvalue()

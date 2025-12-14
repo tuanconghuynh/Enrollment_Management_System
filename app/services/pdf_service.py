@@ -1,9 +1,8 @@
 # app/services/pdf_service.py
-from datetime import datetime, date
-import io, os
-from typing import List, Dict
+from datetime import datetime, date, timedelta
+import io, os, re, unicodedata
+from typing import List, Dict, Any
 from pathlib import Path
-import re
 
 from reportlab.lib.pagesizes import A4, A5, landscape
 from reportlab.lib import colors
@@ -24,7 +23,6 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet
 
 # === Giờ Việt Nam (Asia/Ho_Chi_Minh) ===
-from datetime import datetime, date, timedelta
 try:
     from zoneinfo import ZoneInfo  # Python 3.9+
     _VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -185,6 +183,96 @@ def _draw_checklist_table(c: rl_canvas.Canvas, x, y, w, rows):
     return y - table._height
 # ============================================================
 
+# ---------- Normalization & splitting helpers ----------
+def _normalize_text_simple(s: str | None) -> str:
+    if not s:
+        return ""
+    s = str(s)
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9]", "", s)
+    return s
+
+_SPECIAL_DOC_NAMES = [
+    "Bằng tốt nghiệp Đại học",
+    "Bảng điểm toàn khoá học Đại học",
+    "Bằng tốt nghiệp Cao đẳng",
+    "Bảng điểm toàn khóa học Cao đẳng",
+    "Bằng tốt nghiệp Trung Cấp",
+    "Bảng điểm toàn khóa Trung Cấp",
+]
+_EXEMPT_NAME = "Đơn miễn giảm"
+_SPECIAL_DOC_NAMES_N = {_normalize_text_simple(x) for x in _SPECIAL_DOC_NAMES}
+_EXEMPT_NAME_N = _normalize_text_simple(_EXEMPT_NAME)
+
+def _is_special_name(name: str | None) -> bool:
+    return _normalize_text_simple(name) in _SPECIAL_DOC_NAMES_N
+
+def _is_exempt_name(name: str | None) -> bool:
+    return _normalize_text_simple(name) == _EXEMPT_NAME_N
+
+def _split_doc_rows_for_items(items: List[ChecklistItem], docs: List[ApplicantDoc]):
+    """
+    Trả về (main_row_qtys, reduced_row_qtys, display_names)
+    main_row_qtys/reduced_row_qtys nằm theo thứ tự items.
+    docs: list ApplicantDoc (code -> so_luong). Try to match code or display_name (normalize + fuzzy).
+    """
+    dm = {}
+    for d in docs or []:
+        key = getattr(d, "code", "") or ""
+        qty = int(getattr(d, "so_luong", 0) or 0)
+        dm[key] = qty
+        kn = _normalize_text_simple(key)
+        if kn and kn not in dm:
+            dm[kn] = qty
+
+    main = []
+    reduced = []
+    displays = []
+    for it in items or []:
+        code = getattr(it, "code", None) or ""
+        disp = getattr(it, "display_name", None) or code or ""
+        displays.append(disp)
+
+        qty = 0
+        # exact match
+        if code in dm:
+            qty = int(dm.get(code, 0) or 0)
+        elif disp in dm:
+            qty = int(dm.get(disp, 0) or 0)
+        else:
+            code_n = _normalize_text_simple(code)
+            disp_n = _normalize_text_simple(disp)
+            if code_n and code_n in dm:
+                qty = int(dm.get(code_n, 0) or 0)
+            elif disp_n and disp_n in dm:
+                qty = int(dm.get(disp_n, 0) or 0)
+            else:
+                # fuzzy normalized substring match
+                for k, v in dm.items():
+                    kn = _normalize_text_simple(k)
+                    if not kn:
+                        continue
+                    if (code_n and (kn in code_n or code_n in kn)) or (disp_n and (kn in disp_n or disp_n in kn)):
+                        qty = int(v or 0)
+                        break
+
+        if _is_special_name(code) or _is_special_name(disp):
+            m = 1 if qty > 0 else 0
+            r = qty - m if qty > 0 else 0
+        elif _is_exempt_name(code) or _is_exempt_name(disp):
+            m = 0
+            r = qty
+        else:
+            m = qty
+            r = 0
+
+        main.append(int(m))
+        reduced.append(int(r))
+
+    return main, reduced, displays
+
 # ===== Chuẩn hóa ngày dd/mm/yyyy =====
 def _fmt_dmy(v) -> str:
     if not v:
@@ -310,56 +398,46 @@ def _onpage_footer_a5(canvas, doc, a: Applicant, location: str = "TP.HCM"):
     canvas.line(right_x - line_w/2, y0, right_x + line_w/2, y0)
     canvas.restoreState()
 
-# ================== A4: 1 hồ sơ ==================
-def render_single_pdf(a: Applicant, items: List[ChecklistItem], docs: List[ApplicantDoc]) -> bytes:
-    _register_font_times()
-    buf = io.BytesIO()
-    c = rl_canvas.Canvas(buf, pagesize=A4)
-    c.setTitle(f"Bản in A4 - {_full_name(a)}")
-    W, H = A4
-
-    # Header + intro
-    y = _header_block(
-        c, W, H,
-        getattr(a, "khoa", "") or "",
-        a.ma_ho_so,
-        a.ngay_nhan_hs
-    )
-
-    # 2 cột thông tin (bám sát dấu :)
+# ========= New helper to draw one receipt copy (below header area) =========
+def _draw_receipt_copy(c: rl_canvas.Canvas, y: float, W: float, H: float,
+                       a: Applicant, items: List[ChecklistItem], docs: List[ApplicantDoc],
+                       receiver_name: str) -> float:
+    """
+    Draw the body of one receipt copy starting from y (current top y after header lines).
+    Returns the y position after drawing this copy (bottom of copy).
+    """
     left_lbl, left_val   = LM,          LM + 26*mm
     right_lbl, right_val = LM + 85*mm,  LM + 110*mm
 
-    # Hàng 1
+    # Info rows
     y_l = _draw_kv(c, left_lbl,  left_val,  y, "Họ và tên:",      _full_name(a))
     y_r = _draw_kv(c, right_lbl, right_val, y, "Mã số HV:",       a.ma_so_hv or "");                       y = min(y_l, y_r)
 
-    # Hàng 2
     y_l = _draw_kv(c, left_lbl,  left_val,  y, "Ngày sinh:",      _fmt_dmy(a.ngay_sinh))
     y_r = _draw_kv(c, right_lbl, right_val, y, "Giới tính:",      getattr(a, "gioi_tinh", "") or "");     y = min(y_l, y_r)
 
-    # Hàng 3
     y_l = _draw_kv(c, left_lbl,  left_val,  y, "Số ĐT:",          a.so_dt or "")
     y_r = _draw_kv(c, right_lbl, right_val, y, "Email HV:",       getattr(a, "email_hoc_vien", "") or "");y = min(y_l, y_r)
 
-    # Hàng 4
     y_l = _draw_kv(c, left_lbl,  left_val,  y, "Dân tộc:",        getattr(a, "dan_toc", "") or "")
-    y_r = _draw_kv(c, right_lbl, right_val, y, "Ngành nhập học:", a.nganh_nhap_hoc or "");                y = min(y_l, y_r)
+    y_r = _draw_kv(c, right_lbl, right_val, y, "Ngành nhập học:", getattr(a, "nganh_nhap_hoc", None) or getattr(a, "nganh", None) or ""); y = min(y_l, y_r)
 
-    # Hàng 5
     y_l = _draw_kv(c, left_lbl,  left_val,  y, "Đã TN:",          a.da_tn_truoc_do or "")
     y_r = _draw_kv(c, right_lbl, right_val, y, "Đợt:",            a.dot or "");                            y = min(y_l, y_r)
 
-    # Bảng hồ sơ gồm
+    # Hồ sơ gồm (main)
     c.setFont(FONT_BOLD, TEXT_SIZE); c.drawString(LM, y, "Hồ sơ gồm:")
     y -= 6*mm
-    rows = _build_checklist_rows(items, docs)
-    y = _draw_checklist_table(c, LM, y, W - LM - RM, rows)
 
-    # Khoảng trắng cứng sau bảng
-    y -= 10*mm
+    main_row, reduced_row, displays = _split_doc_rows_for_items(items, docs)
+    rows_main = [["STT", "Danh mục", "Số lượng"]]
+    for idx, disp in enumerate(displays, start=1):
+        rows_main.append([str(idx), disp, str(main_row[idx-1])])
 
-    # Ghi chú (wrap)
+    y = _draw_checklist_table(c, LM, y, W - LM - RM, rows_main)
+
+    # Ghi chú
+    y -= 6*mm
     c.setFont(FONT_REG, TEXT_SIZE);  c.drawString(LM, y, "Ghi chú:")
     c.setFont(FONT_BOLD, TEXT_SIZE)
     NOTE_LABEL_W = 22 * mm
@@ -371,11 +449,73 @@ def render_single_pdf(a: Applicant, items: List[ChecklistItem], docs: List[Appli
         c.drawString(LM + NOTE_LABEL_W, y_note, line)
         y_note -= PARA_LEADING
 
-    # Chữ ký
-    sig_top = y_note - 4*mm
-    _draw_signature_block(c, sig_top, W, a.nguoi_nhan_ky_ten or "")
+    # Hồ sơ xét miễn môn
+    y = y_note - 8*mm
+    c.setFont(FONT_BOLD, TEXT_SIZE); c.drawString(LM, y, "HỒ SƠ XÉT MIỄN MÔN")
+    y -= 6*mm
 
-    c.showPage(); c.save()
+    rows_red = [["STT", "Danh mục", "Số lượng"]]
+    st = 1
+    for idx, disp in enumerate(displays):
+        q = reduced_row[idx]
+        rows_red.append([str(st), disp, str(q)])
+        st += 1
+
+    y = _draw_checklist_table(c, LM, y, W - LM - RM, rows_red)
+
+    # signature block for this copy
+    y_sig_top = y - 10*mm
+    _draw_signature_block(c, y_sig_top, W, receiver_name or "")
+
+    return y_sig_top
+
+# ================== A4: 1 hồ sơ (modified to draw 2 copies on one page) ==================
+def render_single_pdf(a: Applicant, items: List[ChecklistItem], docs: List[ApplicantDoc]) -> bytes:
+    _register_font_times()
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    c.setTitle(f"Bản in A4 - {_full_name(a)}")
+    W, H = A4
+
+    # Draw header (top) and get the y after header area
+    y_top = _header_block(
+        c, W, H,
+        getattr(a, "khoa", "") or "",
+        a.ma_ho_so,
+        a.ngay_nhan_hs
+    )
+
+    # First copy (top)
+    y_after_first = _draw_receipt_copy(c, y_top, W, H, a, items, docs, a.nguoi_nhan_ky_ten or "")
+
+    # Estimate gap and compute second copy starting position
+    gap_between = 8 * mm
+
+    # Compute used height by first copy (approx)
+    used_height_first = y_top - y_after_first
+    # Start second header a bit below the bottom of first copy
+    second_header_y = y_after_first - gap_between + 12*mm  # tweak offset for header area
+
+    # Draw compact header for second copy (title + intro)
+    c.setFont(FONT_BOLD, TITLE_SIZE)
+    title = "BIÊN NHẬN HỒ SƠ NHẬP HỌC CHƯƠNG TRÌNH ĐÀO TẠO TỪ XA"
+    if (a.khoa or "").strip():
+        title += f" KHÓA {a.khoa.strip()}"
+    c.drawCentredString(W/2, second_header_y, title)
+
+    c.setFont(FONT_REG, TEXT_SIZE)
+    intro = "Viện Hợp tác và Phát triển Đào tạo xác nhận đã nhận hồ sơ nhập học"
+    intro += f" khóa {a.khoa.strip()} của Anh/Chị:" if (a.khoa or "").strip() else " của Anh/Chị:"
+    y_intro = second_header_y - 7*mm
+    for line in _wrap_lines(intro, FONT_REG, TEXT_SIZE, W - LM - RM):
+        c.drawString(LM, y_intro, line)
+        y_intro -= PARA_LEADING
+
+    # Draw second copy body
+    _draw_receipt_copy(c, y_intro - 4*mm, W, H, a, items, docs, a.nguoi_nhan_ky_ten or "")
+
+    c.showPage()
+    c.save()
     return buf.getvalue()
 
 # ================== A4: in gộp ==================
@@ -541,9 +681,7 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
 
     # ===== Bảng giấy tờ đã nộp (số lượng >0) =====
     rows = _build_rows_nonzero(items, docs)     # ⬅️ có STT
-    # rows = _build_checklist_rows(items, docs) #Bảng đầy đủ
     table_w = W - lm - rm
-    # STT ~12%, Danh mục ~66%, Số lượng ~22% (tỷ lệ gọn cho A5)
     tbl = Table(rows, colWidths=[table_w*0.12, table_w*0.66, table_w*0.22])
     tbl.setStyle(TableStyle([
         ("FONTNAME", (0,0), (-1,-1), FONT_REG),
@@ -610,59 +748,8 @@ def render_single_pdf_a5(a: Applicant, items: List[ChecklistItem], docs: List[Ap
 
     c.showPage(); c.save()
     return buf.getvalue()
-# ================== HẾT BẢN IN A5 ==================
 
 # ===== LƯU FILE PDF BIÊN NHẬN (A4/A5) =====
-def save_receipt_pdf_file(
-    a: Applicant,
-    items: List[ChecklistItem],
-    docs: List[ApplicantDoc],
-    *,
-    a5: bool = False,
-    out_dir: str | Path | None = None,
-    filename: str | None = None,
-) -> str:
-    """
-    Render biên nhận (A4 hoặc A5) -> GHI RA FILE -> trả về absolute path.
-    - a5=True: dùng layout A5 tối giản
-    - out_dir: thư mục xuất (mặc định settings.RECEIPTS_DIR)
-    - filename: tên file (mặc định auto theo mã HS + timestamp)
-    """
-    # render bytes theo layout
-    pdf_bytes = (
-        render_single_pdf_a5(a, items, docs)
-        if a5 else
-        render_single_pdf(a, items, docs)
-    )
-
-    # Xác định thư mục & tên
-    out_dir = Path(out_dir or getattr(settings, "RECEIPTS_DIR", "assets/receipts"))
-    out_dir.mkdir(parents=True, exist_ok=True)
-    if not filename:
-        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        base = (a.ma_ho_so or a.ma_so_hv or "unknown").replace("/", "_").replace("\\", "_")
-        filename = f"receipt_{base}_{ts}.pdf"
-
-    out_path = (out_dir / filename).resolve()
-    with open(out_path, "wb") as f:
-        f.write(pdf_bytes)
-
-    return str(out_path)
-
-# ==== SAVE TO DISK HELPERS ==========
-def _safe_filename(s: str) -> str:
-    s = (s or "").strip()
-    s = re.sub(r"[^\w\s.-]", "_", s, flags=re.UNICODE)
-    s = re.sub(r"\s+", "_", s)
-    return s or "file"
-
-def _display_name(a: Applicant) -> str:
-    ln = (getattr(a, "ho_dem", "") or "").strip()
-    fn = (getattr(a, "ten", "") or "").strip()
-    if ln or fn:
-        return f"{ln} {fn}".strip()
-    return (getattr(a, "ho_ten", "") or "").strip()
-
 def save_receipt_pdf_file(
     a: Applicant,
     items: List[ChecklistItem],
@@ -674,10 +761,23 @@ def save_receipt_pdf_file(
     """Render biên nhận (A4/A5) -> ghi file -> trả về absolute path."""
     data = render_single_pdf_a5(a, items, docs) if a5 else render_single_pdf(a, items, docs)
 
-    base_dir: Path = Path(out_dir).resolve() if out_dir else settings.receipts_path
+    base_dir: Path = Path(out_dir).resolve() if out_dir else getattr(settings, "receipts_path", Path("assets/receipts"))
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    name_safe = _safe_filename(_display_name(a))
+    def _safe_filename(s: str) -> str:
+        s = (s or "").strip()
+        s = re.sub(r"[^\w\s.-]", "_", s, flags=re.UNICODE)
+        s = re.sub(r"\s+", "_", s)
+        return s or "file"
+
+    def _display_name_local(a: Applicant) -> str:
+        ln = (getattr(a, "ho_dem", "") or "").strip()
+        fn = (getattr(a, "ten", "") or "").strip()
+        if ln or fn:
+            return f"{ln} {fn}".strip()
+        return (getattr(a, "ho_ten", "") or "").strip()
+
+    name_safe = _safe_filename(_display_name_local(a))
     mcode = (a.ma_ho_so or a.ma_so_hv or "").strip()
     mcode_safe = _safe_filename(mcode) if mcode else "NA"
 

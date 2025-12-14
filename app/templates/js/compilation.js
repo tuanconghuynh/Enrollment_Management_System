@@ -49,7 +49,14 @@
     }
     return false;
   }
-  const safeJson = async (r)=>{ try{ return await r.json(); }catch{ return {}; } };
+  const safeJson = async (r) => {
+   try {
+      return await r.json();
+   } catch (error) {
+      console.error("Error parsing JSON:", error);
+      return {};
+   }
+};
 
   async function ensureApiBaseAndPrefix(){
     let base = localStorage.getItem(STORAGE_KEY) || window.location.origin;

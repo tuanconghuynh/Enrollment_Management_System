@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, date
 import io
 from typing import List, Dict, Optional, Tuple
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 from starlette.responses import StreamingResponse
@@ -20,6 +21,10 @@ from app.services.pdf_service import (
     render_batch_pdf,
 )
 
+# NOTE: remove top-level import of export_service to avoid import-time failures.
+# We'll import lazily inside _build_excel_bytes to prevent module import from failing
+# when app.services.export_service has issues or causes circular imports.
+
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
@@ -30,7 +35,6 @@ from app.services.audit import write_audit
 
 router = APIRouter()  # không prefix; main sẽ mount /api
 
-
 # ------------------- Audit helper -------------------
 def _audit_print_or_export(
     *,
@@ -38,7 +42,7 @@ def _audit_print_or_export(
     db: Session,
     user,
     action: str,             # "PRINT" | "EXPORT"
-    scope: str,              # "day" | "dot"
+    scope: str,              # "day" | "dot" | "single"
     filters: dict,
     count: int,
     status: str,             # "SUCCESS" | "FAIL"
@@ -105,13 +109,16 @@ def _items_merged_by_versions(db: Session, version_ids: set) -> List[ChecklistIt
                 items.append(it)
     return items
 
+# ================= Helpers chung =================
 def _docs_map_by_mssv(docs: List[ApplicantDoc]) -> Dict[str, Dict[str, int]]:
     out: Dict[str, Dict[str, int]] = {}
     for d in docs:
         out.setdefault(d.applicant_ma_so_hv, {})[d.code] = int(d.so_luong or 0)
     return out
 
+
 def _fmt_date_excel(v: Optional[object]) -> str:
+    """Chuyển đổi ngày tháng về định dạng dd/MM/YYYY để xuất Excel."""
     if v is None or v == "":
         return ""
     if isinstance(v, datetime):
@@ -126,12 +133,14 @@ def _fmt_date_excel(v: Optional[object]) -> str:
             continue
     return s
 
+
 def _display_name(a: Applicant) -> str:
     hd = (getattr(a, "ho_dem", None) or "").strip()
     t = (getattr(a, "ten", None) or "").strip()
     if hd or t:
         return f"{hd} {t}".strip()
     return (getattr(a, "ho_ten", None) or "").strip()
+
 
 def _split_name(a: Applicant) -> Tuple[str, str]:
     hd = (getattr(a, "ho_dem", None) or "").strip()
@@ -146,7 +155,6 @@ def _split_name(a: Applicant) -> Tuple[str, str]:
         return "", parts[0]
     return " ".join(parts[:-1]), parts[-1]
 
-
 def _build_excel_bytes(
     apps: List[Applicant],
     docs: List[ApplicantDoc],
@@ -154,75 +162,30 @@ def _build_excel_bytes(
     *,
     split_name: bool = False,
 ) -> bytes:
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Ho so"
+    """
+    Lazily import the export builder to avoid import-time failures/circular imports.
+    If import fails here we'll raise HTTPException so the client sees clear error.
+    """
+    try:
+        # lazy import
+        from app.services.export_service import build_excel_bytes_by_items
+    except Exception as e:
+        # Log the original exception (so server logs show it); raise HTTPException for client
+        # You can adjust behavior: here we raise 500 with message.
+        raise HTTPException(status_code=500, detail=f"Cannot import export service: {e}")
 
-    base_headers = ["STT", "Mã hồ sơ", "Ngày nhận", "Email học viên"]
-    if split_name:
-        # giữ "Họ và tên" + thêm "Họ đệm", "Tên"
-        base_headers += ["Họ và tên", "Họ đệm", "Tên"]
-    else:
-        base_headers += ["Họ và tên"]
-    base_headers += [
-        "MSHV", "Ngày sinh", "Số ĐT", "Ngành nhập học", "Đợt", "Khóa",
-        "Đã TN trước đó", "Ghi chú", "Người nhận (ký tên)", "Dân tộc",
-    ]
-
-    item_headers = [getattr(it, "display_name", None) or it.code for it in items_all]
-    headers = base_headers + item_headers
-    ws.append(headers)
-
-    docs_by_mssv = _docs_map_by_mssv(docs)
-
-    for idx, a in enumerate(apps, start=1):
-        common_prefix = [
-            idx,
-            a.ma_ho_so or "",
-            _fmt_date_excel(getattr(a, "ngay_nhan_hs", None)),
-            a.email_hoc_vien or "",
-        ]
-
-        if split_name:
-            full = _display_name(a)
-            ln, fn = _split_name(a)
-            name_cells = [full, ln, fn]
-        else:
-            name_cells = [_display_name(a)]
-
-        common_suffix = [
-            a.ma_so_hv or "",
-            _fmt_date_excel(getattr(a, "ngay_sinh", None)),
-            a.so_dt or "",
-            getattr(a, "nganh_nhap_hoc", None) or getattr(a, "nganh", None) or "",
-            a.dot or "",
-            getattr(a, "khoa", "") or "",
-            a.da_tn_truoc_do or "",
-            a.ghi_chu or "",
-            a.nguoi_nhan_ky_ten or "",
-            getattr(a, "dan_toc", None) or "",
-        ]
-
-        dm = docs_by_mssv.get(a.ma_so_hv, {})
-        doc_row = [int(dm.get(it.code, 0)) for it in items_all]
-
-        ws.append(common_prefix + name_cells + common_suffix + doc_row)
-
-    ws.freeze_panes = "A2"
-    for col in range(1, len(headers) + 1):
-        letter = get_column_letter(col)
-        max_len = 0
-        for cell in ws[letter]:
-            val = "" if cell.value is None else str(cell.value)
-            if len(val) > max_len:
-                max_len = len(val)
-        ws.column_dimensions[letter].width = min(max(10, max_len + 2), 40)
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
+    return build_excel_bytes_by_items(apps, docs, items_all, split_name=split_name)
 
 
+# helper: build Content-Disposition supporting UTF-8 filename*
+def _content_disposition(filename: str, inline: bool = False) -> str:
+    disposition = "inline" if inline else "attachment"
+    # quote for filename*
+    quoted = quote(filename, safe='')
+    return f"{disposition}; filename=\"{filename}\"; filename*=UTF-8''{quoted}"
+
+
+#==========================================================#
 def _get_app_by_mssv(db: Session, ma_so_hv: str) -> Applicant:
     a = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
     if not a:
@@ -295,6 +258,10 @@ def export_excel(
     version_ids = {a.checklist_version_id for a in apps if a.checklist_version_id}
     items_all = _items_merged_by_versions(db, version_ids) if version_ids else []
 
+    # validate name param (allow only 'split' or 'full')
+    if name not in ("split", "full"):
+        name = "split"
+
     split = (name == "split")
     xls_bytes = _build_excel_bytes(apps, docs, items_all, split_name=split)
     suffix = "_split" if split else ""
@@ -311,7 +278,7 @@ def export_excel(
     return StreamingResponse(
         io.BytesIO(xls_bytes),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
+        headers={"Content-Disposition": _content_disposition(filename, inline=False)},
     )
 
 
@@ -362,6 +329,10 @@ def export_excel_dot(
 
     items_all = _items_merged_by_versions(db, {a.checklist_version_id for a in apps if a.checklist_version_id})
 
+    # validate name param
+    if name not in ("split", "full"):
+        name = "split"
+
     split = (name == "split")
     xls_bytes = _build_excel_bytes(apps, docs, items_all, split_name=split)
     safe_dot = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in key)
@@ -381,31 +352,78 @@ def export_excel_dot(
     return StreamingResponse(
         io.BytesIO(xls_bytes),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
+        headers={"Content-Disposition": _content_disposition(filename, inline=False)},
     )
 
 
 # ================= PRINT 1 HỒ SƠ (theo MSSV) =================
 @router.get("/print/a5/{ma_so_hv}", summary="In 01 hồ sơ A5 (ngang) theo MSSV")
-def print_a5(ma_so_hv: str, db: Session = Depends(get_db)):
-    app = _get_app_by_mssv(db, ma_so_hv)  # đã chặn deleted
-    items = _get_items_for_app(db, app)
-    docs = _get_docs_for_mssv(db, ma_so_hv)
-    pdf_bytes = render_single_pdf_a5(app, items, docs)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename=\"{app.ma_ho_so or ma_so_hv}_A5.pdf\"'},
-    )
+def print_a5(
+    request: Request,
+    ma_so_hv: str,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("Admin", "NhanVien", "Manager")),
+):
+    try:
+        app = _get_app_by_mssv(db, ma_so_hv)  # đã chặn deleted
+        items = _get_items_for_app(db, app)
+        docs = _get_docs_for_mssv(db, ma_so_hv)
+        pdf_bytes = render_single_pdf_a5(app, items, docs)
+
+        # Audit success
+        _audit_print_or_export(
+            request=request, db=db, user=user,
+            action="PRINT", scope="single",
+            filters={"ma_so_hv": ma_so_hv, "format": "A5"}, count=1,
+            status="SUCCESS", target_id=ma_so_hv
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": _content_disposition(f"{app.ma_ho_so or ma_so_hv}_A5.pdf", inline=True)},
+        )
+    except Exception as e:
+        _audit_print_or_export(
+            request=request, db=db, user=user,
+            action="PRINT", scope="single",
+            filters={"ma_so_hv": ma_so_hv, "format": "A5"}, count=0,
+            status="FAIL", error=str(e), target_id=ma_so_hv
+        )
+        raise
+
 
 @router.get("/print/a4/{ma_so_hv}", summary="In 01 hồ sơ A4 (dọc) theo MSSV")
-def print_a4(ma_so_hv: str, db: Session = Depends(get_db)):
-    app = _get_app_by_mssv(db, ma_so_hv)
-    items = _get_items_for_app(db, app)
-    docs = _get_docs_for_mssv(db, ma_so_hv)
-    pdf_bytes = render_single_pdf(app, items, docs)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename=\"{app.ma_ho_so or ma_so_hv}_A4.pdf\"'},
-    )
+def print_a4(
+    request: Request,
+    ma_so_hv: str,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("Admin", "NhanVien", "Manager")),
+):
+    try:
+        app = _get_app_by_mssv(db, ma_so_hv)
+        items = _get_items_for_app(db, app)
+        docs = _get_docs_for_mssv(db, ma_so_hv)
+        pdf_bytes = render_single_pdf(app, items, docs)
+
+        # Audit success
+        _audit_print_or_export(
+            request=request, db=db, user=user,
+            action="PRINT", scope="single",
+            filters={"ma_so_hv": ma_so_hv, "format": "A4"}, count=1,
+            status="SUCCESS", target_id=ma_so_hv
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": _content_disposition(f"{app.ma_ho_so or ma_so_hv}_A4.pdf", inline=True)},
+        )
+    except Exception as e:
+        _audit_print_or_export(
+            request=request, db=db, user=user,
+            action="PRINT", scope="single",
+            filters={"ma_so_hv": ma_so_hv, "format": "A4"}, count=0,
+            status="FAIL", error=str(e), target_id=ma_so_hv
+        )
+        raise

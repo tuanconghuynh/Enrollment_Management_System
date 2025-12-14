@@ -104,22 +104,22 @@ function showToast(msg, type = 'info', ms = 3200) {
 })();
 
 async function boot() {
-  const r = await api('/me');
-  if (!r || !r.ok) {
-    location.href = '/auth_login.html'; 
-    return;
-  }
-  const me = await r.json();
-  const name = me.full_name || me.username || 'Người dùng';
-  const role = me.role || 'Chưa có vai trò';
+    const r = await api('/me');
+    if (!r || !r.ok) {
+      location.href = '/auth_login.html'; 
+      return;
+    }
+    const me = await r.json();
+    const name = me.full_name || me.username || 'Người dùng';
+    const role = me.role || 'Chưa có vai trò';
 
-  // Cập nhật tên và vai trò trên trang chủ
-  (document.getElementById('helloName') || {}).textContent = name;  // Tên người dùng
-  (document.getElementById('helloRole') || {}).textContent = role;  // Vai trò người dùng
-  (document.getElementById('dashName') || {}).textContent  = name;  // Tên người dùng trên thanh bên
+    // Cập nhật tên và vai trò trên trang chủ
+    (document.getElementById('helloName') || {}).textContent = name;  // Tên người dùng
+    (document.getElementById('helloRole') || {}).textContent = role;  // Vai trò người dùng
+    (document.getElementById('dashName') || {}).textContent  = name; // Tên người dùng trên thanh bên
 
   // Nếu người dùng là Manager và cố gắng truy cập trang "Quản lý tài khoản"
-  if (me.role === "Manager" && window.location.pathname === '/account_management.html') {
+  if (me.role === "Manager"  && window.location.pathname === '/account_management.html') {
     // Hiển thị thông báo lỗi Toast
     showToast('Bạn không có quyền truy cập vào trang này.', 'error', 4500);
     
