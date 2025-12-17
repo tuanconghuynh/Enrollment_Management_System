@@ -996,9 +996,9 @@ def delete_applicant(
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-# ================= PRINT (A4, A5) by MSSV =================
-def _do_print(ma_so_hv: str, mark_printed: bool, db: Session, request: Request, a5: bool = False):
-    from app.services.pdf_service import render_single_pdf, render_single_pdf_a5
+# ================= PRINT (A4 only) by MSSV =================
+def _do_print(ma_so_hv: str, mark_printed: bool, db: Session, request: Request):
+    from app.services.pdf_service import render_single_pdf
 
     ensure_mssv(ma_so_hv)
     a = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
@@ -1017,7 +1017,7 @@ def _do_print(ma_so_hv: str, mark_printed: bool, db: Session, request: Request, 
     items = q.all()
 
     docs = db.query(ApplicantDoc).filter(ApplicantDoc.applicant_ma_so_hv == a.ma_so_hv).all()
-    pdf_bytes = (render_single_pdf_a5 if a5 else render_single_pdf)(a, items, docs)
+    pdf_bytes = render_single_pdf(a, items, docs)
 
     if mark_printed:
         a.printed = True
@@ -1030,13 +1030,13 @@ def _do_print(ma_so_hv: str, mark_printed: bool, db: Session, request: Request, 
             target_type="Applicant",
             target_id=a.ma_so_hv,
             prev_values={},
-            new_values={"printed": True, "a5": a5},
+            new_values={"printed": True, "paper": "A4"},
             status="SUCCESS",
             request=request,
         )
         db.commit()
 
-    filename = f"HS_{a.ma_ho_so or a.ma_so_hv}{'_A5' if a5 else ''}.pdf"
+    filename = f"HS_{a.ma_ho_so or a.ma_so_hv}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -1050,7 +1050,7 @@ def print_applicant_now(
     mark_printed: bool = Query(False),
     db: Session = Depends(get_db),
 ):
-    return _do_print(ma_so_hv, mark_printed, db, request=request, a5=False)
+    return _do_print(ma_so_hv, mark_printed, db, request=request)
 
 @router.post("/{ma_so_hv}/print")
 def print_applicant_now_post(
@@ -1059,25 +1059,7 @@ def print_applicant_now_post(
     mark_printed: bool = Query(True),
     db: Session = Depends(get_db),
 ):
-    return _do_print(ma_so_hv, mark_printed, db, request=request, a5=False)
-
-@router.get("/{ma_so_hv}/print-a5")
-def print_applicant_a5(
-    ma_so_hv: str,
-    request: Request,
-    mark_printed: bool = Query(False),
-    db: Session = Depends(get_db),
-):
-    return _do_print(ma_so_hv, mark_printed, db, request=request, a5=True)
-
-@router.post("/{ma_so_hv}/print-a5")
-def print_applicant_a5_post(
-    ma_so_hv: str,
-    request: Request,
-    mark_printed: bool = Query(True),
-    db: Session = Depends(get_db),
-):
-    return _do_print(ma_so_hv, mark_printed, db, request=request, a5=True)
+    return _do_print(ma_so_hv, mark_printed, db, request=request)
 
 # ================= Recent =================
 @router.get("/recent")

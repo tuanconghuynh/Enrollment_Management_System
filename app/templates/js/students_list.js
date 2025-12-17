@@ -212,7 +212,6 @@
           </td>
           <td class="border-b text-center whitespace-nowrap">
             <div class="inline-flex gap-2">
-              <button class="btn btn-soft btn-xs btn-pill btn-print-a5" data-mshv="${encodeURIComponent(mshv)}">A5</button>
               <button class="btn btn-primary btn-xs btn-pill btn-print-a4" data-mshv="${encodeURIComponent(mshv)}">A4</button>
             </div>
           </td>
@@ -596,27 +595,17 @@
           return;
         }
         // In A5/A4
-        const a5 = e.target.closest('.btn-print-a5');
         const a4 = e.target.closest('.btn-print-a4');
-        if (a5 || a4) {
-          const mshv = decodeURIComponent((a5 || a4).dataset.mshv || '');
+        if (a4) {
+          const mshv = decodeURIComponent(a4.dataset.mshv || '');
           if (!mshv) return;
 
-          // 🧠 Ghi log
           await journalTrack({
             action: 'PRINT_IN',
-            detail: {
-              scope: 'SINGLE',
-              filters: { mshv },
-              name_mode: a5 ? 'A5' : 'A4',
-              count: 1
-            }
+            detail: { scope:'SINGLE', filters:{ mshv }, name_mode:'A4', count: 1 }
           });
 
-          const url = a5
-            ? `/applicants/${encodeURIComponent(mshv)}/print-a5`
-            : `/applicants/${encodeURIComponent(mshv)}/print`;
-          await openPdfOrAlert(url);
+          await openPdfOrAlert(`/print/a4/${encodeURIComponent(mshv)}`);
           return;
         }
         // Xoá mềm

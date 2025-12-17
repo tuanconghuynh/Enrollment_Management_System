@@ -17,7 +17,6 @@ from app.models.applicant import Applicant, ApplicantDoc
 from app.models.checklist import ChecklistItem
 from app.services.pdf_service import (
     render_single_pdf,
-    render_single_pdf_a5,
     render_batch_pdf,
 )
 
@@ -357,42 +356,6 @@ def export_excel_dot(
 
 
 # ================= PRINT 1 HỒ SƠ (theo MSSV) =================
-@router.get("/print/a5/{ma_so_hv}", summary="In 01 hồ sơ A5 (ngang) theo MSSV")
-def print_a5(
-    request: Request,
-    ma_so_hv: str,
-    db: Session = Depends(get_db),
-    user=Depends(require_roles("Admin", "NhanVien", "Manager")),
-):
-    try:
-        app = _get_app_by_mssv(db, ma_so_hv)  # đã chặn deleted
-        items = _get_items_for_app(db, app)
-        docs = _get_docs_for_mssv(db, ma_so_hv)
-        pdf_bytes = render_single_pdf_a5(app, items, docs)
-
-        # Audit success
-        _audit_print_or_export(
-            request=request, db=db, user=user,
-            action="PRINT", scope="single",
-            filters={"ma_so_hv": ma_so_hv, "format": "A5"}, count=1,
-            status="SUCCESS", target_id=ma_so_hv
-        )
-
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": _content_disposition(f"{app.ma_ho_so or ma_so_hv}_A5.pdf", inline=True)},
-        )
-    except Exception as e:
-        _audit_print_or_export(
-            request=request, db=db, user=user,
-            action="PRINT", scope="single",
-            filters={"ma_so_hv": ma_so_hv, "format": "A5"}, count=0,
-            status="FAIL", error=str(e), target_id=ma_so_hv
-        )
-        raise
-
-
 @router.get("/print/a4/{ma_so_hv}", summary="In 01 hồ sơ A4 (dọc) theo MSSV")
 def print_a4(
     request: Request,
