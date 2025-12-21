@@ -181,7 +181,7 @@ def _get_item_qty_from_dm(dm: Dict[str, int], it: Any) -> int:
     # fallback 0
     return 0
 
-def split_doc_rows(dm: Dict[str, int], items_all: List[ChecklistItem]) -> Tuple[List[int], List[int]]:
+def split_doc_rows(dm: Dict[str, int], items_all: List[ChecklistItem]) -> Tuple[List[int], List[int]]: # type: ignore
     """
     For one applicant's dm (code->qty) and ordered items_all returns:
       - main_row: numbers for 'Hồ sơ Nhập học'
@@ -214,9 +214,9 @@ def split_doc_rows(dm: Dict[str, int], items_all: List[ChecklistItem]) -> Tuple[
 
 # ---------- Export builder ----------
 def build_excel_bytes_by_items(
-    apps: List[Applicant],
-    docs: List[ApplicantDoc],
-    items: List[ChecklistItem],
+    apps: List[Applicant], # type: ignore
+    docs: List[ApplicantDoc], # type: ignore
+    items: List[ChecklistItem], # type: ignore
     *,
     split_name: bool = False,
 ) -> bytes:
@@ -249,7 +249,7 @@ def build_excel_bytes_by_items(
 
     base_headers += [
         "MSHV", "Ngày sinh", "Số ĐT", "Ngành nhập học", "Đợt", "Khóa",
-        "Đã TN trước đó", "Ghi chú", "Người nhận (ký tên)", "Dân tộc"
+        "Đã TN trước đó", "Ghi chú", "Người nhận", "Dân tộc"
     ]
 
     item_headers = [getattr(it, "display_name", None) or it.code for it in (items or [])]

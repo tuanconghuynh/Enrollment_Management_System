@@ -77,7 +77,6 @@ def _audit_print_or_export(
         try: db.rollback()
         except Exception: pass
 
-
 # ================= Helpers chung =================
 def _parse_day_any(raw: str) -> date:
     s = (raw or "").strip()
@@ -115,7 +114,6 @@ def _docs_map_by_mssv(docs: List[ApplicantDoc]) -> Dict[str, Dict[str, int]]:
         out.setdefault(d.applicant_ma_so_hv, {})[d.code] = int(d.so_luong or 0)
     return out
 
-
 def _fmt_date_excel(v: Optional[object]) -> str:
     """Chuyển đổi ngày tháng về định dạng dd/MM/YYYY để xuất Excel."""
     if v is None or v == "":
@@ -132,14 +130,12 @@ def _fmt_date_excel(v: Optional[object]) -> str:
             continue
     return s
 
-
 def _display_name(a: Applicant) -> str:
     hd = (getattr(a, "ho_dem", None) or "").strip()
     t = (getattr(a, "ten", None) or "").strip()
     if hd or t:
         return f"{hd} {t}".strip()
     return (getattr(a, "ho_ten", None) or "").strip()
-
 
 def _split_name(a: Applicant) -> Tuple[str, str]:
     hd = (getattr(a, "ho_dem", None) or "").strip()
@@ -207,7 +203,6 @@ def _get_items_for_app(db: Session, app: Applicant):
 
 def _get_docs_for_mssv(db: Session, ma_so_hv: str):
     return db.query(ApplicantDoc).filter(ApplicantDoc.applicant_ma_so_hv == ma_so_hv).all()
-
 
 # ================= EXPORT EXCEL THEO NGÀY =================
 @router.get("/export/excel")
@@ -279,7 +274,6 @@ def export_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": _content_disposition(filename, inline=False)},
     )
-
 
 # ================= EXPORT EXCEL THEO ĐỢT =================
 @router.get("/export/excel-dot")
@@ -353,7 +347,6 @@ def export_excel_dot(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": _content_disposition(filename, inline=False)},
     )
-
 
 # ================= PRINT 1 HỒ SƠ (theo MSSV) =================
 @router.get("/print/a4/{ma_so_hv}", summary="In 01 hồ sơ A4 (dọc) theo MSSV")

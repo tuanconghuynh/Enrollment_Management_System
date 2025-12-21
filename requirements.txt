@@ -27,3 +27,6 @@ pandas>=2.2,<3.0
 aiosmtplib
 fastapi-mail 
 jinja2
+
+# PDF manipulation
+PyPDF2>=3.0,<4.0

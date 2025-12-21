@@ -179,7 +179,6 @@
     try{
       const r = await apiFetch('/me', { credentials:'include', cache:'no-store' });
       if (!r || !r.ok){
-        $('navHello')?.classList.add("hidden");
         const rec = $('nguoi_nhan_ky_ten'); if (rec) rec.value = "";
         return;
       }
@@ -304,7 +303,7 @@
 
   /* ===== NAV/Auth gate ===== */
   (async () => {
-    await ensureApiBaseAndPrefix();
+    if (!API_PREFIX) await ensureApiBaseAndPrefix();
     const r = await apiFetch("/me", { credentials: "include", cache: "no-store" });
     if (!r || !r.ok) {
       const next = encodeURIComponent(location.pathname + location.search);
@@ -475,7 +474,9 @@
   }
 
   let loadedDocsByCode = {};
-  function setPrintButtonsEnabled(on) { $('btnPrintLoadedA5').disabled = !on; $('btnPrintLoadedA4').disabled = !on; }
+ function setPrintButtonsEnabled(on) {
+      $('btnPrintLoadedA4').disabled = !on;
+  }
 
   function populateFormFromApplicant(a={}, docs){
     $('ma_ho_so').value = extractSeq4(a.ma_ho_so) || "";
@@ -1013,30 +1014,17 @@
       showToast('Trình duyệt đang chặn pop-up. Hãy bật pop-up cho trang này rồi bấm lại.', 'warn', 4000);
     }
   }
-  $("btnPrintLoadedA5").onclick = async (e) => { e.preventDefault();
-    const cur = window.loadedApplicant;
-    if (!cur?.ma_so_hv) { showToast("Chưa tải hồ sơ nào.", "warn"); return; }
-    if (isSoftDeleted(cur)) { showToast("Hồ sơ đã bị xóa, không thể in!", "warn"); return; }
-
-    await journalTrack({
-      action: 'PRINT_IN',
-      detail: { scope: 'SINGLE', filters: { mshv: cur.ma_so_hv }, name_mode: 'A5', count: 1 }
-    });
-
-    openPdf(makeUrl(`/applicants/${encodeURIComponent(cur.ma_so_hv)}/print-a5`));
-  };
-
   $("btnPrintLoadedA4").onclick = async (e) => { e.preventDefault();
-    const cur = window.loadedApplicant;
-    if (!cur?.ma_so_hv) { showToast("Chưa tải hồ sơ nào!", "warn"); return; }
-    if (isSoftDeleted(cur)) { showToast("Hồ sơ đã bị xóa, không thể in!", "warn"); return; }
+      const cur = window.loadedApplicant;
+      if (!cur?.ma_so_hv) { showToast("Chưa tải hồ sơ nào!", "warn"); return; }
+      if (isSoftDeleted(cur)) { showToast("Hồ sơ đã bị xóa, không thể in!", "warn"); return; }
 
-    await journalTrack({
-      action: 'PRINT_IN',
-      detail: { scope: 'SINGLE', filters: { mshv: cur.ma_so_hv }, name_mode: 'A4', count: 1 }
-    });
+      await journalTrack({
+        action: 'PRINT_IN',
+        detail: { scope: 'SINGLE', filters: { mshv: cur.ma_so_hv }, name_mode: 'A4', count: 1 }
+      });
 
-    openPdf(makeUrl(`/applicants/${encodeURIComponent(cur.ma_so_hv)}/print`));
+      openPdf(makeUrl(`/applicants/${encodeURIComponent(cur.ma_so_hv)}/print`));
   };
 
   // Load theo MSHV

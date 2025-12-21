@@ -12,7 +12,6 @@ from app.routers.auth import require_roles
 router = APIRouter(prefix="/checklist", tags=["Checklist"])
 
 # ==================== Helpers ====================
-
 DEFAULT_ITEMS = [
     ("so_yeu_ly_lich", "Sơ yếu lý lịch"),
     ("bang_tot_nghiep_thpt", "Bằng tốt nghiệp THPT (hoặc tương đương)"),
@@ -29,7 +28,6 @@ DEFAULT_ITEMS = [
     ("don_mien_giam", "Đơn miễn giảm"),
 ]
 
-
 def _active_attr_name() -> str | None:
     if hasattr(ChecklistVersion, "is_active"):
         return "is_active"
@@ -37,21 +35,17 @@ def _active_attr_name() -> str | None:
         return "active"
     return None
 
-
 def _has_active_flag() -> bool:
     return _active_attr_name() is not None
-
 
 def _get_active_flag(v: ChecklistVersion) -> bool | None:
     name = _active_attr_name()
     return getattr(v, name, None) if name else None
 
-
 def _set_active_flag(v: ChecklistVersion, value: bool):
     name = _active_attr_name()
     if name:
         setattr(v, name, bool(value))
-
 
 def _order_col():
     if hasattr(ChecklistItem, "order_index"):
@@ -60,16 +54,13 @@ def _order_col():
         return getattr(ChecklistItem, "order_no")
     return None
 
-
 def _set_order(item: ChecklistItem, idx: int):
     if hasattr(item, "order_index"):
         setattr(item, "order_index", idx)
     if hasattr(item, "order_no"):
         setattr(item, "order_no", idx)
 
-
 # ==================== Core Logic ====================
-
 def _seed_if_empty(db: Session) -> ChecklistVersion:
     total = db.query(func.count(ChecklistVersion.id)).scalar() or 0
     if total > 0:
@@ -95,7 +86,6 @@ def _seed_if_empty(db: Session) -> ChecklistVersion:
     db.commit()
     db.refresh(v)
     return v
-
 
 def _get_active(db: Session) -> ChecklistVersion:
     if _has_active_flag():
@@ -149,7 +139,6 @@ def list_versions(db: Session = Depends(get_db)):
         for v in rows
     ]
 
-
 @router.get("/versions/{version_id}/items")
 def get_version_items(
     version_id: int,
@@ -175,7 +164,6 @@ def get_version_items(
         ],
     }
 
-
 @router.delete("/versions/{version_id}")
 def delete_version(
     version_id: int,
@@ -198,7 +186,6 @@ def delete_version(
     db.delete(v)
     db.commit()
     return {"ok": True, "deleted_id": version_id}
-
 
 @router.post("/versions")
 def create_version(
@@ -250,7 +237,6 @@ def create_version(
         "items": len(items),
     }
 
-
 @router.post("/versions/{version_id}/activate")
 def activate_version(
     version_id: int,
@@ -270,7 +256,6 @@ def activate_version(
     db.add(v)
     db.commit()
     return {"ok": True, "activated_id": v.id}
-
 
 @router.post("/items")
 def add_item(
@@ -312,7 +297,6 @@ def add_item(
     db.commit()
     return {"ok": True, "version_id": v.id, "code": code}
 
-
 @router.patch("/items/{code}")
 def update_item(
     code: str,
@@ -337,7 +321,6 @@ def update_item(
     db.add(it)
     db.commit()
     return {"ok": True}
-
 
 @router.delete("/items/{code}")
 def delete_item(
@@ -364,7 +347,6 @@ def delete_item(
 
     db.commit()
     return {"ok": True}
-
 
 @router.post("/reorder")
 def reorder_items(

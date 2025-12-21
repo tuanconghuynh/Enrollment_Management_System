@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io, re, os, hmac, json, hashlib
 from datetime import datetime, date
+import tempfile
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, status, Request, Response
@@ -27,6 +28,27 @@ except Exception:
     ApplicantOut = dict  # type: ignore
 
 router = APIRouter(prefix="/applicants", tags=["Applicants"])
+
+# 🆕 Tạo tên file PDF an toàn
+import re
+import unicodedata
+
+def _normalize_ascii(s: str):
+    if not s:
+        return "HocVien"
+    s = unicodedata.normalize('NFD', s)
+    s = s.encode('ascii', 'ignore').decode('ascii')
+    return re.sub(r'[^A-Za-z0-9]+', '-', s).strip('-') or "HocVien"
+
+def _pdf_filename(a: Applicant, prefix: str):
+    full = (
+        (getattr(a, "ho_dem", "") + " " + getattr(a, "ten", "")) 
+        or getattr(a, "ho_ten", "")
+        or ""
+    ).strip()
+
+    safe_part = _normalize_ascii(full)
+    return f"{prefix}_{a.ma_so_hv}_{safe_part}.pdf"
 
 # ====== Lý do cập nhật (preset) ======
 UPDATE_REASON_CHOICES = {
@@ -1036,12 +1058,14 @@ def _do_print(ma_so_hv: str, mark_printed: bool, db: Session, request: Request):
         )
         db.commit()
 
-    filename = f"HS_{a.ma_ho_so or a.ma_so_hv}.pdf"
+    filename = _pdf_filename(a, "A4")
+
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
+
 
 @router.get("/{ma_so_hv}/print")
 def print_applicant_now(
@@ -1052,6 +1076,61 @@ def print_applicant_now(
 ):
     return _do_print(ma_so_hv, mark_printed, db, request=request)
 
+@router.get("/{ma_so_hv}/print-a5")
+def print_applicant_a5(
+    ma_so_hv: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    from app.services.pdf_service import render_student_receipt_pdf_a5
+    from fastapi.responses import StreamingResponse
+    import io
+
+    ensure_mssv(ma_so_hv)
+
+    a = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
+    if not a:
+        raise HTTPException(404, "Applicant not found")
+
+    # ⛔️ Chặn in nếu hồ sơ bị xoá mềm
+    if hasattr(Applicant, "deleted_at") and getattr(a, "deleted_at", None):
+        raise HTTPException(410, "Hồ sơ đã bị xoá tạm, không thể in.")
+
+    # ===== Lấy docs =====
+    docs = db.query(ApplicantDoc).filter(
+        ApplicantDoc.applicant_ma_so_hv == a.ma_so_hv
+    ).all()
+
+    # Chuẩn hoá docs
+    docs_for_pdf = [
+        type("obj", (), {
+            "code": d.code,
+            "name": d.code,
+            "so_luong": int(d.so_luong or 0)
+        }) for d in docs
+    ]
+
+    # ===== Gọi PDF service =====
+
+    pdf_path = render_student_receipt_pdf_a5(
+        a=a,
+        docs=docs_for_pdf,
+        out_dir=tempfile.gettempdir()
+    )
+
+    # đọc để stream ra browser
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+
+    filename = _pdf_filename(a, "A5")
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 @router.post("/{ma_so_hv}/print")
 def print_applicant_now_post(
     ma_so_hv: str,
@@ -1060,6 +1139,83 @@ def print_applicant_now_post(
     db: Session = Depends(get_db),
 ):
     return _do_print(ma_so_hv, mark_printed, db, request=request)
+
+@router.get("/{ma_so_hv}/postal-print")
+def print_postal(
+    ma_so_hv: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    from app.services.pdf_service import render_postal_pdf
+
+    ensure_mssv(ma_so_hv)
+
+    a = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
+    if not a:
+        raise HTTPException(404, "Applicant not found")
+
+    if hasattr(Applicant, "deleted_at") and getattr(a, "deleted_at", None):
+        raise HTTPException(410, "Hồ sơ đã bị xoá tạm.")
+
+    q = db.query(ChecklistItem).filter(ChecklistItem.version_id == a.checklist_version_id)
+    if hasattr(ChecklistItem, "order_no"):
+        q = q.order_by(getattr(ChecklistItem, "order_no").asc())
+    else:
+        q = q.order_by(ChecklistItem.id.asc())
+    items = q.all()
+
+    docs = db.query(ApplicantDoc).filter(ApplicantDoc.applicant_ma_so_hv == a.ma_so_hv).all()
+
+    pdf_bytes = render_postal_pdf(a, items, docs)
+
+    filename = _pdf_filename(a, "POSTAL")
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+@router.get("/print/email-receipt/{ma_so_hv}")
+def print_email_receipt(
+    ma_so_hv: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    from fastapi.responses import StreamingResponse
+    from app.services.pdf_service import render_student_receipt_pdf_a5
+    import io
+
+    ensure_mssv(ma_so_hv)
+
+    a = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
+    if not a:
+        raise HTTPException(404, "Applicant not found")
+
+    if hasattr(Applicant, "deleted_at") and getattr(a, "deleted_at", None):
+        raise HTTPException(410, "Hồ sơ đã bị xoá tạm, không thể in.")
+
+    docs = db.query(ApplicantDoc).filter(
+        ApplicantDoc.applicant_ma_so_hv == a.ma_so_hv
+    ).all()
+
+    docs_for_pdf = [
+        type("obj", (), {
+            "code": d.code,
+            "name": d.code,
+            "so_luong": int(d.so_luong or 0)
+        }) for d in docs
+    ]
+
+    pdf_bytes = render_student_receipt_pdf_a5(a=a, docs=docs_for_pdf)
+
+    filename = _pdf_filename(a, "EMAILA5")
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 # ================= Recent =================
 @router.get("/recent")

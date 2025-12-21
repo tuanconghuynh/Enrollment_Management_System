@@ -1,3 +1,4 @@
+// app/templates/js/students_list.js
     // Ẩn lúc kiểm tra login
     document.documentElement.style.visibility = 'hidden';
 
@@ -6,6 +7,68 @@
     const STORAGE_KEY = "apiBase";
     const PREFIX_CANDIDATES = ["", "/api"];
     let API_PREFIX = "";
+
+    // ===== Print Type Modal =====
+    let __printMode = null;
+
+    function __openPrintTypeModal(mode){
+      __printMode = mode;
+      const m = document.getElementById("printTypeModal");
+      if (m) m.classList.remove("hidden");
+    }
+
+    function __closePrintTypeModal(){
+      const m = document.getElementById("printTypeModal");
+      if (m) m.classList.add("hidden");
+    }
+
+    (function bindPrintTypeEvents(){
+      const cancel = document.getElementById("printTypeCancel");
+      cancel && cancel.addEventListener("click", __closePrintTypeModal);
+
+      document.querySelectorAll(".print-option").forEach(btn=>{
+        btn.addEventListener("click", async ()=>{
+          const type = btn.dataset.type;
+          if (!type) return;
+          await __handlePrintTypeSelected(type);
+          __closePrintTypeModal();
+        });
+      });
+    })();
+
+    async function __handlePrintTypeSelected(type){
+      if (__printMode === "DAY"){
+          const d = dayEl.value.trim();
+          if (!d){ alert("Anh chọn ngày đã"); return; }
+
+          await journalTrack({
+            action: "PRINT_IN",
+            detail: { scope:"DAY", filters:{ day:d }, name_mode:type, count:null }
+          });
+
+          const url = `/batch/print?day=${encodeURIComponent(d)}&type=${type}`;
+          await openPdfOrAlert(url);
+          return;
+      }
+
+      if (__printMode === "DOT"){
+          const dot  = $("dot").value.trim();
+          const khoa = $("dotKhoa")?.value.trim() || "";
+
+          if (!dot){ alert("Nhập tên đợt trước đã."); return; }
+
+          await journalTrack({
+            action: "PRINT_IN",
+            detail: { scope:"DOT", filters:{ dot, ...(khoa?{khoa}:{}) }, name_mode:type, count:null }
+          });
+
+          let url = `/batch/print-dot?dot=${encodeURIComponent(dot)}&type=${type}`;
+          if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
+
+          await openPdfOrAlert(url);
+          return;
+      }
+    }
 
     // ===== Compose / Editor detection =====
     const COMPOSE_CANDIDATES = ["/compilation.html", "/compose.html", "/editor.html"];
@@ -212,7 +275,14 @@
           </td>
           <td class="border-b text-center whitespace-nowrap">
             <div class="inline-flex gap-2">
-              <button class="btn btn-primary btn-xs btn-pill btn-print-a4" data-mshv="${encodeURIComponent(mshv)}">A4</button>
+              <button class="btn btn-primary btn-xs btn-pill btn-print-a4"
+                      data-mshv="${encodeURIComponent(mshv)}">
+                in BNhận
+              </button>
+              <button class="btn btn-outline btn-xs btn-pill btn-postal"
+                      data-mshv="${encodeURIComponent(mshv)}">
+                in BĐiện
+              </button>
             </div>
           </td>
           <td class="border-b text-center whitespace-nowrap">
@@ -608,6 +678,35 @@
           await openPdfOrAlert(`/print/a4/${encodeURIComponent(mshv)}`);
           return;
         }
+        // In bưu điện
+        const ps = e.target.closest('.btn-postal');
+        if (ps) {
+          const mshv = decodeURIComponent(ps.dataset.mshv || '');
+          if (!mshv) return;
+
+          await journalTrack({
+            action: 'PRINT_IN',
+            detail: { scope:'SINGLE', filters:{ mshv }, name_mode:'POSTAL', count: 1 }
+          });
+
+          await openPdfOrAlert(`/applicants/${encodeURIComponent(mshv)}/postal-print`);
+          return;
+        }
+        // In A5 biên nhận (không email)
+        const a5 = e.target.closest('.btn-print-a5');
+        if (a5) {
+          const mshv = decodeURIComponent(a5.dataset.mshv || '');
+          if (!mshv) return;
+
+          await journalTrack({
+            action: 'PRINT_IN',
+            detail: { scope:'SINGLE', filters:{ mshv }, name_mode:'A5', count: 1 }
+          });
+
+          await openPdfOrAlert(`/print/a5/${encodeURIComponent(mshv)}`);
+          return;
+        }
+
         // Xoá mềm
         const btn = e.target.closest('.btn-del');
         if (!btn) return;
@@ -1009,39 +1108,9 @@
       setTimeout(()=>URL.revokeObjectURL(a.href), 60000);
     }
 
-    async function openPdfOrAlert(url){
-      const resp = await fetch(makeUrl(url), { credentials: "include" });
-
-      if (!resp.ok){
-        let msg;
-        try {
-          const t = await resp.text();
-          const j = JSON.parse(t);
-
-          if (j?.detail && j.detail !== 'Not Found') {
-            msg = j.detail;
-          } else if (resp.status === 404) {
-            msg = 'Không có dữ liệu để in. Vui lòng kiểm tra lại ngày/đợt hoặc bộ lọc.';
-          } else {
-            msg = `Không thể in (HTTP ${resp.status}).`;
-          }
-        } catch(_){
-          msg = `Không thể in (HTTP ${resp.status}).`;
-        }
-
-        if (typeof showToast === 'function') {
-          showToast(msg, 'error', 2800);
-        } else {
-          alert(msg);
-        }
-        return;
-      }
-
-      const blob = await resp.blob();
-      const u = URL.createObjectURL(blob);
-      window.open(u, "_blank");
-      setTimeout(()=>URL.revokeObjectURL(u), 60000);
-    }
+  async function openPdfOrAlert(url){
+    window.open(makeUrl(url), "_blank");
+  }
 
     // ===== Export/In ấn theo ngày/đợt =====
     // ---- Theo NGÀY
@@ -1087,28 +1156,14 @@
       });
 
       // Nút In theo ngày
-      $("btnPrintDay")?.addEventListener("click", async () => {
-        const day = dayEl.value.trim();
-        if (!day) {
-          alert("Anh chọn ngày trước đã.");
-          return;
-        }
-        showLoading("Đang tải dữ liệu in, vui lòng đợi..."); 
-
-        await journalTrack({
-          action: "PRINT_IN",
-          detail: {
-            scope: "DAY",
-            filters: { day },
-            name_mode: "default",
-            count: null
+        $("btnPrintDay")?.addEventListener("click", async () => {
+          const day = dayEl.value.trim();
+          if (!day){
+            alert("Anh chọn ngày trước đã.");
+            return;
           }
+          __openPrintTypeModal("DAY");
         });
-
-         const url = `/batch/print?day=${encodeURIComponent(day)}`;
-        await openPdfOrAlert(url);
-        hideLoading(); 
-      });
     }
 
     // ---- Theo đợt/khóa
@@ -1129,15 +1184,11 @@
 
       $("btnPrintDot")?.addEventListener("click", async () => {
         const dot  = $("dot").value.trim();
-        const khoa = $("dotKhoa")?.value.trim() || "";
-        if (!dot){ alert("Nhập tên đợt trước đã"); return; }
-        showLoading("Đang tải dữ liệu xuất, vui lòng đợi...");
-
-        await journalTrack({ action:'PRINT_IN', detail:{ scope:'DOT', filters:{ dot, ...(khoa?{khoa}:{}) }, name_mode:'default', count:null }});
-        let url = `/batch/print-dot?dot=${encodeURIComponent(dot)}`;
-        if (khoa) url += `&khoa=${encodeURIComponent(khoa)}`;
-        await openPdfOrAlert(url);
-        hideLoading(); 
+        if (!dot){
+          alert("Nhập tên đợt trước đã.");
+          return;
+        }
+        __openPrintTypeModal("DOT");
       });
     }
 
@@ -2045,3 +2096,32 @@ function hideLoading() {
   if (!box) return;
   box.classList.add("hidden");
 }
+// Nút In Email Receipt
+document.getElementById('detailPrintA4Btn')?.addEventListener('click', async () => {
+  if (!currentDetailMSHV) return;
+  await journalTrack({
+    action: 'PRINT_IN',
+    detail: { scope:'SINGLE', filters:{ mshv: currentDetailMSHV }, name_mode:'A4', count:1 }
+  });
+  await openPdfOrAlert(`/print/a4/${encodeURIComponent(currentDetailMSHV)}`);
+});
+// Nút In Email Receipt
+document.getElementById('detailPrintPostalBtn')?.addEventListener('click', async () => {
+  if (!currentDetailMSHV) return;
+  await journalTrack({
+    action: 'PRINT_IN',
+    detail: { scope:'SINGLE', filters:{ mshv: currentDetailMSHV }, name_mode:'POSTAL', count:1 }
+  });
+  await openPdfOrAlert(`/applicants/${encodeURIComponent(currentDetailMSHV)}/postal-print`);
+});
+// Nút In biên nhận Email (A5)
+document.getElementById('detailPrintEmailReceiptBtn')?.addEventListener('click', async () => {
+  if (!currentDetailMSHV) return;
+  await journalTrack({
+    action: 'PRINT_IN',
+    detail: { scope:'SINGLE', filters:{ mshv: currentDetailMSHV }, name_mode:'EMAIL', count:1 }
+  });
+  await openPdfOrAlert(`/applicants/print/email-receipt/${encodeURIComponent(currentDetailMSHV)}`);
+});
+
+

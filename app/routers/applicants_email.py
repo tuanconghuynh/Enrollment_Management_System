@@ -1,3 +1,4 @@
+# app/routers/applicants_email.py
 from __future__ import annotations
 from datetime import datetime
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Body, Query, Request
@@ -16,6 +17,8 @@ from typing import List, Dict, Any
 from sqlalchemy import select
 from types import SimpleNamespace
 from app.services.audit import write_audit
+from app.services.pdf_service import render_postal_pdf
+from pathlib import Path
 
 
 router = APIRouter(prefix="/applicants", tags=["applicants-email"])
@@ -208,8 +211,7 @@ def _merge_items_with_docs_for_email(items, docs_ctx):
 def get_email_draft(
     ma_so_hv: str,
     db: Session = Depends(get_db),
-    a5: bool = Query(True, description="A5 cho biên nhận hồ sơ"),
-    tpl: str = Query("confirmation", description="confirmation | student_card | ..."),
+    tpl: str = Query("confirmation"),
 ):
     a = db.query(Applicant).filter(Applicant.ma_so_hv == ma_so_hv).first()
     if not a:
@@ -258,17 +260,24 @@ def get_email_draft(
         )
         # Chuẩn hoá dữ liệu docs để PDF đọc theo thuộc tính .code/.so_luong
         docs_for_pdf = _normalize_docs_for_pdf(docs_email)
-        pdf_path = pdf_service.save_receipt_pdf_file(
-            a=a, items=items, docs=docs_for_pdf, a5=a5, out_dir=settings.RECEIPTS_DIR
-        )
-        attach_path = pdf_path
+
+        pdf_bytes = pdf_service.render_student_receipt_pdf_a5(a, docs_for_pdf)
+
+        # tạo file lưu A5
+        file_name = f"{a.ma_so_hv}_bien_nhan_A5.pdf"
+        pdf_path = Path(settings.RECEIPTS_DIR) / file_name
+
+
+        with open(pdf_path, "wb") as f:
+            f.write(pdf_bytes)
+
+        attach_path = str(pdf_path)
 
     return {
         "to_email": to_email,
         "subject": subject,
         "html_body": html_body,
         "attachment_url": attach_path,
-        "a5": a5,
         "template": tpl,
     }
 
@@ -280,7 +289,6 @@ def send_email_generic(
     request: Request,
     db: Session = Depends(get_db),
     tpl: str = Query("confirmation"),
-    a5: bool = Query(True),
     subject: str | None = Body(None),
     html_body: str | None = Body(None),
     attach_receipt: bool = Body(False),
@@ -298,10 +306,17 @@ def send_email_generic(
 
     if tpl == "confirmation" and attach_receipt:
         docs_for_pdf = _normalize_docs_for_pdf(docs_ctx)
-        pdf_path = pdf_service.save_receipt_pdf_file(
-            a=a, items=items, docs=docs_for_pdf, a5=a5, out_dir=settings.RECEIPTS_DIR
-        )
-        att_paths.append(pdf_path)
+
+        # force A5 output
+        pdf_bytes = pdf_service.render_student_receipt_pdf_a5(a, docs_for_pdf)
+
+        file_name = f"{a.ma_so_hv}_bien_nhan_A5.pdf"
+        pdf_path = Path(settings.RECEIPTS_DIR) / file_name
+
+        with open(pdf_path, "wb") as f:
+            f.write(pdf_bytes)
+
+        att_paths.append(str(pdf_path))
 
     subj = subject or ("[V-HTPTĐT] BIÊN NHẬN HỒ SƠ NHẬP HỌC" if tpl == "confirmation"
                        else "[V-HTPTĐT] THÔNG BÁO THẺ SINH VIÊN")

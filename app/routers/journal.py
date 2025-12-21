@@ -113,6 +113,18 @@ def list_logs(
         # Ẩn bớt các action không phải chức năng chính
     noise_set = set()
 
+    BLOCK = {
+        "READ",
+        "EXCEPTION",
+        "EMAIL_DRAFT_OPEN",
+        "EMAIL_PREVIEW",
+        "EMAIL_TEMPLATE_VIEW",
+        "BATCH_UPDATE_PREVIEW",
+    }
+
+    if str(action).upper() in BLOCK:
+        return
+
     if exclude_noise:
         noise_set.update({
             "READ",               # Tra cứu

@@ -197,6 +197,10 @@
         updateIcon();
       });
     });
+
+  document.addEventListener("DOMContentLoaded", () => {
+      try { boot(); } catch(e){}
+  });
   </script>
 
   {% block scripts %}{% endblock %}

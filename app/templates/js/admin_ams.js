@@ -363,3 +363,4 @@ window.addEventListener('DOMContentLoaded', () => {
     document.cookie = '__session_expired=; Max-Age=0; Path=/; SameSite=Lax';
   }
 })();
+  document.addEventListener("DOMContentLoaded", boot);
