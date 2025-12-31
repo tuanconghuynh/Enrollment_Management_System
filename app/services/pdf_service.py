@@ -19,6 +19,9 @@ from reportlab.pdfbase.ttfonts import TTFont
 from app.models.applicant import Applicant, ApplicantDoc
 from app.models.checklist import ChecklistItem
 
+from reportlab.platypus import Paragraph
+from reportlab.lib.styles import ParagraphStyle
+
 
 def merge_pdfs(pdf_list: list[bytes]) -> bytes:
     merger = PdfMerger()
@@ -805,6 +808,7 @@ def render_batch_pdf(
 
 # ==============================
 # Postal PDF
+# ==============================
 fixed_labels = [
     "Sơ yếu lý lịch",
     "Bằng tốt nghiệp THPT (hoặc tương đương)",
@@ -877,49 +881,44 @@ def render_postal_pdf(app: Applicant, items: List[ChecklistItem], docs: List[App
         listed_docs = [(1, "Không có hồ sơ", 0)]
 
     # =====================================================
-    # KHUNG THÔNG TIN GÓC PHẢI
+    # KHUNG MÃ HỒ SƠ – GÓC DƯỚI PHẢI (CỐ ĐỊNH)
     # =====================================================
-    from reportlab.platypus import Paragraph
-    from reportlab.lib.styles import ParagraphStyle
 
-    # ====== KHUNG THÔNG TIN GÓC PHẢI =======
-    box_w = 70*mm
+    FS_BOX = FS + 3
+
+    box_w = 60*mm
     box_h = 35*mm
 
-    box_x = page_w - RM - box_w + 10*mm      # giữ nguyên canh phải
-    box_y = page_h - TM - box_h + 12*mm      # ↓ hạ xuống 6mm
+    box_x = page_w - RM - box_w
+    box_y = 10*mm
 
-    c.setLineWidth(1)
-    c.roundRect(box_x, box_y, box_w, box_h, 5*mm)
+    c.setLineWidth(1.2)
+    c.roundRect(box_x, box_y, box_w, box_h, 6*mm)
 
-    c.setFont(FONT_BOLD, FS)
-    cx = box_x + box_w/2
+    cx = box_x + box_w / 2
 
-    c.drawCentredString(cx, box_y + box_h - 9*mm,  f"MÃ HS : {ma_hs}")
-    c.drawCentredString(cx, box_y + box_h - 18*mm, f"MSHV : {ma_sv}")
-
-    # xử lý ngành dài
-    style_center = ParagraphStyle(
-        name="center_box",
-        fontName=FONT_BOLD,
-        fontSize=FS,
-        leading=FS + 2,
-        alignment=1
+    # Dòng 1: MÃ HS (to hơn, nổi)
+    c.setFont(FONT_BOLD, FS_BOX + 1)
+    c.drawCentredString(
+        cx,
+        box_y + box_h - 11*mm,
+        f"MÃ HS : {ma_hs}"
     )
 
-    p = Paragraph(f"Ngành: {nganh}", style_center)
-    pw, ph = p.wrap(box_w - 6*mm, box_h - 20*mm)
-
-    p.drawOn(
-        c,
-        box_x + 6*mm,
-        box_y + box_h - 23*mm - ph
+    # Dòng 2: MSHV
+    c.setFont(FONT_BOLD, FS_BOX)
+    c.drawCentredString(
+        cx,
+        box_y + box_h - 22*mm,
+        f"MSHV : {ma_sv}"
     )
 
     # =====================================================
     # TIÊU ĐỀ
     # =====================================================
-    title_y = page_h - TM - 28*mm     # GIÃN XUỐNG TRÁNH ĐÈ
+    TITLE_TOP = 10*mm   # khoảng cách từ mép trên (6–10mm là đẹp)
+    title_y = page_h - TITLE_TOP
+
     c.setFont(FONT_BOLD, FS+3)
     c.drawCentredString(page_w/2, title_y, "BIÊN NHẬN HỒ SƠ NHẬP HỌC")
 
@@ -928,7 +927,7 @@ def render_postal_pdf(app: Applicant, items: List[ChecklistItem], docs: List[App
     c.drawCentredString(page_w/2, y, f"CHƯƠNG TRÌNH ĐÀO TẠO TỪ XA KHÓA 20{khoa}")
 
     # ngày nhận HS
-    y -= 12*mm
+    y -= 10*mm
     c.setFont(FONT_BOLD, FS)
     c.drawRightString(page_w - RM, y, f"Ngày nhận HS: {ngay_nhan}")
 
@@ -936,15 +935,30 @@ def render_postal_pdf(app: Applicant, items: List[ChecklistItem], docs: List[App
     # CÂU XÁC NHẬN
     # =====================================================
 
-    y -= 12*mm
-    c.setFont(FONT_NAME, FS)
-    c.drawString(LM, y, f"Viện Hợp tác và Phát triển Đào tạo HUTECH xác nhận đã nhận hồ sơ nhập học khóa 20{khoa} của Anh/Chị:")
+    y -= 10*mm
+
+    text = (
+        f"Viện Hợp tác và Phát triển Đào tạo HUTECH xác nhận đã nhận hồ sơ "
+        f"nhập học khóa 20{khoa} của Anh/Chị:"
+    )
+
+    text_obj = c.beginText()
+    text_obj.setFont(FONT_NAME, FS)
+    text_obj.setTextOrigin(LM - 8*mm, y)
+
+    text_obj.setHorizScale(96)
+
+    text_obj.textLine(text)
+
+    c.drawText(text_obj)
+
+    y -= FS + 1
 
     # =====================================================
     # THÔNG TIN SINH VIÊN
     # =====================================================
 
-    LH = 9*mm     # khoảng cách dòng
+    LH = 8*mm     # khoảng cách dòng
 
     # Hàng 1: Họ tên – Ngày sinh
     y -= LH
@@ -1013,7 +1027,7 @@ def render_postal_pdf(app: Applicant, items: List[ChecklistItem], docs: List[App
 
     c.drawCentredString(col1 + 10*mm, y - 5*mm, "STT")
     c.drawCentredString((col1 + col3)/2, y - 5*mm, "Danh mục hồ sơ")
-    c.drawCentredString(col3 + 10*mm, y - 5*mm, "SL")
+    c.drawCentredString(col3 + 10*mm, y - 5*mm, "Số lượng")
 
     y -= row_h
 
@@ -1047,7 +1061,7 @@ def render_postal_pdf(app: Applicant, items: List[ChecklistItem], docs: List[App
     # =====================================================
     # KÝ TÊN
     # =====================================================
-    y -= 25*mm
+    y -= 17*mm
 
     c.setFont(FONT_BOLD, FS)
     c.drawCentredString(LM + table_w/4, y, "Người nộp hồ sơ")
